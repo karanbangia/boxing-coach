@@ -1,6 +1,6 @@
 export type Punch = 1 | 2 | 3 | 4 | 5 | 6;
 
-export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
+export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'pro';
 
 export type ActionType = 'combo' | 'movement' | 'defense';
 

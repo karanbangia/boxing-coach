@@ -1,7 +1,7 @@
 import type { Difficulty, DifficultyProfile } from '../types.js';
 import { beginnerCombosA, beginnerCombosB, beginnerCombosC } from './beginner.js';
 import { intermediateCombosA, intermediateCombosB } from './intermediate.js';
-import { advancedCombosA, advancedCombosB } from './advanced.js';
+import { advancedCombosA, advancedCombosB, proCombos } from './advanced.js';
 import { basicMovement, advancedMovement } from './movement.js';
 import { basicDefense, advancedDefense } from './defense.js';
 
@@ -62,10 +62,30 @@ const advancedProfile: DifficultyProfile = {
   actionMix: { movementEveryN: 3, defenseEveryN: 4, tightenAtMidpoint: true },
 };
 
+const proProfile: DifficultyProfile = {
+  difficulty: 'pro',
+  comboPools: {
+    initial: [...advancedCombosA, ...advancedCombosB],
+    mid: [...intermediateCombosA, ...advancedCombosB],
+    late: proCombos,
+  },
+  movementPools: {
+    initial: advancedMovement,
+    mid: advancedMovement,
+  },
+  defensePools: {
+    initial: advancedDefense,
+    mid: advancedDefense,
+  },
+  interval: { base: 4500, min: 1800, tightenPerRound: 500 },
+  actionMix: { movementEveryN: 2, defenseEveryN: 3, tightenAtMidpoint: true },
+};
+
 const profiles: Record<Difficulty, DifficultyProfile> = {
   beginner: beginnerProfile,
   intermediate: intermediateProfile,
   advanced: advancedProfile,
+  pro: proProfile,
 };
 
 export function getProfile(difficulty: Difficulty): DifficultyProfile {

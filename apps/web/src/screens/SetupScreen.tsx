@@ -35,6 +35,7 @@ const DIFFICULTIES: { value: Difficulty; label: string; desc: string }[] = [
   { value: 'beginner', label: 'BEGINNER', desc: 'Jabs & crosses, slow pace' },
   { value: 'intermediate', label: 'INTERMEDIATE', desc: 'Adds hooks, moderate build' },
   { value: 'advanced', label: 'ADVANCED', desc: 'All punches, fast ramp up' },
+  { value: 'pro', label: 'PROFESSIONAL', desc: 'Counters, feints, advanced combos' },
 ];
 
 const ROUND_DURATIONS = [
@@ -70,7 +71,7 @@ function OptionGroup<T extends string | number>({
       <div className="text-xs font-semibold tracking-widest text-[var(--color-text-muted)] mb-3 uppercase">
         {label}
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className={options.some(o => o.desc) ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-2'}>
         {options.map(opt => {
           const selected = opt.value === value;
           return (
@@ -79,6 +80,7 @@ function OptionGroup<T extends string | number>({
               onClick={() => onChange(opt.value)}
               className={`
                 px-4 py-3 rounded-xl text-sm font-bold transition-all
+                ${options.some(o => o.desc) ? 'flex flex-col items-center justify-center text-center' : ''}
                 ${selected
                   ? 'bg-[var(--color-accent)] text-white shadow-lg shadow-red-500/20'
                   : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]/80'

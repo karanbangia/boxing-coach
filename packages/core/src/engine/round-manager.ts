@@ -15,6 +15,10 @@ export class RoundManager {
   private phaseDuration = 0;
   private pausedAt: number | null = null;
   private pausedTimeRemaining = 0;
+  /** When the next action is scheduled to fire (timestamp). Used to preserve delay on pause/resume. */
+  private nextActionAt: number | null = null;
+  /** Remaining ms until next action after pause; used on resume so we don't re-emit a new action. */
+  private pausedActionDelayMs = 0;
   private inFreestyle = false;
 
   constructor(config: EngineConfig) {
@@ -43,6 +47,10 @@ export class RoundManager {
     this.pausedTimeRemaining = Math.max(0, this.phaseDuration - elapsed);
     this.pausedAt = Date.now();
 
+    if (this.phase === 'round' && this.nextActionAt !== null) {
+      this.pausedActionDelayMs = Math.max(0, this.nextActionAt - Date.now());
+    }
+
     this.clearTimers();
 
     this.emit({ type: 'tick', timeRemaining: this.pausedTimeRemaining });
@@ -60,7 +68,11 @@ export class RoundManager {
         this.emit({ type: 'roundEnd', round: this.currentRound });
         this.startRest();
       }, this.pausedTimeRemaining * 1000);
-      this.emitNextAction();
+      const delayMs = this.pausedActionDelayMs > 0
+        ? this.pausedActionDelayMs
+        : this.engine.getInterval(this.currentRound, this.inFreestyle);
+      this.pausedActionDelayMs = 0;
+      this.scheduleNextAction(delayMs);
     } else if (this.phase === 'rest') {
       this.roundTimerId = setTimeout(() => {
         this.emit({ type: 'restEnd' });
@@ -169,7 +181,9 @@ export class RoundManager {
 
   private scheduleNextAction(delayMs: number): void {
     this.clearActionTimer();
+    this.nextActionAt = Date.now() + delayMs;
     this.actionTimerId = setTimeout(() => {
+      this.nextActionAt = null;
       this.emitNextAction();
     }, delayMs);
   }
@@ -193,6 +207,7 @@ export class RoundManager {
 
   private clearActionTimer(): void {
     if (this.actionTimerId) { clearTimeout(this.actionTimerId); this.actionTimerId = null; }
+    this.nextActionAt = null;
   }
 
   private emit(event: WorkoutEvent): void {

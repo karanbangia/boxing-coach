@@ -40,3 +40,24 @@ export const advancedCombosB: Action[] = [
   { id: 'a-doublebody-5-5-2', type: 'combo', label: 'B5-B5-2', description: 'Double Lead Uppercut to body - Cross (close range)', difficulty: 'advanced' },
 ];
 
+export const proCombos: Action[] = [
+    { id: 'p-1-2-0-2-3', type: 'combo', label: '1-2-STEP-2-3', description: 'Jab - Cross - Step off-line - Cross - Lead Hook (counter focus)', difficulty: 'pro' },
+    { id: 'p-feint-1-2-6-3', type: 'combo', label: 'FEINT-1-2-6-3', description: 'Feint - Jab - Cross - Rear Uppercut - Lead Hook (finish)', difficulty: 'pro' },
+    { id: 'p-1-2-3-overhand', type: 'combo', label: '1-2-3-OVERHAND', description: 'Jab - Cross - Lead Hook - Overhand Right (timed behind cross)', difficulty: 'pro' },
+    { id: 'p-slip-counter-2-5', type: 'combo', label: 'SLIP-COUNTER-2-5', description: 'Slip inside - Counter Cross - Lead Uppercut (close-range counter)', difficulty: 'pro' },
+    { id: 'p-4-3-2-6', type: 'combo', label: '4-3-2-6', description: 'Rear Hook - Lead Hook - Cross - Rear Uppercut (head-body mix)', difficulty: 'pro' },
+    { id: 'p-1-b2-1-2', type: 'combo', label: '1-B2-1-2', description: 'Jab - Body Cross - Quick Jab - Cross to head (change level)', difficulty: 'pro' },
+    { id: 'p-1-1-2-5-6', type: 'combo', label: '1-1-2-5-6', description: 'Double Jab - Cross - Lead Uppercut - Rear Uppercut (trap opponent)', difficulty: 'pro' },
+    { id: 'p-pivot-6-3-2', type: 'combo', label: 'PIVOT-6-3-2', description: 'Jab - Pivot outside - Rear Uppercut - Lead Hook - Cross', difficulty: 'pro' },
+    { id: 'p-feint-slip-3-2-5', type: 'combo', label: 'FEINT-SLIP-3-2-5', description: 'Feint - Slip - Lead Hook - Cross - Lead Uppercut (counter/finish)', difficulty: 'pro' },
+    { id: 'p-2-3-2-throw-6', type: 'combo', label: '2-3-2-THROW-6', description: 'Cross - Hook - Cross - Throw weight forward - Rear Uppercut', difficulty: 'pro' },
+    { id: 'p-overhand-1-2-3', type: 'combo', label: 'OVERHAND-1-2-3', description: 'Overhand Right - Jab - Cross - Lead Hook (use to open guard)', difficulty: 'pro' },
+    { id: 'p-body-head-switch-1-b3-3-2', type: 'combo', label: '1-B3-3-2', description: 'Jab - Body Hook - Lead Hook to head - Cross (switch levels twice)', difficulty: 'pro' },
+    { id: 'p-clinch-5-2', type: 'combo', label: 'CLINCH-5-2', description: 'Step in to clinch - Lead Uppercut - Break - Cross (short-range sequence)', difficulty: 'pro' },
+    { id: 'p-1-2-feint-4-2', type: 'combo', label: '1-2-FEINT-4-2', description: 'Jab - Cross - Feint hook - Rear Hook - Cross (create openings)', difficulty: 'pro' },
+    { id: 'p-slip-roll-6-2-3', type: 'combo', label: 'SLIP-ROLL-6-2-3', description: 'Slip outside - Roll under - Rear Uppercut - Cross - Lead Hook', difficulty: 'pro' },
+    { id: 'p-double-overhand-2-5-2', type: 'combo', label: 'DOUBLE-OVERHAND-2-5-2', description: 'Double Overhand - Cross - Lead Uppercut - Cross (power sequences)', difficulty: 'pro' },
+    { id: 'p-1-2-quickstep-out-3', type: 'combo', label: '1-2-STEP-OUT-3', description: 'Jab - Cross - Quick step out to angle - Lead Hook (angulation finish)', difficulty: 'pro' },
+    { id: 'p-counter-pivot-2-6-3', type: 'combo', label: 'COUNTER-PIVOT-2-6-3', description: 'Counter Cross - Pivot - Rear Uppercut - Lead Hook (counter & reposition)', difficulty: 'pro' },
+  ];
+  
