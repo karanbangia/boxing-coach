@@ -59,7 +59,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
         label="Recovery Gap Base"
         hint="ms recovery after action at round 1 (added to action duration)"
         value={tuning.intervalBase}
-        defaultValue={2500}
+        defaultValue={1300}
         min={500}
         max={6000}
         step={250}
@@ -70,7 +70,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
         label="Recovery Gap Min"
         hint="fastest recovery pace (floor)"
         value={tuning.intervalMin}
-        defaultValue={1200}
+        defaultValue={800}
         min={300}
         max={4000}
         step={250}
@@ -134,7 +134,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
         label="Jitter"
         hint="random +/- variation on interval"
         value={tuning.jitterMs}
-        defaultValue={500}
+        defaultValue={200}
         min={0}
         max={2000}
         step={50}
