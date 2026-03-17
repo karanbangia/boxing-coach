@@ -1,0 +1,23 @@
+{
+  "name": "Boxing Coach",
+  "short_name": "Boxing Coach",
+  "description": "AI-powered boxing combo trainer. Get real-time punch callouts, build combos from beginner to pro, and train like a fighter.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
