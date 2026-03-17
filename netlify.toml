@@ -1,0 +1,12 @@
+[build]
+  command = "pnpm build"
+  publish = "apps/web/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA: hash routing works without redirects; add below if you switch to browser routing
+# [[redirects]]
+#   from = "/*"
+#   to = "/index.html"
+#   status = 200

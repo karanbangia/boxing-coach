@@ -1,0 +1,167 @@
+import type { Action, DifficultyProfile, EngineConfig, TuningOverrides } from '../types.js';
+import { getProfile } from '../combos/profiles.js';
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const DEFAULT_HISTORY_SIZE = 4;
+const DEFAULT_JITTER_MS = 500;
+const DEFAULT_FREESTYLE_INTERVAL_MS = 1200;
+
+const FREESTYLE_ACTIONS: Action[] = [
+  { id: 'fs-1-2', type: 'combo', label: '1-2  1-2  1-2', description: 'Nonstop Jab - Cross', difficulty: 'beginner' },
+  { id: 'fs-1-1-2', type: 'combo', label: '1-1-2  1-1-2', description: 'Nonstop Jab - Jab - Cross', difficulty: 'beginner' },
+  { id: 'fs-freestyle', type: 'combo', label: 'FREESTYLE', description: 'Let your hands go!', difficulty: 'beginner' },
+  { id: 'fs-speed', type: 'combo', label: 'SPEED  1-2-1-2', description: 'Fast hands — empty the tank', difficulty: 'beginner' },
+];
+
+export class ComboEngine {
+  private profile: DifficultyProfile;
+  private config: EngineConfig;
+  private tuning: TuningOverrides;
+  private actionCounter = 0;
+  private history: string[] = [];
+
+  constructor(config: EngineConfig) {
+    this.config = config;
+    this.tuning = config.tuning ?? {};
+    this.profile = getProfile(config.difficulty);
+    this.applyTuningToProfile();
+    this.shufflePools();
+  }
+
+  reset(): void {
+    this.actionCounter = 0;
+    this.history = [];
+    this.profile = getProfile(this.config.difficulty);
+    this.applyTuningToProfile();
+    this.shufflePools();
+  }
+
+  private applyTuningToProfile(): void {
+    const t = this.tuning;
+    if (t.intervalBase !== undefined) this.profile.interval.base = t.intervalBase;
+    if (t.intervalMin !== undefined) this.profile.interval.min = t.intervalMin;
+    if (t.tightenPerRound !== undefined) this.profile.interval.tightenPerRound = t.tightenPerRound;
+    if (t.movementEveryN !== undefined) this.profile.actionMix.movementEveryN = t.movementEveryN;
+    if (t.defenseEveryN !== undefined) this.profile.actionMix.defenseEveryN = t.defenseEveryN;
+    if (t.tightenAtMidpoint !== undefined) this.profile.actionMix.tightenAtMidpoint = t.tightenAtMidpoint;
+  }
+
+  private shufflePools(): void {
+    const p = this.profile;
+    this.profile = {
+      ...p,
+      comboPools: {
+        initial: shuffle(p.comboPools.initial),
+        mid: shuffle(p.comboPools.mid),
+        late: shuffle(p.comboPools.late),
+      },
+      movementPools: {
+        initial: shuffle(p.movementPools.initial),
+        mid: shuffle(p.movementPools.mid),
+      },
+      defensePools: {
+        initial: shuffle(p.defensePools.initial),
+        mid: shuffle(p.defensePools.mid),
+      },
+    };
+  }
+
+  getNextAction(currentRound: number): Action {
+    this.actionCounter++;
+
+    const { movementEveryN, defenseEveryN } = this.getActionMix(currentRound);
+
+    let type: 'combo' | 'movement' | 'defense';
+    if (this.actionCounter % defenseEveryN === 0) {
+      type = 'defense';
+    } else if (this.actionCounter % movementEveryN === 0) {
+      type = 'movement';
+    } else {
+      type = 'combo';
+    }
+
+    const pool = this.buildPool(type, currentRound);
+    const filtered = pool.filter(a => !this.history.includes(a.id));
+    const candidates = filtered.length > 0 ? filtered : pool;
+
+    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+
+    this.history.push(picked.id);
+    if (this.history.length > DEFAULT_HISTORY_SIZE) {
+      this.history.shift();
+    }
+
+    return picked;
+  }
+
+  getInterval(currentRound: number, freestyle = false): number {
+    if (freestyle) return this.tuning.freestyleIntervalMs ?? DEFAULT_FREESTYLE_INTERVAL_MS;
+    const { base, min, tightenPerRound } = this.profile.interval;
+    const raw = base - (currentRound - 1) * tightenPerRound;
+    const clamped = Math.max(raw, min);
+    const jitterMs = this.tuning.jitterMs ?? DEFAULT_JITTER_MS;
+    const jitter = (Math.random() - 0.5) * 2 * jitterMs;
+    return Math.max(clamped + jitter, min);
+  }
+
+  getFreestyleAction(): Action {
+    const filtered = FREESTYLE_ACTIONS.filter(a => !this.history.includes(a.id));
+    const candidates = filtered.length > 0 ? filtered : FREESTYLE_ACTIONS;
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  getFreestyleThreshold(): number {
+    return this.tuning.freestyleThreshold ?? 12;
+  }
+
+  getIntensity(currentRound: number): 'normal' | 'building' | 'intense' {
+    const progress = currentRound / this.config.totalRounds;
+    if (progress <= 0.33) return 'normal';
+    if (progress <= 0.66) return 'building';
+    return 'intense';
+  }
+
+  private getActionMix(currentRound: number) {
+    let { movementEveryN, defenseEveryN } = this.profile.actionMix;
+
+    if (this.profile.actionMix.tightenAtMidpoint) {
+      const midpoint = Math.ceil(this.config.totalRounds / 2);
+      if (currentRound >= midpoint) {
+        movementEveryN = Math.max(2, movementEveryN - 1);
+        defenseEveryN = Math.max(3, defenseEveryN - 1);
+      }
+    }
+
+    return { movementEveryN, defenseEveryN };
+  }
+
+  private buildPool(type: 'combo' | 'movement' | 'defense', currentRound: number): Action[] {
+    const { totalRounds } = this.config;
+    const roundFraction = currentRound / totalRounds;
+
+    if (type === 'combo') {
+      const pool = [...this.profile.comboPools.initial];
+      if (roundFraction > 0.33) pool.push(...this.profile.comboPools.mid);
+      if (roundFraction > 0.66) pool.push(...this.profile.comboPools.late);
+      return pool;
+    }
+
+    if (type === 'movement') {
+      const pool = [...this.profile.movementPools.initial];
+      if (roundFraction > 0.33) pool.push(...this.profile.movementPools.mid);
+      return pool;
+    }
+
+    const pool = [...this.profile.defensePools.initial];
+    if (roundFraction > 0.33) pool.push(...this.profile.defensePools.mid);
+    return pool;
+  }
+}
