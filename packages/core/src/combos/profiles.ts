@@ -20,7 +20,7 @@ const beginnerProfile: DifficultyProfile = {
     initial: basicDefense,
     mid: [],
   },
-  interval: { base: 6000, min: 4500, tightenPerRound: 150 },
+  interval: { base: 2800, min: 2000, tightenPerRound: 150 },
   actionMix: { movementEveryN: 5, defenseEveryN: 8, tightenAtMidpoint: false },
 };
 
@@ -39,7 +39,7 @@ const intermediateProfile: DifficultyProfile = {
     initial: basicDefense,
     mid: advancedDefense.filter(d => d.difficulty === 'intermediate'),
   },
-  interval: { base: 5500, min: 3000, tightenPerRound: 250 },
+  interval: { base: 2500, min: 1200, tightenPerRound: 200 },
   actionMix: { movementEveryN: 4, defenseEveryN: 5, tightenAtMidpoint: false },
 };
 
@@ -58,7 +58,7 @@ const advancedProfile: DifficultyProfile = {
     initial: basicDefense,
     mid: advancedDefense,
   },
-  interval: { base: 5000, min: 2000, tightenPerRound: 400 },
+  interval: { base: 2200, min: 800, tightenPerRound: 300 },
   actionMix: { movementEveryN: 3, defenseEveryN: 4, tightenAtMidpoint: true },
 };
 
@@ -77,7 +77,7 @@ const proProfile: DifficultyProfile = {
     initial: advancedDefense,
     mid: advancedDefense,
   },
-  interval: { base: 4500, min: 1800, tightenPerRound: 500 },
+  interval: { base: 1800, min: 500, tightenPerRound: 400 },
   actionMix: { movementEveryN: 2, defenseEveryN: 3, tightenAtMidpoint: true },
 };
 

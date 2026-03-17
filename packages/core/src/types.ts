@@ -10,6 +10,8 @@ export interface Action {
   label: string;
   description: string;
   difficulty: Difficulty;
+  /** How long this action takes to execute (ms). Used to scale the gap before the next callout. */
+  durationMs?: number;
 }
 
 export interface DifficultyProfile {

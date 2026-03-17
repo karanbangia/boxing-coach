@@ -175,7 +175,7 @@ export class RoundManager {
       : this.engine.getNextAction(this.currentRound);
     this.emit({ type: 'action', action });
 
-    const interval = this.engine.getInterval(this.currentRound, this.inFreestyle);
+    const interval = this.engine.getInterval(this.currentRound, this.inFreestyle, action);
     this.scheduleNextAction(interval);
   }
 

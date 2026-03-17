@@ -56,23 +56,23 @@ export function TuningPanel({ tuning, onChange }: Props) {
   return (
     <div>
       <SliderRow
-        label="Interval Base"
-        hint="ms between actions at round 1"
+        label="Recovery Gap Base"
+        hint="ms recovery after action at round 1 (added to action duration)"
         value={tuning.intervalBase}
-        defaultValue={6000}
-        min={1000}
-        max={10000}
+        defaultValue={2500}
+        min={500}
+        max={6000}
         step={250}
         unit="ms"
         onChange={set('intervalBase')}
       />
       <SliderRow
-        label="Interval Min"
-        hint="fastest pace (floor)"
+        label="Recovery Gap Min"
+        hint="fastest recovery pace (floor)"
         value={tuning.intervalMin}
-        defaultValue={3000}
-        min={500}
-        max={6000}
+        defaultValue={1200}
+        min={300}
+        max={4000}
         step={250}
         unit="ms"
         onChange={set('intervalMin')}

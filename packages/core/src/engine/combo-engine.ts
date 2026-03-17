@@ -13,12 +13,13 @@ function shuffle<T>(arr: T[]): T[] {
 const DEFAULT_HISTORY_SIZE = 4;
 const DEFAULT_JITTER_MS = 500;
 const DEFAULT_FREESTYLE_INTERVAL_MS = 1200;
+const DEFAULT_ACTION_DURATION_MS = 1500;
 
 const FREESTYLE_ACTIONS: Action[] = [
-  { id: 'fs-1-2', type: 'combo', label: '1-2  1-2  1-2', description: 'Nonstop Jab - Cross', difficulty: 'beginner' },
-  { id: 'fs-1-1-2', type: 'combo', label: '1-1-2  1-1-2', description: 'Nonstop Jab - Jab - Cross', difficulty: 'beginner' },
-  { id: 'fs-freestyle', type: 'combo', label: 'FREESTYLE', description: 'Let your hands go!', difficulty: 'beginner' },
-  { id: 'fs-speed', type: 'combo', label: 'SPEED  1-2-1-2', description: 'Fast hands — empty the tank', difficulty: 'beginner' },
+  { id: 'fs-1-2', type: 'combo', label: '1-2  1-2  1-2', description: 'Nonstop Jab - Cross', difficulty: 'beginner', durationMs: 1000 },
+  { id: 'fs-1-1-2', type: 'combo', label: '1-1-2  1-1-2', description: 'Nonstop Jab - Jab - Cross', difficulty: 'beginner', durationMs: 1400 },
+  { id: 'fs-freestyle', type: 'combo', label: 'FREESTYLE', description: 'Let your hands go!', difficulty: 'beginner', durationMs: 1000 },
+  { id: 'fs-speed', type: 'combo', label: 'SPEED  1-2-1-2', description: 'Fast hands — empty the tank', difficulty: 'beginner', durationMs: 1000 },
 ];
 
 export class ComboEngine {
@@ -102,14 +103,15 @@ export class ComboEngine {
     return picked;
   }
 
-  getInterval(currentRound: number, freestyle = false): number {
-    if (freestyle) return this.tuning.freestyleIntervalMs ?? DEFAULT_FREESTYLE_INTERVAL_MS;
+  getInterval(currentRound: number, freestyle = false, action?: Action): number {
+    const actionDuration = action?.durationMs ?? DEFAULT_ACTION_DURATION_MS;
+    if (freestyle) return actionDuration + (this.tuning.freestyleIntervalMs ?? DEFAULT_FREESTYLE_INTERVAL_MS);
     const { base, min, tightenPerRound } = this.profile.interval;
-    const raw = base - (currentRound - 1) * tightenPerRound;
-    const clamped = Math.max(raw, min);
+    const rawGap = base - (currentRound - 1) * tightenPerRound;
+    const recoveryGap = Math.max(rawGap, min);
     const jitterMs = this.tuning.jitterMs ?? DEFAULT_JITTER_MS;
     const jitter = (Math.random() - 0.5) * 2 * jitterMs;
-    return Math.max(clamped + jitter, min);
+    return Math.max(actionDuration + recoveryGap + jitter, actionDuration + min);
   }
 
   getFreestyleAction(): Action {
