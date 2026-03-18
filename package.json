@@ -6,7 +6,10 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "mobile": "pnpm --filter @boxing-coach/mobile start",
+    "ios": "pnpm --filter @boxing-coach/mobile ios",
+    "android": "pnpm --filter @boxing-coach/mobile android"
   },
   "devDependencies": {
     "turbo": "^2"

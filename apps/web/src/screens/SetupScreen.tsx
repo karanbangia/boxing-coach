@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import type { Difficulty, EngineConfig } from '@boxing-coach/core';
-import { loadTuning } from '../lib/storage';
+import { useEffect, useState } from "react";
+import type { Difficulty, EngineConfig } from "@boxing-coach/core";
+import { loadTuning } from "../lib/storage";
 
-const STORAGE_KEY = 'boxing-coach-settings';
+const STORAGE_KEY = "boxing-coach-settings";
 
 interface SavedSettings {
   difficulty: Difficulty;
@@ -24,7 +24,9 @@ function loadSettings(): SavedSettings | null {
 function saveSettings(s: SavedSettings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-  } catch { /* quota exceeded, ignore */ }
+  } catch {
+    /* quota exceeded, ignore */
+  }
 }
 
 interface Props {
@@ -32,27 +34,37 @@ interface Props {
 }
 
 const DIFFICULTIES: { value: Difficulty; label: string; desc: string }[] = [
-  { value: 'beginner', label: 'BEGINNER', desc: 'Jabs & crosses, slow pace' },
-  { value: 'intermediate', label: 'INTERMEDIATE', desc: 'Adds hooks, moderate build' },
-  { value: 'advanced', label: 'ADVANCED', desc: 'All punches, fast ramp up' },
-  { value: 'pro', label: 'PROFESSIONAL', desc: 'Counters, feints, advanced combos' },
+  { value: "beginner", label: "BEGINNER", desc: "Jabs & crosses, slow pace" },
+  {
+    value: "intermediate",
+    label: "INTERMEDIATE",
+    desc: "Adds hooks, moderate build",
+  },
+  { value: "advanced", label: "ADVANCED", desc: "All punches, fast ramp up" },
+  {
+    value: "pro",
+    label: "PROFESSIONAL",
+    desc: "Counters, feints, advanced combos",
+  },
 ];
 
 const ROUND_DURATIONS = [
-  { value: 120, label: '2 MIN' },
-  { value: 180, label: '3 MIN' },
+  { value: 120, label: "2 MIN" },
+  { value: 180, label: "3 MIN" },
 ];
 
 const TOTAL_ROUNDS = [
-  { value: 3, label: '3' },
-  { value: 6, label: '6' },
-  { value: 9, label: '9' },
-  { value: 12, label: '12' },
+  { value: 3, label: "3" },
+  { value: 6, label: "6" },
+  { value: 9, label: "9" },
+  { value: 12, label: "12" },
 ];
 
 const REST_DURATIONS = [
-  { value: 30, label: '30s' },
-  { value: 60, label: '60s' },
+  { value: 15, label: "15s" },
+  { value: 30, label: "30s" },
+  { value: 60, label: "60s" },
+  { value: 90, label: "90s" },
 ];
 
 function OptionGroup<T extends string | number>({
@@ -71,8 +83,14 @@ function OptionGroup<T extends string | number>({
       <div className="text-xs font-semibold tracking-widest text-[var(--color-text-muted)] mb-3 uppercase">
         {label}
       </div>
-      <div className={options.some(o => o.desc) ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-2'}>
-        {options.map(opt => {
+      <div
+        className={
+          options.some((o) => o.desc)
+            ? "grid grid-cols-2 gap-2"
+            : "flex flex-wrap gap-2"
+        }
+      >
+        {options.map((opt) => {
           const selected = opt.value === value;
           return (
             <button
@@ -80,16 +98,19 @@ function OptionGroup<T extends string | number>({
               onClick={() => onChange(opt.value)}
               className={`
                 px-4 py-3 rounded-xl text-sm font-bold transition-all
-                ${options.some(o => o.desc) ? 'flex flex-col items-center justify-center text-center' : ''}
-                ${selected
-                  ? 'bg-[var(--color-accent)] text-white shadow-lg shadow-red-500/20'
-                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]/80'
+                ${options.some((o) => o.desc) ? "flex flex-col items-center justify-center text-center" : ""}
+                ${
+                  selected
+                    ? "bg-[var(--color-accent)] text-white shadow-lg shadow-red-500/20"
+                    : "bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]/80"
                 }
               `}
             >
               {opt.label}
               {opt.desc && (
-                <span className={`block text-[10px] font-normal mt-0.5 ${selected ? 'text-white/70' : 'text-[var(--color-text-muted)]'}`}>
+                <span
+                  className={`block text-[10px] font-normal mt-0.5 ${selected ? "text-white/70" : "text-[var(--color-text-muted)]"}`}
+                >
                   {opt.desc}
                 </span>
               )}
@@ -103,8 +124,12 @@ function OptionGroup<T extends string | number>({
 
 export function SetupScreen({ onStart }: Props) {
   const saved = loadSettings();
-  const [difficulty, setDifficulty] = useState<Difficulty>(saved?.difficulty ?? 'beginner');
-  const [roundDuration, setRoundDuration] = useState(saved?.roundDuration ?? 120);
+  const [difficulty, setDifficulty] = useState<Difficulty>(
+    saved?.difficulty ?? "beginner",
+  );
+  const [roundDuration, setRoundDuration] = useState(
+    saved?.roundDuration ?? 120,
+  );
   const [totalRounds, setTotalRounds] = useState(saved?.totalRounds ?? 3);
   const [restDuration, setRestDuration] = useState(saved?.restDuration ?? 30);
   useEffect(() => {
@@ -113,7 +138,7 @@ export function SetupScreen({ onStart }: Props) {
 
   const handleStart = () => {
     const tuning = loadTuning();
-    const hasOverrides = Object.values(tuning).some(v => v !== undefined);
+    const hasOverrides = Object.values(tuning).some((v) => v !== undefined);
     onStart({
       difficulty,
       roundDuration,
@@ -127,7 +152,9 @@ export function SetupScreen({ onStart }: Props) {
     <div className="h-full flex flex-col px-6 py-8 max-w-md mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-black tracking-tight">BOXING</h1>
-        <h1 className="text-3xl font-black tracking-tight text-[var(--color-accent)]">COACH</h1>
+        <h1 className="text-3xl font-black tracking-tight text-[var(--color-accent)]">
+          COACH
+        </h1>
         <p className="text-sm text-[var(--color-text-muted)] mt-2">
           Set up your workout and hit the bag.
         </p>

@@ -1,0 +1,32 @@
+{
+  "name": "@boxing-coach/mobile",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "build:core": "pnpm --filter @boxing-coach/core build",
+    "start": "pnpm run build:core && expo start",
+    "android": "pnpm run build:core && expo start --android",
+    "ios": "pnpm run build:core && expo start --ios",
+    "web": "pnpm run build:core && expo start --web",
+    "build": "pnpm run build:core && expo export --platform ios --output-dir dist",
+    "clean": "rm -rf dist .expo .turbo"
+  },
+  "dependencies": {
+    "@boxing-coach/core": "workspace:^",
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "expo": "~54.0.33",
+    "expo-audio": "~1.1.1",
+    "expo-keep-awake": "~15.0.8",
+    "expo-linear-gradient": "~15.0.8",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.17",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}
