@@ -2,8 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import type { EngineConfig } from '@boxing-coach/core';
+import type { SetupSettings } from './config';
 import { useStoredSettings } from './hooks/useStoredSettings';
 import { useSounds } from './hooks/useSounds';
+import { useCoachVoice } from './hooks/useCoachVoice';
+import { useSessionAudio } from './hooks/useSessionAudio';
 import { useStoredTuning } from './hooks/useStoredTuning';
 import { useWakeLock } from './hooks/useWakeLock';
 import { useWorkout } from './hooks/useWorkout';
@@ -18,9 +21,19 @@ export function App() {
   const { tuning, setTuning, isReady: tuningReady } = useStoredTuning();
   const [config, setConfig] = useState<EngineConfig | null>(null);
   const [showDevScreen, setShowDevScreen] = useState(false);
+  const [audioCuesEnabled, setAudioCuesEnabled] = useState(settings.audioCuesEnabled);
   const workout = useWorkout(config);
-  const sounds = useSounds();
-  const isReady = settingsReady && tuningReady;
+
+  const sessionVolumeRef = useRef(1);
+  const audioCuesRef = useRef(true);
+  const session = useSessionAudio();
+  sessionVolumeRef.current = session.effectiveVolume;
+  audioCuesRef.current = audioCuesEnabled;
+
+  const sounds = useSounds(sessionVolumeRef);
+  const coach = useCoachVoice(sessionVolumeRef, audioCuesRef);
+
+  const isReady = settingsReady && tuningReady && session.ready;
 
   const isActive = workout.phase === 'round' || workout.phase === 'rest';
   useWakeLock(isActive);
@@ -29,6 +42,11 @@ export function App() {
   const prevRoundRef = useRef(workout.currentRound);
   const prevFreestyleRef = useRef(workout.isFreestyle);
   const prevTimeRef = useRef(workout.timeRemaining);
+  const lastCoachActionKeyRef = useRef(-1);
+
+  useEffect(() => {
+    setAudioCuesEnabled(settings.audioCuesEnabled);
+  }, [settings.audioCuesEnabled]);
 
   useEffect(() => {
     const prevPhase = prevPhaseRef.current;
@@ -75,13 +93,53 @@ export function App() {
     workout.timeRemaining,
   ]);
 
-  const handleStart = useCallback((nextConfig: EngineConfig) => {
-    const hasOverrides = Object.values(tuning).some(value => value !== undefined);
-    setConfig({
-      ...nextConfig,
-      ...(hasOverrides ? { tuning } : {}),
-    });
-  }, [tuning]);
+  useEffect(() => {
+    if (workout.phase !== 'round') {
+      lastCoachActionKeyRef.current = -1;
+      coach.stopCoachAudio();
+      return;
+    }
+    if (workout.isPaused) {
+      coach.pauseCoachAudio();
+    } else {
+      coach.resumeCoachAudio();
+    }
+  }, [workout.phase, workout.isPaused, coach]);
+
+  useEffect(() => {
+    if (workout.phase !== 'round') {
+      lastCoachActionKeyRef.current = -1;
+      return;
+    }
+    if (workout.isPaused || !workout.currentAction) return;
+    if (lastCoachActionKeyRef.current === workout.actionKey) return;
+    lastCoachActionKeyRef.current = workout.actionKey;
+    coach.playAction(workout.currentAction, workout.currentRound, workout.totalRounds);
+  }, [
+    coach,
+    workout.actionKey,
+    workout.currentAction,
+    workout.currentRound,
+    workout.isPaused,
+    workout.phase,
+    workout.totalRounds,
+  ]);
+
+  const handleStart = useCallback(
+    (s: SetupSettings) => {
+      lastCoachActionKeyRef.current = -1;
+      setAudioCuesEnabled(s.audioCuesEnabled);
+      const hasOverrides = Object.values(tuning).some(value => value !== undefined);
+      setConfig({
+        difficulty: s.difficulty,
+        roundDuration: s.roundDuration,
+        totalRounds: s.totalRounds,
+        restDuration: s.restDuration,
+        ...(hasOverrides ? { tuning } : {}),
+      });
+    },
+    [tuning],
+  );
 
   useEffect(() => {
     if (config && workout.phase === 'idle') {
@@ -90,14 +148,18 @@ export function App() {
   }, [config, workout.phase, workout.start]);
 
   const handleRestart = useCallback(() => {
+    lastCoachActionKeyRef.current = -1;
+    coach.stopCoachAudio();
     workout.stop();
     setConfig(null);
-  }, [workout.stop]);
+  }, [coach, workout]);
 
   const handleStop = useCallback(() => {
+    lastCoachActionKeyRef.current = -1;
+    coach.stopCoachAudio();
     workout.stop();
     setConfig(null);
-  }, [workout.stop]);
+  }, [coach, workout]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -142,8 +204,13 @@ export function App() {
           isPaused={workout.isPaused}
           isFreestyle={workout.isFreestyle}
           actionKey={workout.actionKey}
+          muted={session.muted}
+          onToggleMute={session.toggleMute}
+          onVolumeDown={session.volumeDown}
+          onVolumeUp={session.volumeUp}
           onPause={workout.pause}
           onResume={workout.resume}
+          onSkipRound={workout.skipRound}
           onStop={handleStop}
         />
       )}

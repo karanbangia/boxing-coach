@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import type { EngineConfig } from '@boxing-coach/core';
 import {
   DIFFICULTIES,
   REST_DURATIONS,
@@ -18,7 +17,7 @@ interface Props {
   settings: SetupSettings;
   isReady: boolean;
   onChange: (patch: Partial<SetupSettings>) => void;
-  onStart: (config: EngineConfig) => void;
+  onStart: (settings: SetupSettings) => void;
   onOpenDev: () => void;
 }
 
@@ -155,6 +154,39 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
               compact
             />
 
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Audio</Text>
+              <Pressable
+                onPress={() => onChange({ audioCuesEnabled: !settings.audioCuesEnabled })}
+                style={({ pressed }) => [
+                  styles.audioCueRow,
+                  settings.audioCuesEnabled && styles.audioCueRowOn,
+                  pressed && styles.optionCardPressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.audioCueLabel,
+                    settings.audioCuesEnabled && styles.optionLabelSelected,
+                  ]}
+                >
+                  Audio cues
+                </Text>
+                <Text
+                  style={[
+                    styles.audioCueValue,
+                    settings.audioCuesEnabled && styles.optionLabelSelected,
+                  ]}
+                >
+                  {settings.audioCuesEnabled ? 'ON' : 'OFF'}
+                </Text>
+              </Pressable>
+              <Text style={styles.audioCueHint}>
+                Spoken callouts when clips are bundled. Round sounds still play unless muted in
+                workout.
+              </Text>
+            </View>
+
             <Pressable
               onPress={() => onStart(settings)}
               style={({ pressed }) => [
@@ -286,6 +318,36 @@ const styles = StyleSheet.create({
   },
   optionDescSelected: {
     color: 'rgba(255, 255, 255, 0.7)',
+  },
+  audioCueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: colors.surfaceMuted,
+  },
+  audioCueRowOn: {
+    backgroundColor: colors.accent,
+  },
+  audioCueLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  audioCueValue: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  audioCueHint: {
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 8,
+    paddingHorizontal: 2,
   },
   startButton: {
     marginTop: 4,

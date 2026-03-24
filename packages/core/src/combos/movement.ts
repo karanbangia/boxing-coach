@@ -6,7 +6,6 @@ export const basicMovement: Action[] = [
   { id: 'm-step-back', type: 'movement', label: 'STEP BACK', description: 'Step back and reset', difficulty: 'beginner', durationMs: 800 },
   { id: 'm-bounce', type: 'movement', label: 'BOUNCE', description: 'Stay light on your feet', difficulty: 'beginner', durationMs: 1200 },
   { id: 'm-reset', type: 'movement', label: 'RESET', description: 'Reset your stance', difficulty: 'beginner', durationMs: 800 },
-  { id: 'm-jab-move', type: 'movement', label: 'JAB AND MOVE', description: 'Jab then step away', difficulty: 'beginner', durationMs: 1200 },
 ];
 
 export const advancedMovement: Action[] = [

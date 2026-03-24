@@ -1,0 +1,649 @@
+{
+  "actions": [
+    {
+      "id": "b-1",
+      "text": "Jab",
+      "path": "packages/coach-audio/b-1.mp3"
+    },
+    {
+      "id": "b-2",
+      "text": "Cross",
+      "path": "packages/coach-audio/b-2.mp3"
+    },
+    {
+      "id": "b-1-1",
+      "text": "Jab - Jab",
+      "path": "packages/coach-audio/b-1-1.mp3"
+    },
+    {
+      "id": "b-1-2",
+      "text": "Jab - Cross",
+      "path": "packages/coach-audio/b-1-2.mp3"
+    },
+    {
+      "id": "b-2-1",
+      "text": "Cross - Jab",
+      "path": "packages/coach-audio/b-2-1.mp3"
+    },
+    {
+      "id": "b-2-2",
+      "text": "Cross - Cross",
+      "path": "packages/coach-audio/b-2-2.mp3"
+    },
+    {
+      "id": "b-1-1-1",
+      "text": "Triple Jab",
+      "path": "packages/coach-audio/b-1-1-1.mp3"
+    },
+    {
+      "id": "b-1-1-2",
+      "text": "Jab - Jab - Cross",
+      "path": "packages/coach-audio/b-1-1-2.mp3"
+    },
+    {
+      "id": "b-1-2-1",
+      "text": "Jab - Cross - Jab",
+      "path": "packages/coach-audio/b-1-2-1.mp3"
+    },
+    {
+      "id": "b-2-1-2",
+      "text": "Cross - Jab - Cross",
+      "path": "packages/coach-audio/b-2-1-2.mp3"
+    },
+    {
+      "id": "b-1-1-1-2",
+      "text": "Jab - Jab - Jab - Cross",
+      "path": "packages/coach-audio/b-1-1-1-2.mp3"
+    },
+    {
+      "id": "b-2-2-1",
+      "text": "Cross - Cross - Jab",
+      "path": "packages/coach-audio/b-2-2-1.mp3"
+    },
+    {
+      "id": "b-1-2-2",
+      "text": "Jab - Cross - Cross",
+      "path": "packages/coach-audio/b-1-2-2.mp3"
+    },
+    {
+      "id": "b-2-1-1",
+      "text": "Cross - Jab - Jab",
+      "path": "packages/coach-audio/b-2-1-1.mp3"
+    },
+    {
+      "id": "b-1-2-1-2",
+      "text": "Jab - Cross - Jab - Cross",
+      "path": "packages/coach-audio/b-1-2-1-2.mp3"
+    },
+    {
+      "id": "b-2-1-1-2",
+      "text": "Cross - Jab - Jab - Cross",
+      "path": "packages/coach-audio/b-2-1-1-2.mp3"
+    },
+    {
+      "id": "b-1-2-1-1",
+      "text": "Jab - Cross - Jab - Jab",
+      "path": "packages/coach-audio/b-1-2-1-1.mp3"
+    },
+    {
+      "id": "b-1-1-2-1",
+      "text": "Jab - Jab - Cross - Jab",
+      "path": "packages/coach-audio/b-1-1-2-1.mp3"
+    },
+    {
+      "id": "b-1-2-2-1",
+      "text": "Jab - Cross - Cross - Jab",
+      "path": "packages/coach-audio/b-1-2-2-1.mp3"
+    },
+    {
+      "id": "b-2-1-2-1",
+      "text": "Cross - Jab - Cross - Jab",
+      "path": "packages/coach-audio/b-2-1-2-1.mp3"
+    },
+    {
+      "id": "b-1-1-2-1-2",
+      "text": "Jab - Jab - Cross - Jab - Cross",
+      "path": "packages/coach-audio/b-1-1-2-1-2.mp3"
+    },
+    {
+      "id": "b-1-2-1-2-1",
+      "text": "Jab - Cross - Jab - Cross - Jab",
+      "path": "packages/coach-audio/b-1-2-1-2-1.mp3"
+    },
+    {
+      "id": "m-move",
+      "text": "Lateral movement",
+      "path": "packages/coach-audio/m-move.mp3"
+    },
+    {
+      "id": "m-touch",
+      "text": "Light jab then reposition",
+      "path": "packages/coach-audio/m-touch.mp3"
+    },
+    {
+      "id": "m-step-back",
+      "text": "Step back and reset",
+      "path": "packages/coach-audio/m-step-back.mp3"
+    },
+    {
+      "id": "m-bounce",
+      "text": "Stay light on your feet",
+      "path": "packages/coach-audio/m-bounce.mp3"
+    },
+    {
+      "id": "m-reset",
+      "text": "Reset your stance",
+      "path": "packages/coach-audio/m-reset.mp3"
+    },
+    {
+      "id": "m-jab-move",
+      "text": "Jab then step away",
+      "path": "packages/coach-audio/m-jab-move.mp3"
+    },
+    {
+      "id": "d-hands-up",
+      "text": "Tighten your guard",
+      "path": "packages/coach-audio/d-hands-up.mp3"
+    },
+    {
+      "id": "d-block",
+      "text": "High block",
+      "path": "packages/coach-audio/d-block.mp3"
+    },
+    {
+      "id": "d-guard",
+      "text": "Keep that guard tight",
+      "path": "packages/coach-audio/d-guard.mp3"
+    },
+    {
+      "id": "d-peek",
+      "text": "Tight guard, eyes on target",
+      "path": "packages/coach-audio/d-peek.mp3"
+    },
+    {
+      "id": "i-1-2-3",
+      "text": "Jab - Cross - Lead Hook",
+      "path": "packages/coach-audio/i-1-2-3.mp3"
+    },
+    {
+      "id": "i-3-2",
+      "text": "Lead Hook - Cross",
+      "path": "packages/coach-audio/i-3-2.mp3"
+    },
+    {
+      "id": "i-2-3",
+      "text": "Cross - Lead Hook",
+      "path": "packages/coach-audio/i-2-3.mp3"
+    },
+    {
+      "id": "i-1-2-3-2",
+      "text": "Jab - Cross - Lead Hook - Cross",
+      "path": "packages/coach-audio/i-1-2-3-2.mp3"
+    },
+    {
+      "id": "i-1-1-2-3",
+      "text": "Jab - Jab - Cross - Lead Hook",
+      "path": "packages/coach-audio/i-1-1-2-3.mp3"
+    },
+    {
+      "id": "i-3-2-1",
+      "text": "Lead Hook - Cross - Jab",
+      "path": "packages/coach-audio/i-3-2-1.mp3"
+    },
+    {
+      "id": "i-1-3",
+      "text": "Jab - Lead Hook",
+      "path": "packages/coach-audio/i-1-3.mp3"
+    },
+    {
+      "id": "i-1-3-2",
+      "text": "Jab - Lead Hook - Cross",
+      "path": "packages/coach-audio/i-1-3-2.mp3"
+    },
+    {
+      "id": "i-2-3-2-1",
+      "text": "Cross - Lead Hook - Cross - Jab",
+      "path": "packages/coach-audio/i-2-3-2-1.mp3"
+    },
+    {
+      "id": "i-3-2-3",
+      "text": "Lead Hook - Cross - Lead Hook",
+      "path": "packages/coach-audio/i-3-2-3.mp3"
+    },
+    {
+      "id": "i-2-3-2",
+      "text": "Cross - Lead Hook - Cross",
+      "path": "packages/coach-audio/i-2-3-2.mp3"
+    },
+    {
+      "id": "i-1-2-1-2-3",
+      "text": "Jab - Cross - Jab - Cross - Lead Hook",
+      "path": "packages/coach-audio/i-1-2-1-2-3.mp3"
+    },
+    {
+      "id": "i-4-3-2",
+      "text": "Rear Hook - Lead Hook - Cross",
+      "path": "packages/coach-audio/i-4-3-2.mp3"
+    },
+    {
+      "id": "i-1-2-3-4",
+      "text": "Jab - Cross - Lead Hook - Rear Hook",
+      "path": "packages/coach-audio/i-1-2-3-4.mp3"
+    },
+    {
+      "id": "i-3-3-2",
+      "text": "Lead Hook - Lead Hook - Cross",
+      "path": "packages/coach-audio/i-3-3-2.mp3"
+    },
+    {
+      "id": "i-1-4-3-2",
+      "text": "Jab - Rear Hook - Lead Hook - Cross",
+      "path": "packages/coach-audio/i-1-4-3-2.mp3"
+    },
+    {
+      "id": "i-3-4",
+      "text": "Lead Hook - Rear Hook",
+      "path": "packages/coach-audio/i-3-4.mp3"
+    },
+    {
+      "id": "i-4-3",
+      "text": "Rear Hook - Lead Hook",
+      "path": "packages/coach-audio/i-4-3.mp3"
+    },
+    {
+      "id": "i-1-2-4-3-2",
+      "text": "Jab - Cross - Rear Hook - Lead Hook - Cross",
+      "path": "packages/coach-audio/i-1-2-4-3-2.mp3"
+    },
+    {
+      "id": "i-1-2-3-2-1",
+      "text": "Jab - Cross - Lead Hook - Cross - Jab",
+      "path": "packages/coach-audio/i-1-2-3-2-1.mp3"
+    },
+    {
+      "id": "i-3-2-1-2",
+      "text": "Lead Hook - Cross - Jab - Cross",
+      "path": "packages/coach-audio/i-3-2-1-2.mp3"
+    },
+    {
+      "id": "i-1-3-2-1-2",
+      "text": "Jab - Lead Hook - Cross - Jab - Cross",
+      "path": "packages/coach-audio/i-1-3-2-1-2.mp3"
+    },
+    {
+      "id": "m-circle-l",
+      "text": "Circle to the left",
+      "path": "packages/coach-audio/m-circle-l.mp3"
+    },
+    {
+      "id": "m-circle-r",
+      "text": "Circle to the right",
+      "path": "packages/coach-audio/m-circle-r.mp3"
+    },
+    {
+      "id": "m-lateral",
+      "text": "Quick lateral step",
+      "path": "packages/coach-audio/m-lateral.mp3"
+    },
+    {
+      "id": "m-level-change",
+      "text": "Drop levels and come back",
+      "path": "packages/coach-audio/m-level-change.mp3"
+    },
+    {
+      "id": "d-slip",
+      "text": "Slip to the side",
+      "path": "packages/coach-audio/d-slip.mp3"
+    },
+    {
+      "id": "d-roll",
+      "text": "Roll under",
+      "path": "packages/coach-audio/d-roll.mp3"
+    },
+    {
+      "id": "d-slip-left",
+      "text": "Slip to the left",
+      "path": "packages/coach-audio/d-slip-left.mp3"
+    },
+    {
+      "id": "d-slip-right",
+      "text": "Slip to the right",
+      "path": "packages/coach-audio/d-slip-right.mp3"
+    },
+    {
+      "id": "d-pull-back",
+      "text": "Pull back and counter",
+      "path": "packages/coach-audio/d-pull-back.mp3"
+    },
+    {
+      "id": "a-1-2-5-2",
+      "text": "Jab - Cross - Lead Uppercut - Cross",
+      "path": "packages/coach-audio/a-1-2-5-2.mp3"
+    },
+    {
+      "id": "a-1-2-3-4-2",
+      "text": "Jab - Cross - Lead Hook - Rear Hook - Cross",
+      "path": "packages/coach-audio/a-1-2-3-4-2.mp3"
+    },
+    {
+      "id": "a-5-6-2",
+      "text": "Lead Uppercut - Rear Uppercut - Cross",
+      "path": "packages/coach-audio/a-5-6-2.mp3"
+    },
+    {
+      "id": "a-3-6-3-2",
+      "text": "Lead Hook - Rear Uppercut - Lead Hook - Cross",
+      "path": "packages/coach-audio/a-3-6-3-2.mp3"
+    },
+    {
+      "id": "a-1-6-3-2",
+      "text": "Jab - Rear Uppercut - Lead Hook - Cross",
+      "path": "packages/coach-audio/a-1-6-3-2.mp3"
+    },
+    {
+      "id": "a-5-2",
+      "text": "Lead Uppercut - Cross",
+      "path": "packages/coach-audio/a-5-2.mp3"
+    },
+    {
+      "id": "a-6-5-2",
+      "text": "Rear Uppercut - Lead Uppercut - Cross",
+      "path": "packages/coach-audio/a-6-5-2.mp3"
+    },
+    {
+      "id": "a-1-2-5-6",
+      "text": "Jab - Cross - Lead Uppercut - Rear Uppercut",
+      "path": "packages/coach-audio/a-1-2-5-6.mp3"
+    },
+    {
+      "id": "a-3-6-3",
+      "text": "Lead Hook - Rear Uppercut - Lead Hook",
+      "path": "packages/coach-audio/a-3-6-3.mp3"
+    },
+    {
+      "id": "a-1-6-5-2",
+      "text": "Jab - Rear Uppercut - Lead Uppercut - Cross",
+      "path": "packages/coach-audio/a-1-6-5-2.mp3"
+    },
+    {
+      "id": "a-2-1-6-2",
+      "text": "Cross - Jab (pull) - Rear Uppercut - Cross",
+      "path": "packages/coach-audio/a-2-1-6-2.mp3"
+    },
+    {
+      "id": "a-1-2-3-2-5",
+      "text": "Jab - Cross - Hook - Cross - Lead Uppercut",
+      "path": "packages/coach-audio/a-1-2-3-2-5.mp3"
+    },
+    {
+      "id": "a-3-3-2",
+      "text": "Double Lead Hook - Cross",
+      "path": "packages/coach-audio/a-3-3-2.mp3"
+    },
+    {
+      "id": "a-1-1-2-5",
+      "text": "Double Jab - Cross - Lead Uppercut (step in)",
+      "path": "packages/coach-audio/a-1-1-2-5.mp3"
+    },
+    {
+      "id": "a-6-2-3-2",
+      "text": "Rear Uppercut - Cross - Lead Hook - Cross",
+      "path": "packages/coach-audio/a-6-2-3-2.mp3"
+    },
+    {
+      "id": "a-slip-1-2",
+      "text": "Slip - Jab - Cross",
+      "path": "packages/coach-audio/a-slip-1-2.mp3"
+    },
+    {
+      "id": "a-roll-3-2",
+      "text": "Roll - Lead Hook - Cross",
+      "path": "packages/coach-audio/a-roll-3-2.mp3"
+    },
+    {
+      "id": "a-1-2-b3-b2",
+      "text": "Jab - Cross - Body Hook - Body Cross",
+      "path": "packages/coach-audio/a-1-2-b3-b2.mp3"
+    },
+    {
+      "id": "a-1-b2-3-2",
+      "text": "Jab - Body Cross - Lead Hook - Cross",
+      "path": "packages/coach-audio/a-1-b2-3-2.mp3"
+    },
+    {
+      "id": "a-1-2-3-b2-3-2",
+      "text": "Jab - Cross - Hook - Body Cross - Hook - Cross",
+      "path": "packages/coach-audio/a-1-2-3-b2-3-2.mp3"
+    },
+    {
+      "id": "a-slip-3-6-3-2",
+      "text": "Slip - Lead Hook - Rear Uppercut - Lead Hook - Cross",
+      "path": "packages/coach-audio/a-slip-3-6-3-2.mp3"
+    },
+    {
+      "id": "a-b1-b2",
+      "text": "Body Jab - Body Cross",
+      "path": "packages/coach-audio/a-b1-b2.mp3"
+    },
+    {
+      "id": "a-1-b2-b3-2",
+      "text": "Jab - Body Cross - Body Hook - Cross",
+      "path": "packages/coach-audio/a-1-b2-b3-2.mp3"
+    },
+    {
+      "id": "a-roll-6-3-2",
+      "text": "Roll - Rear Uppercut - Lead Hook - Cross",
+      "path": "packages/coach-audio/a-roll-6-3-2.mp3"
+    },
+    {
+      "id": "a-slip-slip-1-2-3",
+      "text": "Double Slip - Jab - Cross - Hook",
+      "path": "packages/coach-audio/a-slip-slip-1-2-3.mp3"
+    },
+    {
+      "id": "a-1-2-b1-b2-3-2",
+      "text": "Jab - Cross - Body Jab - Body Cross - Hook - Cross",
+      "path": "packages/coach-audio/a-1-2-b1-b2-3-2.mp3"
+    },
+    {
+      "id": "a-1-2-3-roll-3-2",
+      "text": "Jab - Cross - Hook - Roll - Hook - Cross",
+      "path": "packages/coach-audio/a-1-2-3-roll-3-2.mp3"
+    },
+    {
+      "id": "a-5-2-3-2",
+      "text": "Lead Uppercut - Cross - Lead Hook - Cross",
+      "path": "packages/coach-audio/a-5-2-3-2.mp3"
+    },
+    {
+      "id": "a-1-2-3-4-5-6",
+      "text": "Jab - Cross - Lead Hook - Rear Hook - Lead Upper - Rear Upper",
+      "path": "packages/coach-audio/a-1-2-3-4-5-6.mp3"
+    },
+    {
+      "id": "a-feint-1-2-3",
+      "text": "Feint - Jab - Cross - Hook (commit to body)",
+      "path": "packages/coach-audio/a-feint-1-2-3.mp3"
+    },
+    {
+      "id": "a-1-b3-2",
+      "text": "Jab - Body Hook - Cross (step to the outside)",
+      "path": "packages/coach-audio/a-1-b3-2.mp3"
+    },
+    {
+      "id": "a-slip-2-5-2",
+      "text": "Slip - Cross - Lead Uppercut - Cross",
+      "path": "packages/coach-audio/a-slip-2-5-2.mp3"
+    },
+    {
+      "id": "a-pivot-3-2",
+      "text": "Jab - Pivot outside - Lead Hook - Cross",
+      "path": "packages/coach-audio/a-pivot-3-2.mp3"
+    },
+    {
+      "id": "a-doublebody-5-5-2",
+      "text": "Double Lead Uppercut to body - Cross (close range)",
+      "path": "packages/coach-audio/a-doublebody-5-5-2.mp3"
+    },
+    {
+      "id": "m-in-out",
+      "text": "Step in, throw, step out",
+      "path": "packages/coach-audio/m-in-out.mp3"
+    },
+    {
+      "id": "m-pivot",
+      "text": "Pivot off center line",
+      "path": "packages/coach-audio/m-pivot.mp3"
+    },
+    {
+      "id": "m-angle",
+      "text": "Step to an angle",
+      "path": "packages/coach-audio/m-angle.mp3"
+    },
+    {
+      "id": "m-switch",
+      "text": "Quick stance switch",
+      "path": "packages/coach-audio/m-switch.mp3"
+    },
+    {
+      "id": "m-feint-move",
+      "text": "Feint then reposition",
+      "path": "packages/coach-audio/m-feint-move.mp3"
+    },
+    {
+      "id": "d-parry",
+      "text": "Parry and counter",
+      "path": "packages/coach-audio/d-parry.mp3"
+    },
+    {
+      "id": "d-slip-slip",
+      "text": "Double slip",
+      "path": "packages/coach-audio/d-slip-slip.mp3"
+    },
+    {
+      "id": "d-catch-return",
+      "text": "Catch the shot, fire back",
+      "path": "packages/coach-audio/d-catch-return.mp3"
+    },
+    {
+      "id": "d-shoulder-roll",
+      "text": "Shoulder roll defense",
+      "path": "packages/coach-audio/d-shoulder-roll.mp3"
+    },
+    {
+      "id": "d-duck",
+      "text": "Duck under the shot",
+      "path": "packages/coach-audio/d-duck.mp3"
+    },
+    {
+      "id": "p-1-2-0-2-3",
+      "text": "Jab - Cross - Step off-line - Cross - Lead Hook (counter focus)",
+      "path": "packages/coach-audio/p-1-2-0-2-3.mp3"
+    },
+    {
+      "id": "p-feint-1-2-6-3",
+      "text": "Feint - Jab - Cross - Rear Uppercut - Lead Hook (finish)",
+      "path": "packages/coach-audio/p-feint-1-2-6-3.mp3"
+    },
+    {
+      "id": "p-1-2-3-overhand",
+      "text": "Jab - Cross - Lead Hook - Overhand Right (timed behind cross)",
+      "path": "packages/coach-audio/p-1-2-3-overhand.mp3"
+    },
+    {
+      "id": "p-slip-counter-2-5",
+      "text": "Slip inside - Counter Cross - Lead Uppercut (close-range counter)",
+      "path": "packages/coach-audio/p-slip-counter-2-5.mp3"
+    },
+    {
+      "id": "p-4-3-2-6",
+      "text": "Rear Hook - Lead Hook - Cross - Rear Uppercut (head-body mix)",
+      "path": "packages/coach-audio/p-4-3-2-6.mp3"
+    },
+    {
+      "id": "p-1-b2-1-2",
+      "text": "Jab - Body Cross - Quick Jab - Cross to head (change level)",
+      "path": "packages/coach-audio/p-1-b2-1-2.mp3"
+    },
+    {
+      "id": "p-1-1-2-5-6",
+      "text": "Double Jab - Cross - Lead Uppercut - Rear Uppercut (trap opponent)",
+      "path": "packages/coach-audio/p-1-1-2-5-6.mp3"
+    },
+    {
+      "id": "p-pivot-6-3-2",
+      "text": "Jab - Pivot outside - Rear Uppercut - Lead Hook - Cross",
+      "path": "packages/coach-audio/p-pivot-6-3-2.mp3"
+    },
+    {
+      "id": "p-feint-slip-3-2-5",
+      "text": "Feint - Slip - Lead Hook - Cross - Lead Uppercut (counter/finish)",
+      "path": "packages/coach-audio/p-feint-slip-3-2-5.mp3"
+    },
+    {
+      "id": "p-2-3-2-throw-6",
+      "text": "Cross - Hook - Cross - Throw weight forward - Rear Uppercut",
+      "path": "packages/coach-audio/p-2-3-2-throw-6.mp3"
+    },
+    {
+      "id": "p-overhand-1-2-3",
+      "text": "Overhand Right - Jab - Cross - Lead Hook (use to open guard)",
+      "path": "packages/coach-audio/p-overhand-1-2-3.mp3"
+    },
+    {
+      "id": "p-body-head-switch-1-b3-3-2",
+      "text": "Jab - Body Hook - Lead Hook to head - Cross (switch levels twice)",
+      "path": "packages/coach-audio/p-body-head-switch-1-b3-3-2.mp3"
+    },
+    {
+      "id": "p-clinch-5-2",
+      "text": "Step in to clinch - Lead Uppercut - Break - Cross (short-range sequence)",
+      "path": "packages/coach-audio/p-clinch-5-2.mp3"
+    },
+    {
+      "id": "p-1-2-feint-4-2",
+      "text": "Jab - Cross - Feint hook - Rear Hook - Cross (create openings)",
+      "path": "packages/coach-audio/p-1-2-feint-4-2.mp3"
+    },
+    {
+      "id": "p-slip-roll-6-2-3",
+      "text": "Slip outside - Roll under - Rear Uppercut - Cross - Lead Hook",
+      "path": "packages/coach-audio/p-slip-roll-6-2-3.mp3"
+    },
+    {
+      "id": "p-double-overhand-2-5-2",
+      "text": "Double Overhand - Cross - Lead Uppercut - Cross (power sequences)",
+      "path": "packages/coach-audio/p-double-overhand-2-5-2.mp3"
+    },
+    {
+      "id": "p-1-2-quickstep-out-3",
+      "text": "Jab - Cross - Quick step out to angle - Lead Hook (angulation finish)",
+      "path": "packages/coach-audio/p-1-2-quickstep-out-3.mp3"
+    },
+    {
+      "id": "p-counter-pivot-2-6-3",
+      "text": "Counter Cross - Pivot - Rear Uppercut - Lead Hook (counter & reposition)",
+      "path": "packages/coach-audio/p-counter-pivot-2-6-3.mp3"
+    },
+    {
+      "id": "fs-1-2",
+      "text": "Nonstop Jab - Cross",
+      "path": "packages/coach-audio/fs-1-2.mp3"
+    },
+    {
+      "id": "fs-1-1-2",
+      "text": "Nonstop Jab - Jab - Cross",
+      "path": "packages/coach-audio/fs-1-1-2.mp3"
+    },
+    {
+      "id": "fs-freestyle",
+      "text": "Let your hands go!",
+      "path": "packages/coach-audio/fs-freestyle.mp3"
+    },
+    {
+      "id": "fs-speed",
+      "text": "Fast hands — empty the tank",
+      "path": "packages/coach-audio/fs-speed.mp3"
+    }
+  ]
+}

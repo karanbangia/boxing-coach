@@ -89,6 +89,17 @@ export class RoundManager {
     this.startNextRound();
   }
 
+  /** End the current round immediately (rest or complete, same as natural round end). */
+  skipRound(): void {
+    if (this.phase !== 'round') return;
+    this.clearTimers();
+    this.pausedAt = null;
+    this.pausedActionDelayMs = 0;
+    this.nextActionAt = null;
+    this.emit({ type: 'roundEnd', round: this.currentRound });
+    this.startRest();
+  }
+
   stop(): void {
     this.clearTimers();
     this.phase = 'idle';

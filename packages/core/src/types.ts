@@ -12,6 +12,8 @@ export interface Action {
   difficulty: Difficulty;
   /** How long this action takes to execute (ms). Used to scale the gap before the next callout. */
   durationMs?: number;
+  /** Optional coach clip URL path (web). If omitted, clients may fall back to `/audio/coach/<id>.mp3`. */
+  audioSrc?: string;
 }
 
 export interface DifficultyProfile {

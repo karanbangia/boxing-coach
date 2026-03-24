@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Difficulty, EngineConfig } from "@boxing-coach/core";
+
+export type StartWorkoutPayload = EngineConfig & { audioCuesEnabled: boolean };
 import { loadTuning } from "../lib/storage";
 
 const STORAGE_KEY = "boxing-coach-settings";
@@ -9,6 +11,8 @@ interface SavedSettings {
   roundDuration: number;
   totalRounds: number;
   restDuration: number;
+  /** When false, coach MP3s are not played during the workout. */
+  audioCuesEnabled?: boolean;
 }
 
 function loadSettings(): SavedSettings | null {
@@ -30,7 +34,7 @@ function saveSettings(s: SavedSettings): void {
 }
 
 interface Props {
-  onStart: (config: EngineConfig) => void;
+  onStart: (payload: StartWorkoutPayload) => void;
 }
 
 const DIFFICULTIES: { value: Difficulty; label: string; desc: string }[] = [
@@ -132,9 +136,18 @@ export function SetupScreen({ onStart }: Props) {
   );
   const [totalRounds, setTotalRounds] = useState(saved?.totalRounds ?? 3);
   const [restDuration, setRestDuration] = useState(saved?.restDuration ?? 30);
+  const [audioCuesEnabled, setAudioCuesEnabled] = useState(
+    saved?.audioCuesEnabled !== false,
+  );
   useEffect(() => {
-    saveSettings({ difficulty, roundDuration, totalRounds, restDuration });
-  }, [difficulty, roundDuration, totalRounds, restDuration]);
+    saveSettings({
+      difficulty,
+      roundDuration,
+      totalRounds,
+      restDuration,
+      audioCuesEnabled,
+    });
+  }, [difficulty, roundDuration, totalRounds, restDuration, audioCuesEnabled]);
 
   const handleStart = () => {
     const tuning = loadTuning();
@@ -144,6 +157,7 @@ export function SetupScreen({ onStart }: Props) {
       roundDuration,
       totalRounds,
       restDuration,
+      audioCuesEnabled,
       ...(hasOverrides ? { tuning } : {}),
     });
   };
@@ -185,6 +199,33 @@ export function SetupScreen({ onStart }: Props) {
           value={restDuration}
           onChange={setRestDuration}
         />
+
+        <div className="mb-6">
+          <div className="text-xs font-semibold tracking-widest text-[var(--color-text-muted)] mb-3 uppercase">
+            Audio
+          </div>
+          <button
+            type="button"
+            onClick={() => setAudioCuesEnabled((v) => !v)}
+            className={`
+              w-full px-4 py-3 rounded-xl text-sm font-bold text-left transition-all flex items-center justify-between
+              ${
+                audioCuesEnabled
+                  ? "bg-[var(--color-accent)] text-white shadow-lg shadow-red-500/20"
+                  : "bg-[var(--color-surface-2)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            <span>Audio cues</span>
+            <span className="text-xs font-mono opacity-90">
+              {audioCuesEnabled ? "ON" : "OFF"}
+            </span>
+          </button>
+          <p className="text-xs text-[var(--color-text-muted)] mt-2">
+            Spoken combo callouts when clips are available. Round bells still play
+            unless you mute in the workout screen.
+          </p>
+        </div>
       </div>
 
       <button

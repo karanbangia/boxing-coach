@@ -14,8 +14,13 @@ interface Props {
   isPaused: boolean;
   isFreestyle: boolean;
   actionKey: number;
+  muted: boolean;
+  onToggleMute: () => void;
+  onVolumeDown: () => void;
+  onVolumeUp: () => void;
   onPause: () => void;
   onResume: () => void;
+  onSkipRound: () => void;
   onStop: () => void;
 }
 
@@ -61,8 +66,13 @@ export function WorkoutScreen({
   isPaused,
   isFreestyle,
   actionKey,
+  muted,
+  onToggleMute,
+  onVolumeDown,
+  onVolumeUp,
   onPause,
   onResume,
+  onSkipRound,
   onStop,
 }: Props) {
   const color = intensityColor(intensity, isFreestyle);
@@ -98,6 +108,33 @@ export function WorkoutScreen({
               {formatClock(timeRemaining)}
             </Text>
           </View>
+        </View>
+
+        <View style={styles.volumeRow}>
+          <Pressable
+            onPress={onVolumeDown}
+            style={({ pressed }) => [styles.volumeBtn, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.volumeBtnText}>−</Text>
+          </Pressable>
+          <Pressable
+            onPress={onToggleMute}
+            style={({ pressed }) => [
+              styles.muteBtn,
+              muted && styles.muteBtnActive,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={[styles.muteBtnText, muted && styles.muteBtnTextActive]}>
+              {muted ? 'UNMUTE' : 'MUTE'}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={onVolumeUp}
+            style={({ pressed }) => [styles.volumeBtn, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.volumeBtnText}>+</Text>
+          </Pressable>
         </View>
 
         <View style={styles.centerStage}>
@@ -156,7 +193,16 @@ export function WorkoutScreen({
             <Text style={styles.primaryButtonText}>{isPaused ? 'GO' : 'PAUSE'}</Text>
           </Pressable>
 
-          <View style={styles.secondaryButtonSpacer} />
+          <Pressable
+            onPress={onSkipRound}
+            style={({ pressed }) => [
+              styles.secondaryButton,
+              pressed && styles.buttonPressed,
+            ]}
+            accessibilityLabel="Skip round"
+          >
+            <Text style={styles.secondaryButtonText}>SKIP</Text>
+          </Pressable>
         </View>
       </View>
     </ScreenShell>
@@ -206,6 +252,51 @@ const styles = StyleSheet.create({
   },
   metricTimer: {
     fontVariant: ['tabular-nums'],
+  },
+  volumeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 12,
+  },
+  volumeBtn: {
+    minWidth: 44,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  volumeBtnText: {
+    color: colors.textMuted,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  muteBtn: {
+    minWidth: 92,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  muteBtnActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  muteBtnText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  muteBtnTextActive: {
+    color: colors.text,
   },
   centerStage: {
     flex: 1,
@@ -295,9 +386,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 2,
-  },
-  secondaryButtonSpacer: {
-    width: 68,
   },
   buttonPressed: {
     opacity: 0.92,

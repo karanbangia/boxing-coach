@@ -130,10 +130,15 @@ export function useWorkout(config: EngineConfig | null) {
     managerRef.current?.skipRest();
   }, []);
 
+  const skipRound = useCallback(() => {
+    managerRef.current?.skipRound();
+    setState(prev => ({ ...prev, isPaused: false }));
+  }, []);
+
   const stop = useCallback(() => {
     managerRef.current?.stop();
     setState(INITIAL_STATE);
   }, []);
 
-  return { ...state, start, pause, resume, skipRest, stop };
+  return { ...state, start, pause, resume, skipRest, skipRound, stop };
 }

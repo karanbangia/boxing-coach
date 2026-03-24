@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, type MutableRefObject } from 'react';
 import { AudioPlayer, setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 
-function playFromStart(player: AudioPlayer) {
+function playFromStart(player: AudioPlayer, volume: number) {
+  player.volume = volume;
   void player
     .seekTo(0)
     .catch(() => {
@@ -12,7 +13,7 @@ function playFromStart(player: AudioPlayer) {
     });
 }
 
-export function useSounds() {
+export function useSounds(sessionVolumeRef: MutableRefObject<number>) {
   const roundStartPlayer = useAudioPlayer(
     require('../../assets/audio/round-start.wav'),
     { keepAudioSessionActive: true },
@@ -32,10 +33,11 @@ export function useSounds() {
   const lastWarningRef = useRef(0);
 
   useEffect(() => {
-    roundStartPlayer.volume = 0.85;
-    roundEndPlayer.volume = 0.9;
-    warningPlayer.volume = 0.45;
-    freestylePlayer.volume = 0.65;
+    const mul = sessionVolumeRef.current;
+    roundStartPlayer.volume = 0.85 * mul;
+    roundEndPlayer.volume = 0.9 * mul;
+    warningPlayer.volume = 0.45 * mul;
+    freestylePlayer.volume = 0.65 * mul;
 
     void setAudioModeAsync({
       playsInSilentMode: true,
@@ -46,29 +48,37 @@ export function useSounds() {
     }).catch(() => {
       // Silent-mode playback is best-effort.
     });
-  }, [freestylePlayer, roundEndPlayer, roundStartPlayer, warningPlayer]);
+  }, [freestylePlayer, roundEndPlayer, roundStartPlayer, warningPlayer, sessionVolumeRef]);
 
   const roundStart = useCallback(() => {
-    playFromStart(roundStartPlayer);
-  }, [roundStartPlayer]);
+    const mul = sessionVolumeRef.current;
+    if (mul <= 0) return;
+    playFromStart(roundStartPlayer, 0.85 * mul);
+  }, [roundStartPlayer, sessionVolumeRef]);
 
   const roundEnd = useCallback(() => {
-    playFromStart(roundEndPlayer);
-  }, [roundEndPlayer]);
+    const mul = sessionVolumeRef.current;
+    if (mul <= 0) return;
+    playFromStart(roundEndPlayer, 0.9 * mul);
+  }, [roundEndPlayer, sessionVolumeRef]);
 
   const freestyleStart = useCallback(() => {
-    playFromStart(freestylePlayer);
-  }, [freestylePlayer]);
+    const mul = sessionVolumeRef.current;
+    if (mul <= 0) return;
+    playFromStart(freestylePlayer, 0.65 * mul);
+  }, [freestylePlayer, sessionVolumeRef]);
 
   const tenSecondWarning = useCallback(() => {
+    const mul = sessionVolumeRef.current;
+    if (mul <= 0) return;
     const now = Date.now();
     if (now - lastWarningRef.current < 800) {
       return;
     }
 
     lastWarningRef.current = now;
-    playFromStart(warningPlayer);
-  }, [warningPlayer]);
+    playFromStart(warningPlayer, 0.45 * mul);
+  }, [warningPlayer, sessionVolumeRef]);
 
   return { roundStart, roundEnd, freestyleStart, tenSecondWarning };
 }

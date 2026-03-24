@@ -44,6 +44,9 @@ export function useWorkout(config: EngineConfig | null) {
     engineRef.current = engine;
 
     const unsub = manager.onEvent((event: WorkoutEvent) => {
+      if (event.type !== 'tick') {
+        console.log('[workout] event:', event.type, event);
+      }
       switch (event.type) {
         case 'roundStart':
           setState(prev => ({
@@ -72,6 +75,7 @@ export function useWorkout(config: EngineConfig | null) {
         case 'restEnd':
           break;
         case 'action':
+          console.log('[workout] action →', event.action.id, event.action.label, `(type=${event.action.type}, audioSrc=${event.action.audioSrc ?? 'default'})`);
           setState(prev => ({
             ...prev,
             currentAction: event.action,
@@ -122,6 +126,11 @@ export function useWorkout(config: EngineConfig | null) {
     managerRef.current?.skipRest();
   }, []);
 
+  const skipRound = useCallback(() => {
+    managerRef.current?.skipRound();
+    setState(prev => ({ ...prev, isPaused: false }));
+  }, []);
+
   const stop = useCallback(() => {
     managerRef.current?.stop();
     setState({
@@ -137,5 +146,5 @@ export function useWorkout(config: EngineConfig | null) {
     });
   }, []);
 
-  return { ...state, start, pause, resume, skipRest, stop };
+  return { ...state, start, pause, resume, skipRest, skipRound, stop };
 }

@@ -16,6 +16,10 @@ function sanitizeSettings(raw: unknown): SetupSettings {
     roundDuration: candidate.roundDuration ?? DEFAULT_SETTINGS.roundDuration,
     totalRounds: candidate.totalRounds ?? DEFAULT_SETTINGS.totalRounds,
     restDuration: candidate.restDuration ?? DEFAULT_SETTINGS.restDuration,
+    audioCuesEnabled:
+      typeof candidate.audioCuesEnabled === 'boolean'
+        ? candidate.audioCuesEnabled
+        : DEFAULT_SETTINGS.audioCuesEnabled,
   };
 }
 

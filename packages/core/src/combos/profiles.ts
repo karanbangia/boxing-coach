@@ -9,8 +9,8 @@ const beginnerProfile: DifficultyProfile = {
   difficulty: 'beginner',
   comboPools: {
     initial: beginnerCombosA,
-    mid: beginnerCombosB,
-    late: beginnerCombosC,
+    mid: beginnerCombosA,
+    late: beginnerCombosA,
   },
   movementPools: {
     initial: basicMovement,

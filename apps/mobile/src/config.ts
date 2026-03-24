@@ -3,7 +3,10 @@ import type { Difficulty, EngineConfig } from '@boxing-coach/core';
 export type SetupSettings = Pick<
   EngineConfig,
   'difficulty' | 'roundDuration' | 'totalRounds' | 'restDuration'
->;
+> & {
+  /** When false, coach clips are not played (registry entries only). */
+  audioCuesEnabled: boolean;
+};
 
 export const DIFFICULTIES: { value: Difficulty; label: string; desc: string }[] = [
   { value: 'beginner', label: 'BEGINNER', desc: 'Jabs & crosses, slow pace' },
@@ -36,4 +39,5 @@ export const DEFAULT_SETTINGS: SetupSettings = {
   roundDuration: 120,
   totalRounds: 3,
   restDuration: 30,
+  audioCuesEnabled: true,
 };

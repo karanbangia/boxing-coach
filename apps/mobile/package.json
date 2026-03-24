@@ -4,6 +4,7 @@
   "main": "index.ts",
   "scripts": {
     "build:core": "pnpm --filter @boxing-coach/core build",
+    "generate:coach-registry": "node scripts/generate-coach-registry.mjs",
     "start": "pnpm run build:core && expo start",
     "android": "pnpm run build:core && expo start --android",
     "ios": "pnpm run build:core && expo start --ios",
