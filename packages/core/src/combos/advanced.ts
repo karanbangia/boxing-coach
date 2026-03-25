@@ -2,7 +2,7 @@ import type { Action } from '../types.js';
 
 export const advancedCombosA: Action[] = [
   { id: 'a-1-2-5-2', type: 'combo', label: '1-2-5-2', description: 'Jab - Cross - Lead Uppercut - Cross', difficulty: 'advanced', durationMs: 2000 },
-  { id: 'a-1-2-3-4-2', type: 'combo', label: '1-2-3-4-2', description: 'Jab - Cross - Lead Hook - Rear Hook - Cross', difficulty: 'advanced', durationMs: 2500 },
+  { id: 'a-1-2-3-4-2', type: 'combo', label: '1-2-3-4-2', description: 'Jab - Cross - Lead Hook - Rear Hook - Cross', difficulty: 'advanced', durationMs: 2200 },
   { id: 'a-5-6-2', type: 'combo', label: '5-6-2', description: 'Lead Uppercut - Rear Uppercut - Cross', difficulty: 'advanced', durationMs: 1500 },
   { id: 'a-3-6-3-2', type: 'combo', label: '3-6-3-2', description: 'Lead Hook - Rear Uppercut - Lead Hook - Cross', difficulty: 'advanced', durationMs: 2000 },
   { id: 'a-1-6-3-2', type: 'combo', label: '1-6-3-2', description: 'Jab - Rear Uppercut - Lead Hook - Cross', difficulty: 'advanced', durationMs: 2000 },
@@ -12,7 +12,7 @@ export const advancedCombosA: Action[] = [
   { id: 'a-3-6-3', type: 'combo', label: '3-6-3', description: 'Lead Hook - Rear Uppercut - Lead Hook', difficulty: 'advanced', durationMs: 1500 },
   { id: 'a-1-6-5-2', type: 'combo', label: '1-6-5-2', description: 'Jab - Rear Uppercut - Lead Uppercut - Cross', difficulty: 'advanced', durationMs: 2000 },
   { id: 'a-2-1-6-2', type: 'combo', label: '2-1-6-2', description: 'Cross - Jab (pull) - Rear Uppercut - Cross', difficulty: 'advanced', durationMs: 2000 },
-  { id: 'a-1-2-3-2-5', type: 'combo', label: '1-2-3-2-5', description: 'Jab - Cross - Hook - Cross - Lead Uppercut', difficulty: 'advanced', durationMs: 2500 },
+  { id: 'a-1-2-3-2-5', type: 'combo', label: '1-2-3-2-5', description: 'Jab - Cross - Hook - Cross - Lead Uppercut', difficulty: 'advanced', durationMs: 2200 },
   { id: 'a-3-3-2', type: 'combo', label: '3-3-2', description: 'Double Lead Hook - Cross', difficulty: 'advanced', durationMs: 1500 },
   { id: 'a-1-1-2-5', type: 'combo', label: '1-1-2-5', description: 'Double Jab - Cross - Lead Uppercut (step in)', difficulty: 'advanced', durationMs: 2000 },
   { id: 'a-6-2-3-2', type: 'combo', label: '6-2-3-2', description: 'Rear Uppercut - Cross - Lead Hook - Cross', difficulty: 'advanced', durationMs: 2000 },
