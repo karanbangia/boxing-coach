@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Difficulty, EngineConfig } from "@boxing-coach/core";
 
 export type StartWorkoutPayload = EngineConfig & { audioCuesEnabled: boolean };
@@ -149,6 +149,52 @@ export function SetupScreen({ onStart }: Props) {
     });
   }, [difficulty, roundDuration, totalRounds, restDuration, audioCuesEnabled]);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showMoreHint, setShowMoreHint] = useState(true);
+  const hasDismissedHintRef = useRef(false);
+  const canHint = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.matchMedia?.("(hover: none) and (pointer: coarse)").matches ??
+      false
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!canHint) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let raf = 0;
+    const evaluate = () => {
+      if (hasDismissedHintRef.current) {
+        setShowMoreHint(false);
+        return;
+      }
+      const overflow = el.scrollHeight - el.clientHeight > 8;
+      const atTop = el.scrollTop <= 2;
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
+      setShowMoreHint(overflow && atTop && !atBottom);
+    };
+
+    const onScroll = () => {
+      // Hide immediately on first interaction for clarity, and keep it dismissed.
+      hasDismissedHintRef.current = true;
+      setShowMoreHint(false);
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(evaluate);
+    };
+
+    evaluate();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", evaluate);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", evaluate);
+    };
+  }, [canHint]);
+
   const handleStart = () => {
     const tuning = loadTuning();
     const hasOverrides = Object.values(tuning).some((v) => v !== undefined);
@@ -163,7 +209,7 @@ export function SetupScreen({ onStart }: Props) {
   };
 
   return (
-    <div className="h-full flex flex-col px-6 py-8 max-w-md mx-auto">
+    <div className="h-full flex flex-col px-6 py-8 max-w-md mx-auto relative">
       <div className="mb-8">
         <h1 className="text-3xl font-black tracking-tight">BOXING</h1>
         <h1 className="text-3xl font-black tracking-tight text-[var(--color-accent)]">
@@ -174,7 +220,7 @@ export function SetupScreen({ onStart }: Props) {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" ref={scrollRef}>
         <OptionGroup
           label="Difficulty"
           options={DIFFICULTIES}
@@ -227,6 +273,35 @@ export function SetupScreen({ onStart }: Props) {
           </p>
         </div>
       </div>
+
+      {canHint && showMoreHint && (
+        <div className="pointer-events-none mt-1 mb-2">
+          <div className="flex items-center justify-center gap-2 text-[11px] font-semibold tracking-widest text-[var(--color-text-muted)] uppercase">
+            <span className="animate-swipe-up-hint inline-flex items-center gap-2">
+              <span>Swipe up for more</span>
+              <span aria-hidden className="inline-flex items-center leading-none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M7 14l5-5 5 5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M7 19l5-5 5 5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.7"
+                  />
+                </svg>
+              </span>
+            </span>
+          </div>
+        </div>
+      )}
 
       <button
         onClick={handleStart}
