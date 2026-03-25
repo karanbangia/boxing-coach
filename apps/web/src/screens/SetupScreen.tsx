@@ -220,88 +220,93 @@ export function SetupScreen({ onStart }: Props) {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto" ref={scrollRef}>
-        <OptionGroup
-          label="Difficulty"
-          options={DIFFICULTIES}
-          value={difficulty}
-          onChange={setDifficulty}
-        />
-        <OptionGroup
-          label="Round Duration"
-          options={ROUND_DURATIONS}
-          value={roundDuration}
-          onChange={setRoundDuration}
-        />
-        <OptionGroup
-          label="Rounds"
-          options={TOTAL_ROUNDS}
-          value={totalRounds}
-          onChange={setTotalRounds}
-        />
-        <OptionGroup
-          label="Rest Between Rounds"
-          options={REST_DURATIONS}
-          value={restDuration}
-          onChange={setRestDuration}
-        />
+      <div className="flex-1 relative overflow-hidden">
+        <div className="h-full overflow-y-auto pb-10" ref={scrollRef}>
+          <OptionGroup
+            label="Difficulty"
+            options={DIFFICULTIES}
+            value={difficulty}
+            onChange={setDifficulty}
+          />
+          <OptionGroup
+            label="Round Duration"
+            options={ROUND_DURATIONS}
+            value={roundDuration}
+            onChange={setRoundDuration}
+          />
+          <OptionGroup
+            label="Rounds"
+            options={TOTAL_ROUNDS}
+            value={totalRounds}
+            onChange={setTotalRounds}
+          />
+          <OptionGroup
+            label="Rest Between Rounds"
+            options={REST_DURATIONS}
+            value={restDuration}
+            onChange={setRestDuration}
+          />
 
-        <div className="mb-6">
-          <div className="text-xs font-semibold tracking-widest text-[var(--color-text-muted)] mb-3 uppercase">
-            Audio
-          </div>
-          <button
-            type="button"
-            onClick={() => setAudioCuesEnabled((v) => !v)}
-            className={`
-              w-full px-4 py-3 rounded-xl text-sm font-bold text-left transition-all flex items-center justify-between
-              ${
-                audioCuesEnabled
-                  ? "bg-[var(--color-accent)] text-white shadow-lg shadow-red-500/20"
-                  : "bg-[var(--color-surface-2)] text-[var(--color-text-muted)]"
-              }
-            `}
-          >
-            <span>Audio cues</span>
-            <span className="text-xs font-mono opacity-90">
-              {audioCuesEnabled ? "ON" : "OFF"}
-            </span>
-          </button>
-          <p className="text-xs text-[var(--color-text-muted)] mt-2">
-            Spoken combo callouts when clips are available. Round bells still play
-            unless you mute in the workout screen.
-          </p>
-        </div>
-      </div>
-
-      {canHint && showMoreHint && (
-        <div className="pointer-events-none mt-1 mb-2">
-          <div className="flex items-center justify-center gap-2 text-[11px] font-semibold tracking-widest text-[var(--color-text-muted)] uppercase">
-            <span className="animate-swipe-up-hint inline-flex items-center gap-2">
-              <span>Swipe up for more</span>
-              <span aria-hidden className="inline-flex items-center leading-none">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M7 14l5-5 5 5"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M7 19l5-5 5 5"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity="0.7"
-                  />
-                </svg>
+          <div className="mb-6">
+            <div className="text-xs font-semibold tracking-widest text-[var(--color-text-muted)] mb-3 uppercase">
+              Audio
+            </div>
+            <button
+              type="button"
+              onClick={() => setAudioCuesEnabled((v) => !v)}
+              className={`
+                w-full px-4 py-3 rounded-xl text-sm font-bold text-left transition-all flex items-center justify-between
+                ${
+                  audioCuesEnabled
+                    ? "bg-[var(--color-accent)] text-white shadow-lg shadow-red-500/20"
+                    : "bg-[var(--color-surface-2)] text-[var(--color-text-muted)]"
+                }
+              `}
+            >
+              <span>Audio cues</span>
+              <span className="text-xs font-mono opacity-90">
+                {audioCuesEnabled ? "ON" : "OFF"}
               </span>
-            </span>
+            </button>
+            <p className="text-xs text-[var(--color-text-muted)] mt-2">
+              Spoken combo callouts when clips are available. Round bells still
+              play unless you mute in the workout screen.
+            </p>
           </div>
         </div>
-      )}
+
+        {canHint && showMoreHint && (
+          <div className="pointer-events-none absolute left-0 right-0 bottom-2">
+            <div className="flex items-center justify-center gap-2 text-[11px] font-semibold tracking-widest text-[var(--color-text-muted)] uppercase">
+              <span className="animate-swipe-up-hint inline-flex items-center gap-2">
+                <span>Swipe up for more</span>
+                <span
+                  aria-hidden
+                  className="inline-flex items-center leading-none"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M7 14l5-5 5 5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M7 19l5-5 5 5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity="0.7"
+                    />
+                  </svg>
+                </span>
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
       <button
         onClick={handleStart}
