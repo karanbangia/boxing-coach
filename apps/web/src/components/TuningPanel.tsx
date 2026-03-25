@@ -92,7 +92,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
         label="Movement Every N"
         hint="movement command every Nth action"
         value={tuning.movementEveryN}
-        defaultValue={8}
+        defaultValue={10}
         min={2}
         max={10}
         step={1}
@@ -102,7 +102,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
         label="Defense Every N"
         hint="defense command every Nth action"
         value={tuning.defenseEveryN}
-        defaultValue={7}
+        defaultValue={15}
         min={2}
         max={15}
         step={1}
