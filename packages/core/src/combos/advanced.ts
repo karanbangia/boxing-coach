@@ -30,13 +30,15 @@ export const advancedCombosB: Action[] = [
   { id: 'a-roll-6-3-2', type: 'combo', label: 'ROLL-6-3-2', description: 'Roll - Rear Uppercut - Lead Hook - Cross', difficulty: 'advanced', durationMs: 2200 },
   { id: 'a-slip-slip-1-2-3', type: 'combo', label: 'SLIP-SLIP-1-2-3', description: 'Double Slip - Jab - Cross - Hook', difficulty: 'advanced', durationMs: 2600 },
   { id: 'a-1-2-b1-b2-3-2', type: 'combo', label: '1-2-B1-B2-3-2', description: 'Jab - Cross - Body Jab - Body Cross - Hook - Cross', difficulty: 'advanced', durationMs: 3000 },
-  { id: 'a-1-2-3-roll-3-2', type: 'combo', label: '1-2-3-ROLL-3-2', description: 'Jab - Cross - Hook - Roll - Hook - Cross', difficulty: 'advanced', durationMs: 3200 },
+  { id: 'a-1-2-3-roll-left-3-2', type: 'combo', label: '1-2-3-ROLL-LEFT-3-2', description: 'Jab - Cross - Hook - Roll - Hook - Cross', difficulty: 'advanced', durationMs: 3200 },
+  { id: 'a-1-2-3-roll-right-3-2', type: 'combo', label: '1-2-3-ROLL-RIGHT-3-2', description: 'Jab - Cross - Hook - Roll - Hook - Cross', difficulty: 'advanced', durationMs: 3200 },
   { id: 'a-5-2-3-2', type: 'combo', label: '5-2-3-2', description: 'Lead Uppercut - Cross - Lead Hook - Cross', difficulty: 'advanced', durationMs: 2000 },
   { id: 'a-1-2-3-4-5-6', type: 'combo', label: '1-2-3-4-5-6', description: 'Jab - Cross - Lead Hook - Rear Hook - Lead Upper - Rear Upper', difficulty: 'advanced', durationMs: 3000 },
   { id: 'a-feint-1-2-3', type: 'combo', label: 'FEINT-1-2-3', description: 'Feint - Jab - Cross - Hook (commit to body)', difficulty: 'advanced', durationMs: 2200 },
   { id: 'a-1-b3-2', type: 'combo', label: '1-B3-2', description: 'Jab - Body Hook - Cross (step to the outside)', difficulty: 'advanced', durationMs: 1500 },
   { id: 'a-slip-2-5-2', type: 'combo', label: 'SLIP-2-5-2', description: 'Slip - Cross - Lead Uppercut - Cross', difficulty: 'advanced', durationMs: 2200 },
-  { id: 'a-pivot-3-2', type: 'combo', label: 'PIVOT-3-2', description: 'Jab - Pivot outside - Lead Hook - Cross', difficulty: 'advanced', durationMs: 2200 },
+  { id: 'a-pivot-left-3-2', type: 'combo', label: 'PIVOT-LEFT-3-2', description: 'Jab - Pivot left outside - Lead Hook - Cross', difficulty: 'advanced', durationMs: 2200 },
+  { id: 'a-pivot-right-3-2', type: 'combo', label: 'PIVOT-RIGHT-3-2', description: 'Jab - Pivot right outside - Lead Hook - Cross', difficulty: 'advanced', durationMs: 2200 },
   { id: 'a-doublebody-5-5-2', type: 'combo', label: 'B5-B5-2', description: 'Double Lead Uppercut to body - Cross (close range)', difficulty: 'advanced', durationMs: 1500 },
 ];
 
