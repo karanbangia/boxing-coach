@@ -92,7 +92,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
         label="Movement Every N"
         hint="movement command every Nth action"
         value={tuning.movementEveryN}
-        defaultValue={4}
+        defaultValue={8}
         min={2}
         max={10}
         step={1}
@@ -102,7 +102,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
         label="Defense Every N"
         hint="defense command every Nth action"
         value={tuning.defenseEveryN}
-        defaultValue={5}
+        defaultValue={7}
         min={2}
         max={15}
         step={1}
@@ -112,7 +112,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
         label="Freestyle Threshold"
         hint="seconds before round end to start freestyle"
         value={tuning.freestyleThreshold}
-        defaultValue={12}
+        defaultValue={10}
         min={0}
         max={60}
         step={1}
@@ -123,7 +123,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
         label="Freestyle Interval"
         hint="ms between actions during freestyle"
         value={tuning.freestyleIntervalMs}
-        defaultValue={1200}
+        defaultValue={1000}
         min={400}
         max={3000}
         step={100}
@@ -134,7 +134,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
         label="Jitter"
         hint="random +/- variation on interval"
         value={tuning.jitterMs}
-        defaultValue={200}
+        defaultValue={300}
         min={0}
         max={2000}
         step={50}

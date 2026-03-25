@@ -14,8 +14,8 @@ export const advancedMovement: Action[] = [
   { id: 'm-lateral', type: 'movement', label: 'LATERAL STEP', description: 'Quick lateral step', difficulty: 'intermediate', durationMs: 800 },
   { id: 'm-level-change', type: 'movement', label: 'LEVEL CHANGE', description: 'Drop levels and come back', difficulty: 'intermediate', durationMs: 1200 },
   { id: 'm-in-out', type: 'movement', label: 'IN AND OUT', description: 'Step in, throw, step out', difficulty: 'advanced', durationMs: 1600 },
-  { id: 'm-pivot', type: 'movement', label: 'PIVOT', description: 'Pivot off center line', difficulty: 'advanced', durationMs: 1200 },
-  { id: 'm-angle', type: 'movement', label: 'CUT THE ANGLE', description: 'Step to an angle', difficulty: 'advanced', durationMs: 1200 },
-  { id: 'm-switch', type: 'movement', label: 'SWITCH STANCE', description: 'Quick stance switch', difficulty: 'advanced', durationMs: 800 },
+  { id: 'm-pivot-left', type: 'movement', label: 'PIVOT LEFT', description: 'Pivot left off center line', difficulty: 'advanced', durationMs: 1200 },
+  { id: 'm-pivot-right', type: 'movement', label: 'PIVOT RIGHT', description: 'Pivot right off center line', difficulty: 'advanced', durationMs: 1200 },
+  { id: 'm-switch-stance', type: 'movement', label: 'SWITCH STANCE', description: 'Quick stance switch', difficulty: 'advanced', durationMs: 800 },
   { id: 'm-feint-move', type: 'movement', label: 'FEINT AND MOVE', description: 'Feint then reposition', difficulty: 'advanced', durationMs: 1200 },
 ];

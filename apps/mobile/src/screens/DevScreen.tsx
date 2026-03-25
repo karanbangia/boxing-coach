@@ -257,7 +257,7 @@ export function DevScreen({ tuning, onChange, onBack }: Props) {
           label="Movement Every N"
           hint="movement callouts every Nth action"
           value={tuning.movementEveryN}
-          defaultValue={4}
+          defaultValue={8}
           min={2}
           max={10}
           step={1}
@@ -268,7 +268,7 @@ export function DevScreen({ tuning, onChange, onBack }: Props) {
           label="Defense Every N"
           hint="defense callouts every Nth action"
           value={tuning.defenseEveryN}
-          defaultValue={5}
+          defaultValue={7}
           min={2}
           max={15}
           step={1}
@@ -283,7 +283,7 @@ export function DevScreen({ tuning, onChange, onBack }: Props) {
           label="Freestyle Threshold"
           hint="seconds before round end to switch into freestyle"
           value={tuning.freestyleThreshold}
-          defaultValue={12}
+          defaultValue={10}
           min={0}
           max={60}
           step={1}
@@ -295,7 +295,7 @@ export function DevScreen({ tuning, onChange, onBack }: Props) {
           label="Freestyle Interval"
           hint="ms between freestyle actions"
           value={tuning.freestyleIntervalMs}
-          defaultValue={1200}
+          defaultValue={1000}
           min={400}
           max={3000}
           step={100}
@@ -307,7 +307,7 @@ export function DevScreen({ tuning, onChange, onBack }: Props) {
           label="Jitter"
           hint="random variation added around the interval"
           value={tuning.jitterMs}
-          defaultValue={200}
+          defaultValue={300}
           min={0}
           max={2000}
           step={50}

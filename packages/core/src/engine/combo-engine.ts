@@ -12,14 +12,12 @@ function shuffle<T>(arr: T[]): T[] {
 
 const DEFAULT_HISTORY_SIZE = 4;
 const DEFAULT_JITTER_MS = 500;
-const DEFAULT_FREESTYLE_INTERVAL_MS = 1200;
+const DEFAULT_FREESTYLE_INTERVAL_MS = 1000;
 const DEFAULT_ACTION_DURATION_MS = 1500;
 
 const FREESTYLE_ACTIONS: Action[] = [
-  { id: 'fs-1-2', type: 'combo', label: '1-2  1-2  1-2', description: 'Nonstop Jab - Cross', difficulty: 'beginner', durationMs: 1000, audioSrc: '/audio/coach/b-1-2.mp3' },
-  { id: 'fs-1-1-2', type: 'combo', label: '1-1-2  1-1-2', description: 'Nonstop Jab - Jab - Cross', difficulty: 'beginner', durationMs: 1400, audioSrc: '/audio/coach/b-1-1-1.mp3' },
-  { id: 'fs-freestyle', type: 'combo', label: 'FREESTYLE', description: 'Let your hands go!', difficulty: 'beginner', durationMs: 1000, audioSrc: '/audio/coach/b-2-1.mp3' },
-  { id: 'fs-speed', type: 'combo', label: 'SPEED  1-2-1-2', description: 'Fast hands — empty the tank', difficulty: 'beginner', durationMs: 1000, audioSrc: '/audio/coach/b-1-2.mp3' },
+  { id: 'fs-1-2', type: 'combo', label: '1-2  1-2  1-2', description: 'Nonstop Jab - Cross', difficulty: 'beginner', durationMs: 1000 },
+  { id: 'fs-freestyle', type: 'combo', label: 'FREESTYLE', description: 'Let your hands go!', difficulty: 'beginner', durationMs: 1000 },
 ];
 
 export class ComboEngine {
