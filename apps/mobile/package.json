@@ -9,7 +9,7 @@
     "android": "pnpm run build:core && expo start --android",
     "ios": "pnpm run build:core && expo start --ios",
     "web": "pnpm run build:core && expo start --web",
-    "build": "pnpm run build:core && expo export --platform ios --output-dir dist",
+    "build": "pnpm run build:core && pnpm run generate:coach-registry && expo export --platform ios --output-dir dist",
     "clean": "rm -rf dist .expo .turbo"
   },
   "dependencies": {

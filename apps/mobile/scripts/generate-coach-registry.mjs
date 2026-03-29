@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Writes src/lib/coachRegistry.generated.ts with require() for each MP3 in packages/coach-audio.
+ * Writes src/lib/coachRegistry.generated.ts with require() for each MP3 in packages/coach-audio
+ * (paths point at that package so Metro does not depend on apps/mobile/assets/audio/coach).
  * Run from repo root: pnpm --filter @boxing-coach/mobile run generate:coach-registry
  */
 import { readdirSync, writeFileSync, mkdirSync, existsSync } from 'fs';
@@ -23,7 +24,7 @@ function main() {
   }
 
   const lines = ids.map(
-    (id) => `  '${id}': require('../../assets/audio/coach/${id}.mp3'),`,
+    (id) => `  '${id}': require('../../../../packages/coach-audio/${id}.mp3'),`,
   );
 
   const body = `/**
