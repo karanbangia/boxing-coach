@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { EngineConfig } from '@boxing-coach/core';
+import { resolvePrepCountdownSeconds } from '@boxing-coach/core';
 import type { StartWorkoutPayload } from './screens/SetupScreen';
 import { useWorkout } from './hooks/useWorkout';
 import { useWakeLock } from './hooks/useWakeLock';
@@ -13,6 +14,7 @@ import { WorkoutScreen } from './screens/WorkoutScreen';
 import { RestScreen } from './screens/RestScreen';
 import { CompleteScreen } from './screens/CompleteScreen';
 import { DevScreen } from './screens/DevScreen';
+import { PrepScreen } from './screens/PrepScreen';
 
 function useHash() {
   return useSyncExternalStore(
@@ -33,6 +35,7 @@ export function App() {
 
 function MainApp() {
   const [config, setConfig] = useState<EngineConfig | null>(null);
+  const [prepSecondsLeft, setPrepSecondsLeft] = useState<number | null>(null);
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(true);
   const workout = useWorkout(config);
 
@@ -45,8 +48,10 @@ function MainApp() {
   const sounds = useSounds(sessionVolumeRef);
   const coach = useCoachVoice(sessionVolumeRef, audioCuesRef);
 
+  const inPrep =
+    Boolean(config && prepSecondsLeft !== null && prepSecondsLeft > 0 && workout.phase === 'idle');
   const isActive = workout.phase === 'round' || workout.phase === 'rest';
-  useWakeLock(isActive);
+  useWakeLock(isActive || inPrep);
 
   const prevPhaseRef = useRef(workout.phase);
   const prevRoundRef = useRef(workout.currentRound);
@@ -93,7 +98,7 @@ function MainApp() {
       lastKey: lastCoachActionKeyRef.current,
     };
 
-    if (workout.phase !== 'round') {
+    if (workout.phase !== 'round' || !config) {
       alog('effect:stop', ctx);
       lastCoachActionKeyRef.current = -1;
       coach.stopCoachAudio();
@@ -121,6 +126,7 @@ function MainApp() {
     lastCoachActionKeyRef.current = workout.actionKey;
     coach.playAction(workout.currentAction, workout.currentRound, workout.totalRounds);
   }, [
+    config,
     workout.phase,
     workout.isPaused,
     workout.actionKey,
@@ -143,13 +149,26 @@ function MainApp() {
     });
     setAudioCuesEnabled(cues);
     setConfig(engine);
+    setPrepSecondsLeft(resolvePrepCountdownSeconds(engine.tuning));
   }, []);
 
   useEffect(() => {
-    if (config && workout.phase === 'idle') {
-      workout.start();
-    }
+    if (!config) setPrepSecondsLeft(null);
   }, [config]);
+
+  useEffect(() => {
+    if (prepSecondsLeft === null || prepSecondsLeft <= 0) return;
+    const t = window.setTimeout(() => {
+      setPrepSecondsLeft((s) => (s === null || s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearTimeout(t);
+  }, [prepSecondsLeft]);
+
+  useLayoutEffect(() => {
+    if (!config || workout.phase !== 'idle') return;
+    if (prepSecondsLeft === null || prepSecondsLeft > 0) return;
+    workout.start();
+  }, [config, workout.phase, prepSecondsLeft, workout.start]);
 
   const handleRestart = useCallback(() => {
     lastCoachActionKeyRef.current = -1;
@@ -165,8 +184,23 @@ function MainApp() {
     setConfig(null);
   }, [workout, coach]);
 
-  if (!config || workout.phase === 'idle') {
+  if (!config) {
     return <SetupScreen onStart={handleStart} />;
+  }
+
+  if (workout.phase === 'idle' && prepSecondsLeft !== null && prepSecondsLeft > 0) {
+    return (
+      <PrepScreen
+        secondsLeft={prepSecondsLeft}
+        totalRounds={config.totalRounds}
+        onSkip={() => setPrepSecondsLeft(0)}
+        onCancel={handleStop}
+      />
+    );
+  }
+
+  if (workout.phase === 'idle') {
+    return null;
   }
 
   if (workout.phase === 'complete') {

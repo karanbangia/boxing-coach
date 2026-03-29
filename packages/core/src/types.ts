@@ -53,6 +53,17 @@ export interface TuningOverrides {
   freestyleThreshold?: number;
   freestyleIntervalMs?: number;
   jitterMs?: number;
+  /** Countdown after Start before round 1 (e.g. gloves). 0 = skip. Default when unset: 10s. */
+  prepCountdownSeconds?: number;
+}
+
+/** Default glove-prep countdown when `prepCountdownSeconds` is not set in tuning. */
+export const DEFAULT_PREP_COUNTDOWN_SECONDS = 10;
+
+export function resolvePrepCountdownSeconds(tuning?: TuningOverrides): number {
+  const v = tuning?.prepCountdownSeconds;
+  if (v === undefined) return DEFAULT_PREP_COUNTDOWN_SECONDS;
+  return Math.max(0, Math.floor(v));
 }
 
 export interface EngineConfig {

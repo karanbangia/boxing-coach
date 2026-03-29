@@ -19,10 +19,22 @@ const REPO_ROOT = join(__dirname, '..', '..', '..');
 const COACH_DIR = join(REPO_ROOT, 'packages', 'coach-audio');
 
 const FREESTYLE_ACTIONS: Action[] = [
-  { id: 'fs-1-2', type: 'combo', label: '1-2  1-2  1-2', description: 'Nonstop Jab - Cross', difficulty: 'beginner', durationMs: 1000 },
-  { id: 'fs-1-1-2', type: 'combo', label: '1-1-2  1-1-2', description: 'Nonstop Jab - Jab - Cross', difficulty: 'beginner', durationMs: 1400 },
-  { id: 'fs-freestyle', type: 'combo', label: 'FREESTYLE', description: 'Let your hands go!', difficulty: 'beginner', durationMs: 1000 },
-  { id: 'fs-speed', type: 'combo', label: 'SPEED  1-2-1-2', description: 'Fast hands — empty the tank', difficulty: 'beginner', durationMs: 1000 },
+  {
+    id: 'fs-finisher-jab-cross',
+    type: 'combo',
+    label: 'FINISH — 1-2',
+    description: 'Nonstop jab–cross — empty the tank.',
+    difficulty: 'beginner',
+    durationMs: 15_000,
+  },
+  {
+    id: 'fs-finisher-hooks',
+    type: 'combo',
+    label: 'FINISH — HOOKS',
+    description: 'Body and head hooks — fast to the bell.',
+    difficulty: 'beginner',
+    durationMs: 15_000,
+  },
 ];
 
 function flattenActions(): Map<string, Action> {

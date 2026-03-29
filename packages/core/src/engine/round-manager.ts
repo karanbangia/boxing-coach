@@ -20,6 +20,7 @@ export class RoundManager {
   /** Remaining ms until next action after pause; used on resume so we don't re-emit a new action. */
   private pausedActionDelayMs = 0;
   private inFreestyle = false;
+  private freestyleFinisherEmitted = false;
 
   constructor(config: EngineConfig) {
     this.config = config;
@@ -68,11 +69,15 @@ export class RoundManager {
         this.emit({ type: 'roundEnd', round: this.currentRound });
         this.startRest();
       }, this.pausedTimeRemaining * 1000);
-      const delayMs = this.pausedActionDelayMs > 0
-        ? this.pausedActionDelayMs
-        : this.engine.getInterval(this.currentRound, this.inFreestyle);
-      this.pausedActionDelayMs = 0;
-      this.scheduleNextAction(delayMs);
+      if (!(this.inFreestyle && this.freestyleFinisherEmitted)) {
+        const delayMs = this.pausedActionDelayMs > 0
+          ? this.pausedActionDelayMs
+          : this.engine.getInterval(this.currentRound, this.inFreestyle);
+        this.pausedActionDelayMs = 0;
+        this.scheduleNextAction(delayMs);
+      } else {
+        this.pausedActionDelayMs = 0;
+      }
     } else if (this.phase === 'rest') {
       this.roundTimerId = setTimeout(() => {
         this.emit({ type: 'restEnd' });
@@ -105,6 +110,8 @@ export class RoundManager {
     this.phase = 'idle';
     this.currentRound = 0;
     this.pausedAt = null;
+    this.inFreestyle = false;
+    this.freestyleFinisherEmitted = false;
   }
 
   getPhase(): WorkoutPhase {
@@ -136,6 +143,7 @@ export class RoundManager {
 
     this.phase = 'round';
     this.inFreestyle = false;
+    this.freestyleFinisherEmitted = false;
     this.phaseDuration = this.config.roundDuration;
     this.emit({ type: 'roundStart', round: this.currentRound });
 
@@ -172,6 +180,10 @@ export class RoundManager {
   private emitNextAction(): void {
     if (this.phase !== 'round' || this.pausedAt !== null) return;
 
+    if (this.inFreestyle && this.freestyleFinisherEmitted) {
+      return;
+    }
+
     const remaining = this.getTimeRemaining();
     const threshold = this.engine.getFreestyleThreshold();
     const shouldFreestyle = remaining <= threshold && remaining > 0;
@@ -179,14 +191,16 @@ export class RoundManager {
     if (shouldFreestyle && !this.inFreestyle) {
       this.inFreestyle = true;
       this.emit({ type: 'freestyleStart' });
+      const action = this.engine.getFreestyleAction();
+      this.freestyleFinisherEmitted = true;
+      this.emit({ type: 'action', action });
+      return;
     }
 
-    const action = this.inFreestyle
-      ? this.engine.getFreestyleAction()
-      : this.engine.getNextAction(this.currentRound);
+    const action = this.engine.getNextAction(this.currentRound);
     this.emit({ type: 'action', action });
 
-    const interval = this.engine.getInterval(this.currentRound, this.inFreestyle, action);
+    const interval = this.engine.getInterval(this.currentRound, false, action);
     this.scheduleNextAction(interval);
   }
 

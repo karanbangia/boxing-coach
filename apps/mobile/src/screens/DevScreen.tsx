@@ -281,7 +281,7 @@ export function DevScreen({ tuning, onChange, onBack }: Props) {
         />
         <SliderRow
           label="Freestyle Threshold"
-          hint="seconds before round end to switch into freestyle"
+          hint="override only: default 15s before round end (all round lengths)"
           value={tuning.freestyleThreshold}
           defaultValue={10}
           min={0}
@@ -293,7 +293,7 @@ export function DevScreen({ tuning, onChange, onBack }: Props) {
         />
         <SliderRow
           label="Freestyle Interval"
-          hint="ms between freestyle actions"
+          hint="legacy; ~15s finisher clips"
           value={tuning.freestyleIntervalMs}
           defaultValue={1000}
           min={400}
@@ -313,6 +313,18 @@ export function DevScreen({ tuning, onChange, onBack }: Props) {
           step={50}
           unit="ms"
           onChange={set('jitterMs')}
+          onDragStateChange={setIsDraggingSlider}
+        />
+        <SliderRow
+          label="Start countdown"
+          hint="seconds after Start before round 1 (gloves); 0 = skip"
+          value={tuning.prepCountdownSeconds}
+          defaultValue={10}
+          min={0}
+          max={120}
+          step={1}
+          unit="s"
+          onChange={set('prepCountdownSeconds')}
           onDragStateChange={setIsDraggingSlider}
         />
 

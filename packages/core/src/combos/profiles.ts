@@ -1,6 +1,6 @@
 import type { Difficulty, DifficultyProfile } from '../types.js';
 import { beginnerCombosA, beginnerCombosB, beginnerCombosC } from './beginner.js';
-import { intermediateCombosA, intermediateCombosB } from './intermediate.js';
+import { intermediateCombosA, intermediateCombosB, intermediateCombosC } from './intermediate.js';
 import { advancedCombosA, advancedCombosB, proCombos } from './advanced.js';
 import { basicMovement, advancedMovement } from './movement.js';
 import { basicDefense, advancedDefense } from './defense.js';
@@ -27,9 +27,9 @@ const beginnerProfile: DifficultyProfile = {
 const intermediateProfile: DifficultyProfile = {
   difficulty: 'intermediate',
   comboPools: {
-    initial: [...beginnerCombosA, ...beginnerCombosB],
-    mid: intermediateCombosA,
-    late: intermediateCombosB,
+    initial: [...beginnerCombosA, ...intermediateCombosA],
+    mid: [...intermediateCombosA, ...intermediateCombosB],
+    late: [...intermediateCombosB, ...intermediateCombosC],
   },
   movementPools: {
     initial: basicMovement,
@@ -46,9 +46,9 @@ const intermediateProfile: DifficultyProfile = {
 const advancedProfile: DifficultyProfile = {
   difficulty: 'advanced',
   comboPools: {
-    initial: [...beginnerCombosA, ...beginnerCombosB],
-    mid: [...intermediateCombosA, ...advancedCombosA],
-    late: [...intermediateCombosB, ...advancedCombosB],
+    initial: [...beginnerCombosA, ...intermediateCombosA],
+    mid: [...intermediateCombosB, ...intermediateCombosC],
+    late: [...intermediateCombosC, ...advancedCombosA, ...advancedCombosB],
   },
   movementPools: {
     initial: basicMovement,
@@ -65,9 +65,9 @@ const advancedProfile: DifficultyProfile = {
 const proProfile: DifficultyProfile = {
   difficulty: 'pro',
   comboPools: {
-    initial: [...advancedCombosA, ...advancedCombosB],
-    mid: [...intermediateCombosA, ...advancedCombosB],
-    late: proCombos,
+    initial: [...beginnerCombosA, ...intermediateCombosA],
+    mid: [...advancedCombosA, ...intermediateCombosC, ...intermediateCombosA],
+    late: [...advancedCombosB, ...advancedCombosA, ...proCombos],
   },
   movementPools: {
     initial: advancedMovement,

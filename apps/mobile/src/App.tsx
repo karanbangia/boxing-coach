@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import type { EngineConfig } from '@boxing-coach/core';
+import { resolvePrepCountdownSeconds } from '@boxing-coach/core';
 import type { SetupSettings } from './config';
 import { useStoredSettings } from './hooks/useStoredSettings';
 import { useSounds } from './hooks/useSounds';
@@ -13,6 +14,7 @@ import { useWorkout } from './hooks/useWorkout';
 import { CompleteScreen } from './screens/CompleteScreen';
 import { DevScreen } from './screens/DevScreen';
 import { RestScreen } from './screens/RestScreen';
+import { PrepScreen } from './screens/PrepScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { WorkoutScreen } from './screens/WorkoutScreen';
 
@@ -20,6 +22,7 @@ export function App() {
   const { settings, updateSettings, isReady: settingsReady } = useStoredSettings();
   const { tuning, setTuning, isReady: tuningReady } = useStoredTuning();
   const [config, setConfig] = useState<EngineConfig | null>(null);
+  const [prepSecondsLeft, setPrepSecondsLeft] = useState<number | null>(null);
   const [showDevScreen, setShowDevScreen] = useState(false);
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(settings.audioCuesEnabled);
   const workout = useWorkout(config);
@@ -35,8 +38,10 @@ export function App() {
 
   const isReady = settingsReady && tuningReady && session.ready;
 
+  const inPrep =
+    Boolean(config && prepSecondsLeft !== null && prepSecondsLeft > 0 && workout.phase === 'idle');
   const isActive = workout.phase === 'round' || workout.phase === 'rest';
-  useWakeLock(isActive);
+  useWakeLock(isActive || inPrep);
 
   const prevPhaseRef = useRef(workout.phase);
   const prevRoundRef = useRef(workout.currentRound);
@@ -107,7 +112,7 @@ export function App() {
   }, [workout.phase, workout.isPaused, coach]);
 
   useEffect(() => {
-    if (workout.phase !== 'round') {
+    if (workout.phase !== 'round' || !config) {
       lastCoachActionKeyRef.current = -1;
       return;
     }
@@ -117,6 +122,7 @@ export function App() {
     coach.playAction(workout.currentAction, workout.currentRound, workout.totalRounds);
   }, [
     coach,
+    config,
     workout.actionKey,
     workout.currentAction,
     workout.currentRound,
@@ -130,22 +136,36 @@ export function App() {
       lastCoachActionKeyRef.current = -1;
       setAudioCuesEnabled(s.audioCuesEnabled);
       const hasOverrides = Object.values(tuning).some(value => value !== undefined);
-      setConfig({
+      const engine: EngineConfig = {
         difficulty: s.difficulty,
         roundDuration: s.roundDuration,
         totalRounds: s.totalRounds,
         restDuration: s.restDuration,
         ...(hasOverrides ? { tuning } : {}),
-      });
+      };
+      setConfig(engine);
+      setPrepSecondsLeft(resolvePrepCountdownSeconds(engine.tuning));
     },
     [tuning],
   );
 
   useEffect(() => {
-    if (config && workout.phase === 'idle') {
-      workout.start();
-    }
-  }, [config, workout.phase, workout.start]);
+    if (!config) setPrepSecondsLeft(null);
+  }, [config]);
+
+  useEffect(() => {
+    if (prepSecondsLeft === null || prepSecondsLeft <= 0) return;
+    const t = setTimeout(() => {
+      setPrepSecondsLeft(s => (s === null || s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [prepSecondsLeft]);
+
+  useLayoutEffect(() => {
+    if (!config || workout.phase !== 'idle') return;
+    if (prepSecondsLeft === null || prepSecondsLeft > 0) return;
+    workout.start();
+  }, [config, workout.phase, prepSecondsLeft, workout.start]);
 
   const handleRestart = useCallback(() => {
     lastCoachActionKeyRef.current = -1;
@@ -165,7 +185,7 @@ export function App() {
     <View style={{ flex: 1 }}>
       <StatusBar style="light" />
 
-      {!config || workout.phase === 'idle' ? (
+      {!config ? (
         showDevScreen ? (
           <DevScreen
             tuning={tuning}
@@ -181,6 +201,15 @@ export function App() {
             onOpenDev={() => setShowDevScreen(true)}
           />
         )
+      ) : workout.phase === 'idle' && prepSecondsLeft !== null && prepSecondsLeft > 0 ? (
+        <PrepScreen
+          secondsLeft={prepSecondsLeft}
+          totalRounds={config.totalRounds}
+          onSkip={() => setPrepSecondsLeft(0)}
+          onCancel={handleStop}
+        />
+      ) : workout.phase === 'idle' ? (
+        <View style={{ flex: 1, backgroundColor: '#0a0a0a' }} />
       ) : workout.phase === 'complete' ? (
         <CompleteScreen
           totalRounds={config.totalRounds}

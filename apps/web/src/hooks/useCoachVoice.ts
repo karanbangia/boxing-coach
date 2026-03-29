@@ -1,4 +1,5 @@
 import type { Action } from '@boxing-coach/core';
+import { isFreestyleFinisherId } from '@boxing-coach/core';
 import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import { alog } from '../lib/audioLog';
 
@@ -83,7 +84,8 @@ export function useCoachVoice(
       return;
     }
 
-    const rate = roundPlaybackRate(currentRound, totalRounds);
+    const isFinisher = isFreestyleFinisherId(action.id);
+    const rate = isFinisher ? 1 : roundPlaybackRate(currentRound, totalRounds);
 
     alog('applyClip:start', {
       label, actionId: action.id, actionType: action.type, url, volume: vol, playbackRate: rate,
@@ -124,6 +126,10 @@ export function useCoachVoice(
     alog('stop', {}, el);
     el.pause();
     el.currentTime = 0;
+    if (lastErrCbRef.current) {
+      el.removeEventListener('error', lastErrCbRef.current);
+      lastErrCbRef.current = null;
+    }
     el.removeAttribute('src');
     el.load();
   }, []);

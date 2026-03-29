@@ -626,24 +626,14 @@
       "path": "packages/coach-audio/p-counter-pivot-2-6-3.mp3"
     },
     {
-      "id": "fs-1-2",
-      "text": "Nonstop Jab - Cross",
-      "path": "packages/coach-audio/fs-1-2.mp3"
+      "id": "fs-finisher-jab-cross",
+      "text": "Nonstop jab cross jab cross — burn out the round.",
+      "path": "packages/coach-audio/fs-finisher-jab-cross.mp3"
     },
     {
-      "id": "fs-1-1-2",
-      "text": "Nonstop Jab - Jab - Cross",
-      "path": "packages/coach-audio/fs-1-1-2.mp3"
-    },
-    {
-      "id": "fs-freestyle",
-      "text": "Let your hands go!",
-      "path": "packages/coach-audio/fs-freestyle.mp3"
-    },
-    {
-      "id": "fs-speed",
-      "text": "Fast hands — empty the tank",
-      "path": "packages/coach-audio/fs-speed.mp3"
+      "id": "fs-finisher-hooks",
+      "text": "Body hooks and head hooks — fast to the bell.",
+      "path": "packages/coach-audio/fs-finisher-hooks.mp3"
     }
   ]
 }

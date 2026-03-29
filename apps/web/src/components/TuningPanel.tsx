@@ -110,7 +110,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
       />
       <SliderRow
         label="Freestyle Threshold"
-        hint="seconds before round end to start freestyle"
+        hint="override only: default is 15s before round end (all round lengths)"
         value={tuning.freestyleThreshold}
         defaultValue={10}
         min={0}
@@ -121,7 +121,7 @@ export function TuningPanel({ tuning, onChange }: Props) {
       />
       <SliderRow
         label="Freestyle Interval"
-        hint="ms between actions during freestyle"
+        hint="legacy; freestyle uses ~15s finisher clips (unused in freestyle mode)"
         value={tuning.freestyleIntervalMs}
         defaultValue={1000}
         min={400}
@@ -140,6 +140,17 @@ export function TuningPanel({ tuning, onChange }: Props) {
         step={50}
         unit="ms"
         onChange={set('jitterMs')}
+      />
+      <SliderRow
+        label="Start countdown"
+        hint="seconds after Start before round 1 (gloves); 0 = skip"
+        value={tuning.prepCountdownSeconds}
+        defaultValue={10}
+        min={0}
+        max={120}
+        step={1}
+        unit="s"
+        onChange={set('prepCountdownSeconds')}
       />
 
       <button
