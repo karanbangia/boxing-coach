@@ -16,6 +16,7 @@
       "bundleIdentifier": "com.karanbangia.boxingcoach"
     },
     "android": {
+      "package": "com.karanbangia.boxingcoach",
       "adaptiveIcon": {
         "backgroundColor": "#0a0a0a",
         "foregroundImage": "./assets/android-icon-foreground.png",
