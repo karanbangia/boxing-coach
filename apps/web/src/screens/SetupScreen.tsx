@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Difficulty, EngineConfig } from "@boxing-coach/core";
+import {
+  DEFAULT_SETTINGS,
+  DIFFICULTIES,
+  REST_DURATIONS,
+  ROUND_DURATIONS,
+  TOTAL_ROUNDS,
+  type EngineConfig,
+  type SetupSettings,
+} from "@boxing-coach/core";
+import { loadTuning } from "../lib/storage";
 
 export type StartWorkoutPayload = EngineConfig & { audioCuesEnabled: boolean };
-import { loadTuning } from "../lib/storage";
 
 const STORAGE_KEY = "boxing-coach-settings";
 
-interface SavedSettings {
-  difficulty: Difficulty;
-  roundDuration: number;
-  totalRounds: number;
-  restDuration: number;
+type SavedSettings = Omit<SetupSettings, "audioCuesEnabled"> & {
   /** When false, coach MP3s are not played during the workout. */
   audioCuesEnabled?: boolean;
-}
+};
 
 function loadSettings(): SavedSettings | null {
   try {
@@ -36,40 +40,6 @@ function saveSettings(s: SavedSettings): void {
 interface Props {
   onStart: (payload: StartWorkoutPayload) => void;
 }
-
-const DIFFICULTIES: { value: Difficulty; label: string; desc: string }[] = [
-  { value: "beginner", label: "BEGINNER", desc: "Jabs & crosses, slow pace" },
-  {
-    value: "intermediate",
-    label: "INTERMEDIATE",
-    desc: "Adds hooks, moderate build",
-  },
-  { value: "advanced", label: "ADVANCED", desc: "All punches, fast ramp up" },
-  {
-    value: "pro",
-    label: "PROFESSIONAL",
-    desc: "Counters, feints, advanced combos",
-  },
-];
-
-const ROUND_DURATIONS = [
-  { value: 120, label: "2 MIN" },
-  { value: 180, label: "3 MIN" },
-];
-
-const TOTAL_ROUNDS = [
-  { value: 3, label: "3" },
-  { value: 6, label: "6" },
-  { value: 9, label: "9" },
-  { value: 12, label: "12" },
-];
-
-const REST_DURATIONS = [
-  { value: 15, label: "15s" },
-  { value: 30, label: "30s" },
-  { value: 60, label: "60s" },
-  { value: 90, label: "90s" },
-];
 
 function OptionGroup<T extends string | number>({
   label,
@@ -128,16 +98,20 @@ function OptionGroup<T extends string | number>({
 
 export function SetupScreen({ onStart }: Props) {
   const saved = loadSettings();
-  const [difficulty, setDifficulty] = useState<Difficulty>(
-    saved?.difficulty ?? "beginner",
+  const [difficulty, setDifficulty] = useState(
+    saved?.difficulty ?? DEFAULT_SETTINGS.difficulty,
   );
   const [roundDuration, setRoundDuration] = useState(
-    saved?.roundDuration ?? 120,
+    saved?.roundDuration ?? DEFAULT_SETTINGS.roundDuration,
   );
-  const [totalRounds, setTotalRounds] = useState(saved?.totalRounds ?? 3);
-  const [restDuration, setRestDuration] = useState(saved?.restDuration ?? 30);
+  const [totalRounds, setTotalRounds] = useState(
+    saved?.totalRounds ?? DEFAULT_SETTINGS.totalRounds,
+  );
+  const [restDuration, setRestDuration] = useState(
+    saved?.restDuration ?? DEFAULT_SETTINGS.restDuration,
+  );
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(
-    saved?.audioCuesEnabled !== false,
+    saved?.audioCuesEnabled ?? DEFAULT_SETTINGS.audioCuesEnabled,
   );
   useEffect(() => {
     saveSettings({

@@ -1,149 +1,72 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  RoundManager,
-  ComboEngine,
-  type Action,
+  WorkoutController,
+  getInitialWorkoutViewState,
   type EngineConfig,
-  type WorkoutPhase,
   type WorkoutEvent,
 } from '@boxing-coach/core';
 
-interface WorkoutHookState {
-  phase: WorkoutPhase;
-  currentRound: number;
-  totalRounds: number;
-  currentAction: Action | null;
-  timeRemaining: number;
-  intensity: 'normal' | 'building' | 'intense';
-  isPaused: boolean;
-  isFreestyle: boolean;
-  actionKey: number;
-}
-
 export function useWorkout(config: EngineConfig | null) {
-  const managerRef = useRef<RoundManager | null>(null);
-  const engineRef = useRef<ComboEngine | null>(null);
-  const [state, setState] = useState<WorkoutHookState>({
-    phase: 'idle',
-    currentRound: 0,
-    totalRounds: 0,
-    currentAction: null,
-    timeRemaining: 0,
-    intensity: 'normal',
-    isPaused: false,
-    isFreestyle: false,
-    actionKey: 0,
-  });
+  const controllerRef = useRef<WorkoutController | null>(null);
+  const [state, setState] = useState(getInitialWorkoutViewState);
 
   useEffect(() => {
     if (!config) return;
 
-    const manager = new RoundManager(config);
-    const engine = new ComboEngine(config);
-    managerRef.current = manager;
-    engineRef.current = engine;
-
-    const unsub = manager.onEvent((event: WorkoutEvent) => {
-      if (event.type !== 'tick') {
-        console.log('[workout] event:', event.type, event);
-      }
-      switch (event.type) {
-        case 'roundStart':
-          setState(prev => ({
-            ...prev,
-            phase: 'round',
-            currentRound: event.round,
-            totalRounds: config.totalRounds,
-            intensity: engine.getIntensity(event.round),
-            isFreestyle: false,
-          }));
-          break;
-        case 'freestyleStart':
-          setState(prev => ({ ...prev, isFreestyle: true }));
-          break;
-        case 'roundEnd':
-          setState(prev => ({ ...prev, currentAction: null }));
-          break;
-        case 'restStart':
-          setState(prev => ({
-            ...prev,
-            phase: 'rest',
-            timeRemaining: event.duration,
-            currentAction: null,
-          }));
-          break;
-        case 'restEnd':
-          break;
-        case 'action':
-          console.log('[workout] action →', event.action.id, event.action.label, `(type=${event.action.type}, audioSrc=${event.action.audioSrc ?? 'default'})`);
-          setState(prev => ({
-            ...prev,
-            currentAction: event.action,
-            actionKey: prev.actionKey + 1,
-          }));
-          if (navigator.vibrate) {
-            navigator.vibrate(event.action.type === 'combo' ? 50 : 30);
-          }
-          break;
-        case 'tick':
-          setState(prev => ({
-            ...prev,
-            timeRemaining: event.timeRemaining,
-          }));
-          break;
-        case 'workoutComplete':
-          setState(prev => ({
-            ...prev,
-            phase: 'complete',
-            currentAction: null,
-            timeRemaining: 0,
-          }));
-          break;
-      }
+    const controller = new WorkoutController(config, {
+      onEvent: (event: WorkoutEvent) => {
+        if (event.type !== 'tick') {
+          console.log('[workout] event:', event.type, event);
+        }
+        if (event.type === 'action') {
+          console.log(
+            '[workout] action →',
+            event.action.id,
+            event.action.label,
+            `(type=${event.action.type}, audioSrc=${event.action.audioSrc ?? 'default'})`,
+          );
+        }
+      },
+      onAction: action => {
+        if (navigator.vibrate) {
+          navigator.vibrate(action.type === 'combo' ? 50 : 30);
+        }
+      },
     });
+    controllerRef.current = controller;
+
+    const unsub = controller.onStateChange(setState);
+    setState(controller.getState());
 
     return () => {
       unsub();
-      manager.stop();
+      controller.destroy();
+      controllerRef.current = null;
     };
   }, [config]);
 
   const start = useCallback(() => {
-    managerRef.current?.start();
+    controllerRef.current?.start();
   }, []);
 
   const pause = useCallback(() => {
-    managerRef.current?.pause();
-    setState(prev => ({ ...prev, isPaused: true }));
+    controllerRef.current?.pause();
   }, []);
 
   const resume = useCallback(() => {
-    managerRef.current?.resume();
-    setState(prev => ({ ...prev, isPaused: false }));
+    controllerRef.current?.resume();
   }, []);
 
   const skipRest = useCallback(() => {
-    managerRef.current?.skipRest();
+    controllerRef.current?.skipRest();
   }, []);
 
   const skipRound = useCallback(() => {
-    managerRef.current?.skipRound();
-    setState(prev => ({ ...prev, isPaused: false }));
+    controllerRef.current?.skipRound();
   }, []);
 
   const stop = useCallback(() => {
-    managerRef.current?.stop();
-    setState({
-      phase: 'idle',
-      currentRound: 0,
-      totalRounds: 0,
-      currentAction: null,
-      timeRemaining: 0,
-      intensity: 'normal',
-      isPaused: false,
-      isFreestyle: false,
-      actionKey: 0,
-    });
+    controllerRef.current?.stop();
   }, []);
 
   return { ...state, start, pause, resume, skipRest, skipRound, stop };

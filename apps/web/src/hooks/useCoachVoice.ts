@@ -1,16 +1,10 @@
 import type { Action } from '@boxing-coach/core';
-import { isFreestyleFinisherId } from '@boxing-coach/core';
+import { getCoachPlaybackRate } from '@boxing-coach/core';
 import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import { alog } from '../lib/audioLog';
 
 function coachUrlForAction(action: Action): string {
   return action.audioSrc ?? `/audio/coach/${action.id}.mp3`;
-}
-
-function roundPlaybackRate(currentRound: number, totalRounds: number): number {
-  if (totalRounds <= 0) return 1;
-  const t = currentRound / totalRounds;
-  return Math.min(1.4, 1 + 0.35 * t);
 }
 
 const badUrls = new Set<string>();
@@ -84,8 +78,7 @@ export function useCoachVoice(
       return;
     }
 
-    const isFinisher = isFreestyleFinisherId(action.id);
-    const rate = isFinisher ? 1 : roundPlaybackRate(currentRound, totalRounds);
+    const rate = getCoachPlaybackRate(action, currentRound, totalRounds);
 
     alog('applyClip:start', {
       label, actionId: action.id, actionType: action.type, url, volume: vol, playbackRate: rate,

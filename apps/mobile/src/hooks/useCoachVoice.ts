@@ -1,14 +1,8 @@
 import type { Action } from '@boxing-coach/core';
-import { isFreestyleFinisherId } from '@boxing-coach/core';
+import { getCoachPlaybackRate } from '@boxing-coach/core';
 import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { coachRegistry } from '../lib/coachRegistry.generated';
-
-function roundPlaybackRate(currentRound: number, totalRounds: number): number {
-  if (totalRounds <= 0) return 1;
-  const t = currentRound / totalRounds;
-  return Math.min(1.4, 1 + 0.35 * t);
-}
 
 export function useCoachVoice(
   sessionVolumeRef: MutableRefObject<number>,
@@ -62,8 +56,7 @@ export function useCoachVoice(
       const source = coachRegistry[action.id];
       if (source === undefined) return;
 
-      const isFinisher = isFreestyleFinisherId(action.id);
-      const rate = isFinisher ? 1 : roundPlaybackRate(currentRound, totalRounds);
+      const rate = getCoachPlaybackRate(action, currentRound, totalRounds);
 
       try {
         player.replace(source);
