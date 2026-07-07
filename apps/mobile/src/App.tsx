@@ -4,6 +4,8 @@ import { View } from 'react-native';
 import type { EngineConfig } from '@boxing-coach/core';
 import { resolvePrepCountdownSeconds } from '@boxing-coach/core';
 import type { SetupSettings } from './config';
+import { MainTabShell } from './components/MainTabShell';
+import type { AppTab } from './components/BottomTabBar';
 import { useStoredSettings } from './hooks/useStoredSettings';
 import { useSounds } from './hooks/useSounds';
 import { useCoachVoice } from './hooks/useCoachVoice';
@@ -17,8 +19,12 @@ import { RestScreen } from './screens/RestScreen';
 import { PrepScreen } from './screens/PrepScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { WorkoutScreen } from './screens/WorkoutScreen';
+import { WorkoutHomeScreen } from './screens/WorkoutHomeScreen';
+import { PlanScreen } from './screens/PlanScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
 
 export function App() {
+  const [activeTab, setActiveTab] = useState<AppTab>('timer');
   const { settings, updateSettings, isReady: settingsReady } = useStoredSettings();
   const { tuning, setTuning, isReady: tuningReady } = useStoredTuning();
   const [config, setConfig] = useState<EngineConfig | null>(null);
@@ -145,6 +151,7 @@ export function App() {
       };
       setConfig(engine);
       setPrepSecondsLeft(resolvePrepCountdownSeconds(engine.tuning));
+      setActiveTab('workout');
     },
     [tuning],
   );
@@ -172,6 +179,7 @@ export function App() {
     coach.stopCoachAudio();
     workout.stop();
     setConfig(null);
+    setActiveTab('timer');
   }, [coach, workout]);
 
   const handleStop = useCallback(() => {
@@ -179,6 +187,7 @@ export function App() {
     coach.stopCoachAudio();
     workout.stop();
     setConfig(null);
+    setActiveTab('timer');
   }, [coach, workout]);
 
   return (
@@ -193,13 +202,23 @@ export function App() {
             onBack={() => setShowDevScreen(false)}
           />
         ) : (
-          <SetupScreen
-            settings={settings}
-            isReady={isReady}
-            onChange={updateSettings}
-            onStart={handleStart}
-            onOpenDev={() => setShowDevScreen(true)}
-          />
+          <MainTabShell activeTab={activeTab} onTabChange={setActiveTab}>
+            {activeTab === 'timer' ? (
+              <SetupScreen
+                settings={settings}
+                isReady={isReady}
+                onChange={updateSettings}
+                onStart={handleStart}
+                onOpenDev={() => setShowDevScreen(true)}
+              />
+            ) : activeTab === 'workout' ? (
+              <WorkoutHomeScreen onOpenTimer={() => setActiveTab('timer')} />
+            ) : activeTab === 'plan' ? (
+              <PlanScreen />
+            ) : (
+              <ProfileScreen />
+            )}
+          </MainTabShell>
         )
       ) : workout.phase === 'idle' && prepSecondsLeft !== null && prepSecondsLeft > 0 ? (
         <PrepScreen

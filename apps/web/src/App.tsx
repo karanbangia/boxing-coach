@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import type { EngineConfig } from '@boxing-coach/core';
 import { resolvePrepCountdownSeconds } from '@boxing-coach/core';
 import type { StartWorkoutPayload } from './screens/SetupScreen';
+import { MainTabShell } from './components/MainTabShell';
+import type { AppTab } from './components/BottomTabBar';
 import { useWorkout } from './hooks/useWorkout';
 import { useWakeLock } from './hooks/useWakeLock';
 import { useSounds } from './hooks/useSounds';
@@ -15,6 +17,9 @@ import { RestScreen } from './screens/RestScreen';
 import { CompleteScreen } from './screens/CompleteScreen';
 import { DevScreen } from './screens/DevScreen';
 import { PrepScreen } from './screens/PrepScreen';
+import { WorkoutHomeScreen } from './screens/WorkoutHomeScreen';
+import { PlanScreen } from './screens/PlanScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
 
 function useHash() {
   return useSyncExternalStore(
@@ -34,6 +39,7 @@ export function App() {
 }
 
 function MainApp() {
+  const [activeTab, setActiveTab] = useState<AppTab>('timer');
   const [config, setConfig] = useState<EngineConfig | null>(null);
   const [prepSecondsLeft, setPrepSecondsLeft] = useState<number | null>(null);
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(true);
@@ -42,7 +48,7 @@ function MainApp() {
   const sessionVolumeRef = useRef(1);
   const audioCuesRef = useRef(true);
   const session = useAudioSession();
-  sessionVolumeRef.current = session.effectiveVolume;
+  sessionVolumeRef.current = session.effectiveVolume as number;
   audioCuesRef.current = audioCuesEnabled;
 
   const sounds = useSounds(sessionVolumeRef);
@@ -150,6 +156,7 @@ function MainApp() {
     setAudioCuesEnabled(cues);
     setConfig(engine);
     setPrepSecondsLeft(resolvePrepCountdownSeconds(engine.tuning));
+    setActiveTab('workout');
   }, []);
 
   useEffect(() => {
@@ -175,6 +182,7 @@ function MainApp() {
     coach.stopCoachAudio();
     workout.stop();
     setConfig(null);
+    setActiveTab('timer');
   }, [workout, coach]);
 
   const handleStop = useCallback(() => {
@@ -182,10 +190,23 @@ function MainApp() {
     coach.stopCoachAudio();
     workout.stop();
     setConfig(null);
+    setActiveTab('timer');
   }, [workout, coach]);
 
   if (!config) {
-    return <SetupScreen onStart={handleStart} />;
+    return (
+      <MainTabShell activeTab={activeTab} onTabChange={setActiveTab}>
+        {activeTab === 'timer' ? (
+          <SetupScreen onStart={handleStart} />
+        ) : activeTab === 'workout' ? (
+          <WorkoutHomeScreen onOpenTimer={() => setActiveTab('timer')} />
+        ) : activeTab === 'plan' ? (
+          <PlanScreen />
+        ) : (
+          <ProfileScreen />
+        )}
+      </MainTabShell>
+    );
   }
 
   if (workout.phase === 'idle' && prepSecondsLeft !== null && prepSecondsLeft > 0) {
