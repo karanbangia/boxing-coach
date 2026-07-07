@@ -7,3 +7,10 @@ dist
 .DS_Store
 .idea
 .expo
+
+# Accidental Expo output at the repo root. The native app lives in apps/mobile.
+/android/
+/ios/
+/app.json
+/package-lock.json
+/tsconfig.json
