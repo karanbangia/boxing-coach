@@ -1,10 +1,10 @@
 export type AppTab = 'timer' | 'workout' | 'plan' | 'profile';
 
 const tabs: { id: AppTab; label: string }[] = [
-  { id: 'timer', label: 'Timer' },
-  { id: 'workout', label: 'Workout' },
-  { id: 'plan', label: 'Plan' },
-  { id: 'profile', label: 'Profile' },
+  { id: 'timer', label: 'TIMER' },
+  { id: 'workout', label: 'WORKOUT' },
+  { id: 'plan', label: 'PLAN' },
+  { id: 'profile', label: 'PROFILE' },
 ];
 
 function TabIcon({ tab }: { tab: AppTab }) {
@@ -96,7 +96,7 @@ export function BottomTabBar({
               aria-current={active ? 'page' : undefined}
               className={`
                 group relative flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-[1.45rem]
-                font-[inherit] text-[11px] font-bold transition-all duration-200
+                font-[inherit] text-[10px] font-black tracking-wider transition-all duration-200
                 ${active
                   ? 'bg-[var(--color-accent)] text-white shadow-lg shadow-red-500/25 active:bg-red-500'
                   : 'text-[var(--color-text-muted)] hover:bg-[var(--color-accent)]/10 hover:text-white active:scale-95 active:bg-[var(--color-accent)]/20'

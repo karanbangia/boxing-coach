@@ -4,10 +4,10 @@ import { colors, shadow } from '../theme';
 export type AppTab = 'timer' | 'workout' | 'plan' | 'profile';
 
 const tabs: { id: AppTab; label: string }[] = [
-  { id: 'timer', label: 'Timer' },
-  { id: 'workout', label: 'Workout' },
-  { id: 'plan', label: 'Plan' },
-  { id: 'profile', label: 'Profile' },
+  { id: 'timer', label: 'TIMER' },
+  { id: 'workout', label: 'WORKOUT' },
+  { id: 'plan', label: 'PLAN' },
+  { id: 'profile', label: 'PROFILE' },
 ];
 
 function LineIcon({ tab, active }: { tab: AppTab; active: boolean }) {
@@ -131,9 +131,10 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     color: colors.textMuted,
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '800',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
   tabLabelActive: {
     color: colors.text,
