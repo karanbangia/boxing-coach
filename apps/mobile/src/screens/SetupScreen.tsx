@@ -4,14 +4,15 @@ import {
   DIFFICULTIES,
   REST_DURATIONS,
   ROUND_DURATIONS,
-  TOTAL_ROUNDS,
   type SetupSettings,
 } from '../config';
 import { ScreenShell } from '../components/ScreenShell';
-import { colors, shadow } from '../theme';
+import { colors } from '../theme';
 
 const DEV_TAP_THRESHOLD = 3;
 const DEV_TAP_WINDOW_MS = 3500;
+const MIN_ROUNDS = 1;
+const MAX_ROUNDS = 12;
 
 interface Props {
   settings: SetupSettings;
@@ -26,18 +27,18 @@ function OptionGroup<T extends string | number>({
   options,
   value,
   onSelect,
-  compact = false,
+  variant = 'tile',
 }: {
   label: string;
   options: { value: T; label: string; desc?: string }[];
   value: T;
   onSelect: (value: T) => void;
-  compact?: boolean;
+  variant?: 'tile' | 'segment';
 }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionLabel}>{label}</Text>
-      <View style={compact ? styles.compactGrid : styles.fullGrid}>
+      <View style={variant === 'tile' ? styles.tileGrid : styles.segmentGrid}>
         {options.map(option => {
           const selected = option.value === value;
 
@@ -46,21 +47,22 @@ function OptionGroup<T extends string | number>({
               key={String(option.value)}
               onPress={() => onSelect(option.value)}
               style={({ pressed }) => [
-                styles.optionCard,
-                !compact && styles.fullOptionCard,
-                compact && styles.compactOptionCard,
-                compact && label === 'Round Duration' && styles.roundDurationOptionCard,
-                compact && label === 'Rounds' && styles.roundsOptionCard,
-                compact && label === 'Rest Between Rounds' && styles.restOptionCard,
-                selected && styles.optionCardSelected,
-                pressed && styles.optionCardPressed,
+                variant === 'tile' ? styles.tileButton : styles.segmentButton,
+                variant === 'tile' && selected && styles.tileButtonSelected,
+                variant === 'segment' && selected && styles.segmentButtonSelected,
+                pressed && styles.buttonPressed,
               ]}
             >
-              <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>
+              <Text
+                style={[
+                  variant === 'tile' ? styles.tileLabel : styles.segmentLabel,
+                  selected && styles.selectedLabel,
+                ]}
+              >
                 {option.label}
               </Text>
               {option.desc ? (
-                <Text style={[styles.optionDesc, selected && styles.optionDescSelected]}>
+                <Text style={styles.tileDesc} numberOfLines={2}>
                   {option.desc}
                 </Text>
               ) : null}
@@ -68,6 +70,17 @@ function OptionGroup<T extends string | number>({
           );
         })}
       </View>
+    </View>
+  );
+}
+
+function AudioIcon() {
+  return (
+    <View style={styles.audioIcon}>
+      <View style={styles.audioHead} />
+      <View style={styles.audioBody} />
+      <View style={styles.audioWaveSmall} />
+      <View style={styles.audioWaveLarge} />
     </View>
   );
 }
@@ -111,11 +124,8 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
       >
         <Pressable onPress={handleHeroPress} style={({ pressed }) => [pressed && styles.heroPressed]}>
           <View style={styles.heroPanel}>
-            <Text style={styles.title}>BOXING</Text>
-            <Text style={[styles.title, styles.titleAccent]}>COACH</Text>
-            <Text style={styles.subtitle}>
-              Set up your workout and hit the bag.
-            </Text>
+            <Text style={styles.title}>SETUP YOUR</Text>
+            <Text style={[styles.title, styles.titleAccent]}>WORKOUT</Text>
           </View>
         </Pressable>
 
@@ -137,55 +147,73 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
               options={ROUND_DURATIONS}
               value={settings.roundDuration}
               onSelect={roundDuration => onChange({ roundDuration })}
-              compact
-            />
-            <OptionGroup
-              label="Rounds"
-              options={TOTAL_ROUNDS}
-              value={settings.totalRounds}
-              onSelect={totalRounds => onChange({ totalRounds })}
-              compact
-            />
-            <OptionGroup
-              label="Rest Between Rounds"
-              options={REST_DURATIONS}
-              value={settings.restDuration}
-              onSelect={restDuration => onChange({ restDuration })}
-              compact
+              variant="segment"
             />
 
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Audio</Text>
-              <Pressable
-                onPress={() => onChange({ audioCuesEnabled: !settings.audioCuesEnabled })}
-                style={({ pressed }) => [
-                  styles.audioCueRow,
-                  settings.audioCuesEnabled && styles.audioCueRowOn,
-                  pressed && styles.optionCardPressed,
+              <Text style={styles.sectionLabel}>Rounds</Text>
+              <View style={styles.roundStepper}>
+                <Pressable
+                  accessibilityLabel="Decrease rounds"
+                  disabled={settings.totalRounds <= MIN_ROUNDS}
+                  onPress={() => onChange({ totalRounds: Math.max(MIN_ROUNDS, settings.totalRounds - 1) })}
+                  style={({ pressed }) => [
+                    styles.stepperButton,
+                    settings.totalRounds <= MIN_ROUNDS && styles.stepperButtonDisabled,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.stepperSymbol}>-</Text>
+                </Pressable>
+                <Text style={styles.roundValue}>{settings.totalRounds}</Text>
+                <Pressable
+                  accessibilityLabel="Increase rounds"
+                  disabled={settings.totalRounds >= MAX_ROUNDS}
+                  onPress={() => onChange({ totalRounds: Math.min(MAX_ROUNDS, settings.totalRounds + 1) })}
+                  style={({ pressed }) => [
+                    styles.stepperButton,
+                    settings.totalRounds >= MAX_ROUNDS && styles.stepperButtonDisabled,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.stepperSymbol}>+</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <OptionGroup
+              label="Rest Period"
+              options={REST_DURATIONS}
+              value={settings.restDuration}
+              onSelect={restDuration => onChange({ restDuration })}
+              variant="segment"
+            />
+
+            <Pressable
+              onPress={() => onChange({ audioCuesEnabled: !settings.audioCuesEnabled })}
+              style={({ pressed }) => [
+                styles.audioCueRow,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <View style={styles.audioLabelWrap}>
+                <AudioIcon />
+                <Text style={styles.audioCueLabel}>Voice + Bell</Text>
+              </View>
+              <View
+                style={[
+                  styles.toggleTrack,
+                  settings.audioCuesEnabled && styles.toggleTrackOn,
                 ]}
               >
-                <Text
+                <View
                   style={[
-                    styles.audioCueLabel,
-                    settings.audioCuesEnabled && styles.optionLabelSelected,
+                    styles.toggleThumb,
+                    settings.audioCuesEnabled && styles.toggleThumbOn,
                   ]}
-                >
-                  Audio cues
-                </Text>
-                <Text
-                  style={[
-                    styles.audioCueValue,
-                    settings.audioCuesEnabled && styles.optionLabelSelected,
-                  ]}
-                >
-                  {settings.audioCuesEnabled ? 'ON' : 'OFF'}
-                </Text>
-              </Pressable>
-              <Text style={styles.audioCueHint}>
-                Spoken callouts when clips are bundled. Round sounds still play unless muted in
-                workout.
-              </Text>
-            </View>
+                />
+              </View>
+            </Pressable>
 
             <Pressable
               onPress={() => onStart(settings)}
@@ -194,6 +222,7 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
                 pressed && styles.startButtonPressed,
               ]}
             >
+              <View style={styles.playTriangle} />
               <Text style={styles.startButtonText}>START WORKOUT</Text>
             </Pressable>
           </>
@@ -206,36 +235,32 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
+    paddingTop: 24,
+    paddingBottom: 42,
+    gap: 24,
   },
   heroPanel: {
-    paddingVertical: 2,
-    marginBottom: 14,
+    paddingBottom: 24,
   },
   heroPressed: {
     opacity: 0.98,
     transform: [{ scale: 0.995 }],
   },
   title: {
-    color: colors.text,
-    fontSize: 34,
-    lineHeight: 36,
+    color: colors.peach,
+    fontSize: 58,
+    lineHeight: 60,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 0,
+    textTransform: 'uppercase',
   },
   titleAccent: {
     color: colors.accent,
   },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 10,
-  },
   loadingPanel: {
     padding: 20,
-    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: colors.border,
     backgroundColor: colors.surface,
     alignItems: 'center',
     gap: 10,
@@ -245,127 +270,229 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   section: {
-    marginBottom: 14,
+    gap: 8,
   },
   sectionLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2.4,
-    marginBottom: 8,
-    paddingLeft: 2,
+    color: colors.peach,
+    fontSize: 14,
+    lineHeight: 16,
+    fontWeight: '800',
+    letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
-  fullGrid: {
+  tileGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 4,
   },
-  compactGrid: {
+  segmentGrid: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
-  optionCard: {
-    borderRadius: 20,
+  tileButton: {
+    width: '49.4%',
+    minHeight: 86,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 13,
-    backgroundColor: colors.surfaceMuted,
+    paddingVertical: 14,
+    gap: 4,
   },
-  fullOptionCard: {
-    width: '48.5%',
-    minHeight: 92,
+  tileButtonSelected: {
+    borderColor: colors.accent,
+  },
+  segmentButton: {
+    flex: 1,
+    minHeight: 58,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 2,
   },
-  compactOptionCard: {
-    minWidth: 0,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  roundDurationOptionCard: {
-    width: 68,
-  },
-  roundsOptionCard: {
-    width: 56,
-  },
-  restOptionCard: {
-    width: 72,
-  },
-  optionCardSelected: {
+  segmentButtonSelected: {
+    borderColor: colors.accent,
     backgroundColor: colors.accent,
   },
-  optionCardPressed: {
-    opacity: 0.88,
+  buttonPressed: {
+    opacity: 0.86,
     transform: [{ scale: 0.98 }],
   },
-  optionLabel: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  optionLabelSelected: {
-    color: '#FFF5F4',
-  },
-  optionDesc: {
+  tileLabel: {
     color: colors.textMuted,
-    fontSize: 10,
-    lineHeight: 14,
-    marginTop: 3,
+    fontSize: 19,
+    lineHeight: 26,
+    fontWeight: '900',
+    letterSpacing: 0,
+    textTransform: 'uppercase',
   },
-  optionDescSelected: {
-    color: 'rgba(255, 255, 255, 0.7)',
+  tileDesc: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 19,
   },
-  audioCueRow: {
+  segmentLabel: {
+    color: colors.textMuted,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  selectedLabel: {
+    color: colors.text,
+  },
+  roundStepper: {
+    minHeight: 88,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: colors.surfaceMuted,
   },
-  audioCueRowOn: {
-    backgroundColor: colors.accent,
-  },
-  audioCueLabel: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  audioCueValue: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-  },
-  audioCueHint: {
-    color: colors.textMuted,
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: 8,
-    paddingHorizontal: 2,
-  },
-  startButton: {
-    marginTop: 4,
-    minHeight: 56,
-    borderRadius: 22,
+  stepperButton: {
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stepperButtonDisabled: {
+    opacity: 0.35,
+  },
+  stepperSymbol: {
+    color: colors.peach,
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '400',
+  },
+  roundValue: {
+    color: colors.peach,
+    fontSize: 58,
+    lineHeight: 64,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  audioCueRow: {
+    minHeight: 54,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  audioLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  audioCueLabel: {
+    color: colors.peach,
+    fontSize: 14,
+    lineHeight: 16,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  audioIcon: {
+    width: 22,
+    height: 20,
+  },
+  audioHead: {
+    position: 'absolute',
+    left: 1,
+    top: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  audioBody: {
+    position: 'absolute',
+    left: 0,
+    bottom: 1,
+    width: 10,
+    height: 7,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderWidth: 2,
+    borderBottomWidth: 0,
+    borderColor: colors.accent,
+  },
+  audioWaveSmall: {
+    position: 'absolute',
+    left: 12,
+    top: 7,
+    width: 6,
+    height: 6,
+    borderRightWidth: 2,
+    borderColor: colors.accent,
+    borderRadius: 6,
+  },
+  audioWaveLarge: {
+    position: 'absolute',
+    left: 15,
+    top: 3,
+    width: 8,
+    height: 14,
+    borderRightWidth: 2,
+    borderColor: colors.accent,
+    borderRadius: 8,
+  },
+  toggleTrack: {
+    width: 48,
+    height: 24,
+    borderRadius: 999,
+    backgroundColor: colors.border,
+    padding: 4,
+  },
+  toggleTrackOn: {
     backgroundColor: colors.accent,
-    ...shadow,
+  },
+  toggleThumb: {
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    backgroundColor: colors.text,
+  },
+  toggleThumbOn: {
+    transform: [{ translateX: 24 }],
+  },
+  startButton: {
+    marginTop: 22,
+    minHeight: 74,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 12,
   },
   startButtonPressed: {
     opacity: 0.92,
     transform: [{ scale: 0.98 }],
   },
+  playTriangle: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 7,
+    borderBottomWidth: 7,
+    borderLeftWidth: 11,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: colors.text,
+  },
   startButtonText: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: '900',
-    letterSpacing: 1.8,
+    letterSpacing: 0,
+    textTransform: 'uppercase',
   },
 });

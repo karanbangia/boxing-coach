@@ -1,10 +1,9 @@
 export type AppTab = 'timer' | 'workout' | 'plan' | 'profile';
 
 const tabs: { id: AppTab; label: string }[] = [
-  { id: 'timer', label: 'TIMER' },
-  { id: 'workout', label: 'WORKOUT' },
-  { id: 'plan', label: 'PLAN' },
-  { id: 'profile', label: 'PROFILE' },
+  { id: 'timer', label: 'TRAINING' },
+  { id: 'workout', label: 'STATS' },
+  { id: 'plan', label: 'PLANS' },
 ];
 
 function TabIcon({ tab }: { tab: AppTab }) {
@@ -74,16 +73,15 @@ export function BottomTabBar({
   return (
     <nav
       className="
-        fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3
+        fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)] pt-3
         pointer-events-none
       "
       aria-label="Primary"
     >
       <div
         className="
-          pointer-events-auto mx-auto grid max-w-md grid-cols-4 gap-1 rounded-[2rem]
-          border border-white/10 bg-[#111111]/92 p-1.5 shadow-2xl shadow-black/55
-          backdrop-blur-xl
+          pointer-events-auto mx-auto grid max-w-[420px] grid-cols-3
+          border-t-2 border-[#353535] bg-[#0e0e0e]
         "
       >
         {tabs.map((tab) => {
@@ -95,15 +93,15 @@ export function BottomTabBar({
               onClick={() => onChange(tab.id)}
               aria-current={active ? 'page' : undefined}
               className={`
-                group relative flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-[1.45rem]
-                font-[inherit] text-[10px] font-black tracking-wider transition-all duration-200
+                group relative flex h-[61px] min-w-0 flex-col items-center justify-center gap-1
+                border-t-4 font-['Space_Grotesk'] text-[10px] font-normal uppercase tracking-[0.1em] transition-colors duration-200
                 ${active
-                  ? 'bg-[var(--color-accent)] text-white shadow-lg shadow-red-500/25 active:bg-red-500'
-                  : 'text-[var(--color-text-muted)] hover:bg-[var(--color-accent)]/10 hover:text-white active:scale-95 active:bg-[var(--color-accent)]/20'
+                  ? 'border-[var(--color-peach)] text-[var(--color-peach)]'
+                  : 'border-transparent text-[var(--color-text-muted)] hover:text-white'
                 }
               `}
             >
-              <span className="flex h-5 items-center justify-center">
+              <span className="flex h-6 items-center justify-center">
                 <TabIcon tab={tab.id} />
               </span>
               <span className="max-w-full truncate leading-none">{tab.label}</span>

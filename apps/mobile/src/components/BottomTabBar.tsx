@@ -1,17 +1,16 @@
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import { colors, shadow } from '../theme';
+import { colors } from '../theme';
 
 export type AppTab = 'timer' | 'workout' | 'plan' | 'profile';
 
 const tabs: { id: AppTab; label: string }[] = [
-  { id: 'timer', label: 'TIMER' },
-  { id: 'workout', label: 'WORKOUT' },
-  { id: 'plan', label: 'PLAN' },
-  { id: 'profile', label: 'PROFILE' },
+  { id: 'timer', label: 'TRAINING' },
+  { id: 'workout', label: 'STATS' },
+  { id: 'plan', label: 'PLANS' },
 ];
 
 function LineIcon({ tab, active }: { tab: AppTab; active: boolean }) {
-  const tint = active ? colors.text : colors.textMuted;
+  const tint = active ? colors.peach : colors.textMuted;
 
   if (tab === 'timer') {
     return (
@@ -98,33 +97,30 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   tabWrap: {
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
   },
   tabBar: {
     maxWidth: 420,
     alignSelf: 'center',
     width: '100%',
     flexDirection: 'row',
-    gap: 4,
-    padding: 6,
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(17,17,17,0.96)',
-    ...shadow,
+    borderTopWidth: 2,
+    borderTopColor: '#353535',
+    backgroundColor: '#0e0e0e',
   },
   tabButton: {
     flex: 1,
-    height: 56,
+    height: 61,
     minWidth: 0,
-    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    borderTopWidth: 4,
+    borderTopColor: 'transparent',
     gap: 4,
   },
   tabButtonActive: {
-    backgroundColor: colors.accent,
+    borderTopColor: colors.peach,
   },
   tabButtonPressed: {
     transform: [{ scale: 0.96 }],
@@ -132,12 +128,12 @@ const styles = StyleSheet.create({
   tabLabel: {
     color: colors.textMuted,
     fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '900',
-    letterSpacing: 0.8,
+    lineHeight: 15,
+    fontWeight: '400',
+    letterSpacing: 1,
   },
   tabLabelActive: {
-    color: colors.text,
+    color: colors.peach,
   },
   iconBox: {
     width: 22,

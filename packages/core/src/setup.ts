@@ -41,9 +41,9 @@ export const REST_DURATIONS: SetupOption<number>[] = [
 ];
 
 export const DEFAULT_SETTINGS: SetupSettings = {
-  difficulty: 'beginner',
-  roundDuration: 120,
-  totalRounds: 3,
-  restDuration: 30,
+  difficulty: 'advanced',
+  roundDuration: 180,
+  totalRounds: 8,
+  restDuration: 60,
   audioCuesEnabled: true,
 };

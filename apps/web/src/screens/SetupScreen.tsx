@@ -4,7 +4,6 @@ import {
   DIFFICULTIES,
   REST_DURATIONS,
   ROUND_DURATIONS,
-  TOTAL_ROUNDS,
   type EngineConfig,
   type SetupSettings,
 } from "@boxing-coach/core";
@@ -41,27 +40,34 @@ interface Props {
   onStart: (payload: StartWorkoutPayload) => void;
 }
 
+const MIN_ROUNDS = 1;
+const MAX_ROUNDS = 12;
+
 function OptionGroup<T extends string | number>({
   label,
   options,
   value,
   onChange,
+  variant = "grid",
 }: {
   label: string;
   options: { value: T; label: string; desc?: string }[];
   value: T;
   onChange: (v: T) => void;
+  variant?: "grid" | "inline";
 }) {
+  const hasDescriptions = options.some((o) => o.desc);
+
   return (
-    <div className="mb-6">
-      <div className="text-xs font-semibold tracking-widest text-[var(--color-text-muted)] mb-3 uppercase">
+    <section className="flex flex-col gap-2">
+      <div className="font-['Space_Grotesk'] text-sm font-bold uppercase tracking-[0.1em] text-[var(--color-peach)]">
         {label}
       </div>
       <div
         className={
-          options.some((o) => o.desc)
-            ? "grid grid-cols-2 gap-2"
-            : "flex flex-wrap gap-2"
+          variant === "grid"
+            ? "grid grid-cols-2 gap-1"
+            : `grid ${options.length >= 4 ? "grid-cols-4" : "grid-cols-2"} gap-2`
         }
       >
         {options.map((opt) => {
@@ -70,21 +76,28 @@ function OptionGroup<T extends string | number>({
             <button
               key={String(opt.value)}
               onClick={() => onChange(opt.value)}
-              className={`
-                px-4 py-3 rounded-xl text-sm font-bold transition-all
-                ${options.some((o) => o.desc) ? "flex flex-col items-center justify-center text-center" : ""}
-                ${
-                  selected
-                    ? "bg-[var(--color-accent)] text-white shadow-lg shadow-red-500/20"
-                    : "bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]/80"
-                }
-              `}
+              className={[
+                "min-w-0 border-2 border-solid bg-[var(--color-surface)] transition-colors active:scale-[0.98]",
+                selected
+                  ? "border-[var(--color-accent)] text-white"
+                  : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-peach)]",
+                hasDescriptions
+                  ? "flex min-h-[90px] flex-col items-start justify-center gap-1 px-4 py-4 text-left"
+                  : "flex min-h-14 items-center justify-center px-2 py-3 text-center",
+                variant === "inline" && selected ? "bg-[var(--color-accent)]" : "",
+              ].join(" ")}
             >
-              {opt.label}
+              <span
+                className={
+                  hasDescriptions
+                    ? "font-['Anton'] text-xl font-normal uppercase leading-[1.35]"
+                    : "font-['Anton'] text-2xl font-normal uppercase leading-none"
+                }
+              >
+                {opt.label}
+              </span>
               {opt.desc && (
-                <span
-                  className={`block text-[10px] font-normal mt-0.5 ${selected ? "text-white/70" : "text-[var(--color-text-muted)]"}`}
-                >
+                <span className="text-sm leading-5 text-[var(--color-text-muted)]">
                   {opt.desc}
                 </span>
               )}
@@ -92,7 +105,7 @@ function OptionGroup<T extends string | number>({
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -183,19 +196,18 @@ export function SetupScreen({ onStart }: Props) {
   };
 
   return (
-    <div className="h-full flex flex-col px-6 py-8 max-w-md mx-auto relative">
-      <div className="mb-8">
-        <h1 className="text-3xl font-black tracking-tight">BOXING</h1>
-        <h1 className="text-3xl font-black tracking-tight text-[var(--color-accent)]">
-          COACH
+    <div className="mx-auto flex h-full max-w-[420px] flex-col bg-[var(--color-bg)] px-5 pt-6">
+      <div className="pb-10">
+        <h1 className="font-['Anton'] text-[64px] font-normal uppercase leading-none text-[var(--color-peach)]">
+          SETUP YOUR
         </h1>
-        <p className="text-sm text-[var(--color-text-muted)] mt-2">
-          Set up your workout and hit the bag.
-        </p>
+        <h2 className="font-['Anton'] text-[64px] font-normal uppercase leading-none text-[var(--color-accent)]">
+          WORKOUT
+        </h2>
       </div>
 
       <div className="flex-1 relative overflow-hidden">
-        <div className="h-full overflow-y-auto pb-10" ref={scrollRef}>
+        <div className="flex h-full flex-col gap-6 overflow-y-auto pb-10" ref={scrollRef}>
           <OptionGroup
             label="Difficulty"
             options={DIFFICULTIES}
@@ -207,46 +219,87 @@ export function SetupScreen({ onStart }: Props) {
             options={ROUND_DURATIONS}
             value={roundDuration}
             onChange={setRoundDuration}
+            variant="inline"
           />
+
+          <section className="flex flex-col gap-2">
+            <div className="font-['Space_Grotesk'] text-sm font-bold uppercase tracking-[0.1em] text-[var(--color-peach)]">
+              Rounds
+            </div>
+            <div className="flex min-h-[88px] items-center justify-between border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-5">
+              <button
+                type="button"
+                onClick={() => setTotalRounds((rounds) => Math.max(MIN_ROUNDS, rounds - 1))}
+                className="flex h-11 w-11 items-center justify-center font-['Space_Grotesk'] text-4xl leading-none text-[var(--color-peach)] transition-colors hover:text-white disabled:opacity-35"
+                disabled={totalRounds <= MIN_ROUNDS}
+                aria-label="Decrease rounds"
+              >
+                -
+              </button>
+              <div className="font-['Anton'] text-[64px] leading-none text-[var(--color-peach)]">
+                {totalRounds}
+              </div>
+              <button
+                type="button"
+                onClick={() => setTotalRounds((rounds) => Math.min(MAX_ROUNDS, rounds + 1))}
+                className="flex h-11 w-11 items-center justify-center font-['Space_Grotesk'] text-4xl leading-none text-[var(--color-peach)] transition-colors hover:text-white disabled:opacity-35"
+                disabled={totalRounds >= MAX_ROUNDS}
+                aria-label="Increase rounds"
+              >
+                +
+              </button>
+            </div>
+          </section>
+
           <OptionGroup
-            label="Rounds"
-            options={TOTAL_ROUNDS}
-            value={totalRounds}
-            onChange={setTotalRounds}
-          />
-          <OptionGroup
-            label="Rest Between Rounds"
+            label="Rest Period"
             options={REST_DURATIONS}
             value={restDuration}
             onChange={setRestDuration}
+            variant="inline"
           />
 
-          <div className="mb-6">
-            <div className="text-xs font-semibold tracking-widest text-[var(--color-text-muted)] mb-3 uppercase">
-              Audio
-            </div>
+          <section className="flex flex-col gap-2">
             <button
               type="button"
               onClick={() => setAudioCuesEnabled((v) => !v)}
-              className={`
-                w-full px-4 py-3 rounded-xl text-sm font-bold text-left transition-all flex items-center justify-between
-                ${
-                  audioCuesEnabled
-                    ? "bg-[var(--color-accent)] text-white shadow-lg shadow-red-500/20"
-                    : "bg-[var(--color-surface-2)] text-[var(--color-text-muted)]"
-                }
-              `}
+              className="flex min-h-[52px] w-full items-center justify-between border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-left transition-colors hover:border-[var(--color-peach)]"
+              aria-pressed={audioCuesEnabled}
             >
-              <span>Audio cues</span>
-              <span className="text-xs font-mono opacity-90">
-                {audioCuesEnabled ? "ON" : "OFF"}
+              <span className="flex items-center gap-3 font-['Space_Grotesk'] text-sm font-bold uppercase tracking-[0.1em] text-[var(--color-peach)]">
+                <svg width="22" height="20" viewBox="0 0 22 20" fill="none" aria-hidden>
+                  <path d="M4 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="2" />
+                  <path d="M0 18c0-3 1.8-5 4-5s4 2 4 5" stroke="currentColor" strokeWidth="2" />
+                  <path d="M12 6.5c1.6 1.6 1.6 4.4 0 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M16 3c3.5 3.6 3.5 9.4 0 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                Voice + Bell
+              </span>
+              <span
+                className={[
+                  "relative h-6 w-12 rounded-full transition-colors",
+                  audioCuesEnabled ? "bg-[var(--color-accent)]" : "bg-[var(--color-border)]",
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "absolute top-1 h-4 w-4 rounded-full bg-white transition-[left]",
+                    audioCuesEnabled ? "left-7" : "left-1",
+                  ].join(" ")}
+                />
               </span>
             </button>
-            <p className="text-xs text-[var(--color-text-muted)] mt-2">
-              Spoken combo callouts when clips are available. Round bells still
-              play unless you mute in the workout screen.
-            </p>
-          </div>
+          </section>
+
+          <button
+            onClick={handleStart}
+            className="mt-8 flex min-h-[74px] w-full items-center justify-center gap-3 bg-[var(--color-accent)] px-5 font-['Anton'] text-3xl font-normal uppercase leading-none text-white transition-transform active:scale-[0.98]"
+          >
+            <svg width="11" height="14" viewBox="0 0 11 14" fill="none" aria-hidden>
+              <path d="M0 0v14l11-7L0 0Z" fill="currentColor" />
+            </svg>
+            START WORKOUT
+          </button>
         </div>
 
         {canHint && showMoreHint && (
@@ -281,19 +334,6 @@ export function SetupScreen({ onStart }: Props) {
           </div>
         )}
       </div>
-
-      <button
-        onClick={handleStart}
-        className="
-          w-full py-5 rounded-2xl text-xl font-black tracking-wider
-          bg-[var(--color-accent)] text-white
-          shadow-lg shadow-red-500/30
-          active:scale-[0.97] transition-transform
-          mt-6
-        "
-      >
-        START WORKOUT
-      </button>
     </div>
   );
 }
