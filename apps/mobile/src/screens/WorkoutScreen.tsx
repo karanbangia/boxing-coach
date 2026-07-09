@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import type { Action } from '@boxing-coach/core';
 import { ScreenShell } from '../components/ScreenShell';
 import { formatClock } from '../lib/time';
-import { colors, shadow } from '../theme';
+import { colors } from '../theme';
 
 interface Props {
   currentRound: number;
@@ -24,42 +24,49 @@ interface Props {
   onStop: () => void;
 }
 
-function intensityColor(intensity: 'normal' | 'building' | 'intense', isFreestyle: boolean) {
-  if (isFreestyle) return colors.red;
-
-  switch (intensity) {
-    case 'normal':
-      return colors.green;
-    case 'building':
-      return colors.yellow;
-    case 'intense':
-      return colors.red;
-  }
-}
-
-function actionColor(type: string, isFreestyle: boolean) {
-  if (isFreestyle) return colors.accent;
-
-  switch (type) {
-    case 'movement':
-      return colors.blue;
-    case 'defense':
-      return colors.amber;
-    default:
-      return colors.text;
-  }
-}
-
 function actionBadge(type: string, isFreestyle: boolean) {
   if (isFreestyle) return 'FINISH STRONG';
   if (type === 'movement') return 'MOVEMENT';
   if (type === 'defense') return 'DEFENSE';
-  return null;
+  return 'COMBO';
+}
+
+function normalizeComboLabel(action: Action | null) {
+  if (!action) return '1 - 2 - 3';
+  return action.label.replace(/-/g, ' - ');
+}
+
+const equalizerBars = [26, 42, 31, 19, 44, 36, 52];
+
+function PauseIcon() {
+  return (
+    <View style={styles.pauseIcon} accessibilityElementsHidden>
+      <View style={styles.pauseIconBar} />
+      <View style={styles.pauseIconBar} />
+    </View>
+  );
+}
+
+function PlayIcon() {
+  return <View style={styles.playIcon} accessibilityElementsHidden />;
+}
+
+function SkipIcon() {
+  return (
+    <View style={styles.skipIcon} accessibilityElementsHidden>
+      <View style={styles.skipTriangle} />
+      <View style={styles.skipTriangle} />
+      <View style={styles.skipStem} />
+    </View>
+  );
+}
+
+function StopIcon() {
+  return <View style={styles.stopIcon} accessibilityElementsHidden />;
 }
 
 export function WorkoutScreen({
   currentRound,
-  totalRounds,
   timeRemaining,
   currentAction,
   intensity,
@@ -75,8 +82,21 @@ export function WorkoutScreen({
   onSkipRound,
   onStop,
 }: Props) {
-  const color = intensityColor(intensity, isFreestyle);
+  const { height } = useWindowDimensions();
   const actionAnim = useRef(new Animated.Value(1)).current;
+  const voiceAnim = useRef(equalizerBars.map(() => new Animated.Value(0))).current;
+  const comboLabel = normalizeComboLabel(currentAction);
+  const comboDescription = currentAction?.description ?? 'JAB - CROSS - LEAD HOOK';
+  const isHot = intensity === 'intense' || isFreestyle;
+  const isDoubleDigitRound = currentRound >= 10;
+  const redHeaderHeight = 0;
+  const timerBandTop = Math.round(height * 0.292);
+  const timerBandHeight = Math.round(height * 0.072);
+  const timerWrapHeight = Math.max(timerBandHeight + 20, 112);
+  const timerWrapTop = timerBandTop - Math.round((timerWrapHeight - timerBandHeight) / 2);
+  const comboTop = Math.round(height * 0.418);
+  const comboHeight = Math.round(height * 0.165);
+  const equalizerTop = Math.round(height * 0.626);
 
   useEffect(() => {
     actionAnim.setValue(0.86);
@@ -88,122 +108,196 @@ export function WorkoutScreen({
     }).start();
   }, [actionAnim, actionKey, isPaused]);
 
+  useEffect(() => {
+    const animations = voiceAnim.map((value, index) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(index * 70),
+          Animated.timing(value, {
+            toValue: 1,
+            duration: 260 + index * 35,
+            useNativeDriver: false,
+          }),
+          Animated.timing(value, {
+            toValue: 0,
+            duration: 240 + index * 25,
+            useNativeDriver: false,
+          }),
+        ]),
+      ),
+    );
+
+    animations.forEach(animation => animation.start());
+
+    return () => {
+      animations.forEach(animation => animation.stop());
+    };
+  }, [voiceAnim]);
+
   return (
     <ScreenShell>
       <View style={styles.container}>
-        <View style={[styles.intensityBar, { backgroundColor: color }]} />
-
+        <View style={[styles.redPanel, { height: redHeaderHeight }]} />
+        <View
+          style={[
+            styles.timerBand,
+            {
+              top: timerBandTop,
+              height: timerBandHeight,
+            },
+          ]}
+        />
         <View style={styles.header}>
-          <View style={styles.metricPanel}>
-            <Text style={styles.metricLabel}>Round</Text>
-            <Text style={styles.metricValue}>
-              {currentRound}
-              <Text style={styles.metricMuted}>/{totalRounds}</Text>
-            </Text>
-          </View>
-
-          <View style={[styles.metricPanel, styles.metricPanelRight]}>
-            <Text style={styles.metricLabel}>{isFreestyle ? 'Finish' : 'Time'}</Text>
-            <Text style={[styles.metricValue, styles.metricTimer, { color }]}>
-              {formatClock(timeRemaining)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.volumeRow}>
-          <Pressable
-            onPress={onVolumeDown}
-            style={({ pressed }) => [styles.volumeBtn, pressed && styles.buttonPressed]}
-          >
-            <Text style={styles.volumeBtnText}>−</Text>
-          </Pressable>
-          <Pressable
-            onPress={onToggleMute}
-            style={({ pressed }) => [
-              styles.muteBtn,
-              muted && styles.muteBtnActive,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={[styles.muteBtnText, muted && styles.muteBtnTextActive]}>
-              {muted ? 'UNMUTE' : 'MUTE'}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={onVolumeUp}
-            style={({ pressed }) => [styles.volumeBtn, pressed && styles.buttonPressed]}
-          >
-            <Text style={styles.volumeBtnText}>+</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.centerStage}>
-          {isPaused ? (
-            <View style={styles.pausedWrap}>
-              <Text style={styles.pausedTitle}>PAUSED</Text>
-              <Text style={styles.pausedTime}>{formatClock(timeRemaining)} remaining</Text>
+          <View style={styles.sessionType}>
+            <View style={styles.sessionMark}>
+              <View style={styles.sessionMarkCap} />
+              <View style={styles.sessionMarkStrap} />
             </View>
-          ) : currentAction ? (
+            <Text style={styles.headerTitle}>HEAVY BAG</Text>
+          </View>
+
+          <View style={styles.statusCluster}>
+            <Pressable
+              onPress={onToggleMute}
+              onLongPress={onVolumeDown}
+              style={({ pressed }) => [styles.iconHitTarget, pressed && styles.buttonPressed]}
+              accessibilityLabel={muted ? 'Unmute coach' : 'Mute coach'}
+            >
+              <Text style={styles.statusIcon} allowFontScaling={false}>{muted ? 'OFF' : 'VOL'}</Text>
+            </Pressable>
+            <Pressable
+              onPress={onVolumeUp}
+              style={({ pressed }) => [styles.iconHitTarget, pressed && styles.buttonPressed]}
+              accessibilityLabel="Increase coach volume"
+            >
+              <Text style={styles.statusIcon} allowFontScaling={false}>+</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={[styles.roundBlock, { top: Math.round(height * 0.12) }]}>
+          <Text style={styles.roundLabel} allowFontScaling={false}>ROUND</Text>
+          <Text
+            style={[
+              styles.roundNumber,
+              isDoubleDigitRound && styles.roundNumberCompact,
+              isHot && styles.hotRoundNumber,
+            ]}
+            allowFontScaling={false}
+          >
+            {currentRound}
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.timerWrap,
+            {
+              top: timerWrapTop,
+              height: timerWrapHeight,
+            },
+          ]}
+        >
+          <Text style={styles.timer} allowFontScaling={false}>{formatClock(timeRemaining)}</Text>
+        </View>
+
+        <View style={[styles.comboPanel, { top: comboTop, height: comboHeight }]}>
+          {isPaused ? (
+            <View style={styles.comboTextWrap}>
+              <Text style={styles.comboLabel} allowFontScaling={false}>WORKOUT PAUSED</Text>
+              <Text
+                style={styles.comboPausedValue}
+                allowFontScaling={false}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.72}
+              >
+                {formatClock(timeRemaining)}
+              </Text>
+              <Text style={styles.comboDescription} allowFontScaling={false}>
+                TAP RESUME WHEN READY
+              </Text>
+            </View>
+          ) : (
             <Animated.View
               key={actionKey}
-              style={[
-                styles.actionCard,
-                {
-                  transform: [{ scale: actionAnim }],
-                  opacity: actionAnim,
-                },
-              ]}
+              style={[styles.comboTextWrap, { transform: [{ scale: actionAnim }], opacity: actionAnim }]}
             >
-              {actionBadge(currentAction.type, isFreestyle) ? (
-                <Text style={[styles.actionBadge, { color: actionColor(currentAction.type, isFreestyle) }]}>
-                  {actionBadge(currentAction.type, isFreestyle)}
-                </Text>
-              ) : null}
-
-              <Text style={[styles.actionLabel, { color: actionColor(currentAction.type, isFreestyle) }]}>
-                {currentAction.label}
+              <Text style={styles.comboLabel} allowFontScaling={false}>
+                {actionBadge(currentAction?.type ?? 'combo', isFreestyle)}
               </Text>
-              <Text style={styles.actionDescription}>{currentAction.description}</Text>
+              <Text
+                style={styles.comboValue}
+                allowFontScaling={false}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.58}
+              >
+                {comboLabel}
+              </Text>
+              <Text
+                style={styles.comboDescription}
+                allowFontScaling={false}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {comboDescription}
+              </Text>
             </Animated.View>
-          ) : (
-            <View style={styles.readyWrap}>
-              <Text style={styles.readyLabel}>GET READY</Text>
-            </View>
           )}
+        </View>
+
+        <View style={[styles.equalizer, { top: equalizerTop }]} accessibilityElementsHidden>
+          {equalizerBars.map((barHeight, index) => {
+            const animatedHeight = voiceAnim[index].interpolate({
+              inputRange: [0, 1],
+              outputRange: [Math.max(18, barHeight * 0.48), barHeight],
+            });
+
+            return (
+              <Animated.View
+                key={`${barHeight}-${index}`}
+                style={[styles.equalizerBar, { height: animatedHeight }]}
+              />
+            );
+          })}
         </View>
 
         <View style={styles.controlRow}>
           <Pressable
-            onPress={onStop}
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.secondaryButtonText}>END</Text>
-          </Pressable>
-
-          <Pressable
             onPress={isPaused ? onResume : onPause}
             style={({ pressed }) => [
-              styles.primaryButton,
+              styles.controlButton,
               pressed && styles.buttonPressed,
             ]}
           >
-            <Text style={styles.primaryButtonText}>{isPaused ? 'GO' : 'PAUSE'}</Text>
+            {isPaused ? <PlayIcon /> : <PauseIcon />}
+            <Text style={styles.controlButtonText} allowFontScaling={false}>
+              {isPaused ? 'RESUME' : 'PAUSE'}
+            </Text>
           </Pressable>
 
           <Pressable
             onPress={onSkipRound}
             style={({ pressed }) => [
-              styles.secondaryButton,
+              styles.controlButton,
               pressed && styles.buttonPressed,
             ]}
             accessibilityLabel="Skip round"
           >
-            <Text style={styles.secondaryButtonText}>SKIP</Text>
+            <SkipIcon />
+            <Text style={styles.controlButtonText} allowFontScaling={false}>SKIP</Text>
           </Pressable>
         </View>
+
+        <Pressable
+          onPress={onStop}
+          style={({ pressed }) => [styles.stopButton, pressed && styles.buttonPressed]}
+        >
+          <StopIcon />
+          <Text style={styles.stopButtonText} allowFontScaling={false}>STOP WORKOUT</Text>
+        </Pressable>
       </View>
     </ScreenShell>
   );
@@ -212,180 +306,294 @@ export function WorkoutScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingBottom: 22,
+    backgroundColor: '#121212',
+    overflow: 'hidden',
   },
-  intensityBar: {
-    height: 6,
-    borderRadius: 999,
-    marginTop: 8,
+  redPanel: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#121212',
+  },
+  timerBand: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: '#121212',
   },
   header: {
+    position: 'absolute',
+    top: 29,
+    left: 30,
+    right: 28,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 18,
+    alignItems: 'center',
   },
-  metricPanel: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 20,
-    minWidth: 124,
+  sessionType: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
   },
-  metricPanelRight: {
-    alignItems: 'flex-end',
+  sessionMark: {
+    width: 16,
+    height: 20,
+    alignItems: 'center',
   },
-  metricLabel: {
-    color: colors.textMuted,
+  sessionMarkCap: {
+    position: 'absolute',
+    top: 0,
+    width: 6,
+    height: 3,
+    backgroundColor: colors.peach,
+    borderRadius: 2,
+  },
+  sessionMarkStrap: {
+    position: 'absolute',
+    bottom: 0,
+    width: 13,
+    height: 17,
+    borderWidth: 2,
+    borderColor: colors.peach,
+    borderRadius: 7,
+  },
+  headerTitle: {
+    color: '#ead9d5',
+    fontFamily: 'SpaceGroteskBold',
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2.5,
-    textTransform: 'uppercase',
-    marginBottom: 8,
+    lineHeight: 15,
+    letterSpacing: 3,
   },
-  metricValue: {
-    color: colors.text,
-    fontSize: 30,
-    fontWeight: '900',
+  statusCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  metricMuted: {
-    color: colors.textMuted,
+  iconHitTarget: {
+    minWidth: 56,
+    minHeight: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 7,
   },
-  metricTimer: {
+  statusIcon: {
+    color: '#efe6e2',
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: 'SpaceGroteskBold',
+  },
+  roundBlock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  roundLabel: {
+    color: '#d9c1bd',
+    fontFamily: 'SpaceGroteskBold',
+    fontSize: 11,
+    lineHeight: 12,
+    letterSpacing: 7,
+  },
+  roundNumber: {
+    color: colors.peach,
+    fontFamily: 'Anton',
+    fontSize: 76,
+    lineHeight: 104,
+    marginTop: 3,
+  },
+  roundNumberCompact: {
+    fontSize: 58,
+    lineHeight: 82,
+    marginTop: 2,
+  },
+  hotRoundNumber: {
+    color: '#ffc0b4',
+  },
+  timerWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timer: {
+    color: '#ffffff',
+    fontFamily: 'Anton',
+    fontSize: 86,
+    lineHeight: 108,
     fontVariant: ['tabular-nums'],
   },
-  volumeRow: {
+  comboPanel: {
+    position: 'absolute',
+    left: 30,
+    right: 29,
+    backgroundColor: '#1a1b1b',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  comboTextWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  comboLabel: {
+    color: '#d9c1bd',
+    fontFamily: 'SpaceGroteskBold',
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 5,
+  },
+  comboValue: {
+    color: '#ffffff',
+    fontFamily: 'SpaceGroteskBold',
+    fontSize: 44,
+    lineHeight: 52,
+    letterSpacing: 9,
+    marginTop: 8,
+    maxWidth: '92%',
+  },
+  comboPausedValue: {
+    color: '#ffffff',
+    fontFamily: 'SpaceGroteskBold',
+    fontSize: 44,
+    lineHeight: 52,
+    letterSpacing: 10,
+    marginTop: 8,
+    maxWidth: '92%',
+  },
+  comboDescription: {
+    color: '#c7bdbb',
+    fontFamily: 'SpaceGrotesk',
+    fontSize: 16,
+    lineHeight: 21,
+    letterSpacing: 2.6,
+    marginTop: 6,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    maxWidth: '92%',
+  },
+  equalizer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 62,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    marginTop: 12,
+    gap: 8,
   },
-  volumeBtn: {
-    minWidth: 44,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  volumeBtnText: {
-    color: colors.textMuted,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  muteBtn: {
-    minWidth: 92,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  muteBtnActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  muteBtnText: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  muteBtnTextActive: {
-    color: colors.text,
-  },
-  centerStage: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  actionCard: {
-    paddingHorizontal: 22,
-    paddingVertical: 30,
-    alignItems: 'center',
-  },
-  actionBadge: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 3.2,
-    marginBottom: 16,
-  },
-  actionLabel: {
-    textAlign: 'center',
-    fontSize: 42,
-    lineHeight: 48,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  actionDescription: {
-    color: colors.textMuted,
-    fontSize: 16,
-    lineHeight: 22,
-    textAlign: 'center',
-    marginTop: 16,
-  },
-  pausedWrap: {
-    alignItems: 'center',
-  },
-  pausedTitle: {
-    color: colors.textMuted,
-    fontSize: 44,
-    fontWeight: '900',
-    letterSpacing: 3,
-  },
-  pausedTime: {
-    color: colors.textMuted,
-    fontSize: 16,
-    marginTop: 12,
-  },
-  readyWrap: {
-    alignItems: 'center',
-  },
-  readyLabel: {
-    color: colors.textMuted,
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: 3,
+  equalizerBar: {
+    width: 9,
+    backgroundColor: colors.peach,
   },
   controlRow: {
+    position: 'absolute',
+    left: 30,
+    right: 30,
+    bottom: 92,
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
     gap: 18,
   },
-  secondaryButton: {
-    width: 68,
-    height: 68,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
+  controlButton: {
+    flex: 1,
+    height: 70,
     borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  primaryButton: {
-    width: 96,
-    height: 96,
-    borderRadius: 999,
+    borderColor: colors.accent,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadow,
+    flexDirection: 'row',
+    gap: 12,
   },
-  primaryButtonText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 2,
+  pauseIcon: {
+    width: 22,
+    height: 28,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pauseIconBar: {
+    width: 7,
+    height: 28,
+    backgroundColor: '#ffffff',
+  },
+  playIcon: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 14,
+    borderBottomWidth: 14,
+    borderLeftWidth: 22,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#ffffff',
+    marginLeft: 2,
+  },
+  skipIcon: {
+    width: 31,
+    height: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  skipTriangle: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 11,
+    borderBottomWidth: 11,
+    borderLeftWidth: 13,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#ffffff',
+    marginRight: 1,
+  },
+  skipStem: {
+    width: 5,
+    height: 24,
+    backgroundColor: '#ffffff',
+  },
+  buttonPrefix: {
+    color: '#ffffff',
+    fontFamily: 'SpaceGroteskBold',
+    fontSize: 12,
+    lineHeight: 15,
+    letterSpacing: 0.5,
+    transform: [{ translateY: -1 }],
+  },
+  controlButtonText: {
+    color: '#ffffff',
+    fontFamily: 'Anton',
+    fontSize: 34,
+    lineHeight: 42,
+    letterSpacing: 0,
+    transform: [{ translateY: 2 }],
+  },
+  stopButton: {
+    position: 'absolute',
+    left: 30,
+    right: 30,
+    bottom: 18,
+    height: 54,
+    borderWidth: 1,
+    borderColor: '#9b7a73',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  stopIcon: {
+    width: 11,
+    height: 11,
+    borderWidth: 2,
+    borderColor: '#d9c1bd',
+  },
+  stopButtonText: {
+    color: '#d9c1bd',
+    fontFamily: 'SpaceGroteskBold',
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 5,
   },
   buttonPressed: {
     opacity: 0.92,
