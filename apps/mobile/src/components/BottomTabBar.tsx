@@ -1,4 +1,4 @@
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
 
 export type AppTab = 'timer' | 'workout' | 'plan' | 'profile';
@@ -59,7 +59,7 @@ export function BottomTabBar({
   onChange: (tab: AppTab) => void;
 }) {
   return (
-    <SafeAreaView pointerEvents="box-none" style={styles.tabSafeArea}>
+    <View pointerEvents="box-none" style={styles.tabSafeArea}>
       <View style={styles.tabWrap}>
         <View style={styles.tabBar}>
           {tabs.map(tab => {
@@ -77,7 +77,11 @@ export function BottomTabBar({
                 ]}
               >
                 <LineIcon tab={tab.id} active={active} />
-                <Text style={[styles.tabLabel, active && styles.tabLabelActive]} numberOfLines={1}>
+                <Text
+                  style={[styles.tabLabel, active && styles.tabLabelActive]}
+                  numberOfLines={1}
+                  allowFontScaling={false}
+                >
                   {tab.label}
                 </Text>
               </Pressable>
@@ -85,7 +89,7 @@ export function BottomTabBar({
           })}
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -95,6 +99,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    height: 64,
+    backgroundColor: '#0e0e0e',
   },
   tabWrap: {
     paddingHorizontal: 0,
@@ -111,7 +117,7 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     flex: 1,
-    height: 61,
+    height: 58,
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
@@ -127,9 +133,9 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     color: colors.textMuted,
+    fontFamily: 'SpaceGrotesk',
     fontSize: 10,
     lineHeight: 15,
-    fontWeight: '400',
     letterSpacing: 1,
   },
   tabLabelActive: {

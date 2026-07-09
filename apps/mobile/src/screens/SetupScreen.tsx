@@ -1,5 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import {
   DIFFICULTIES,
   REST_DURATIONS,
@@ -13,6 +20,9 @@ const DEV_TAP_THRESHOLD = 3;
 const DEV_TAP_WINDOW_MS = 3500;
 const MIN_ROUNDS = 1;
 const MAX_ROUNDS = 12;
+const displayFont = 'Anton';
+const bodyFont = 'ArchivoNarrow';
+const labelFont = 'SpaceGroteskBold';
 
 interface Props {
   settings: SetupSettings;
@@ -37,7 +47,7 @@ function OptionGroup<T extends string | number>({
 }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionLabel}>{label}</Text>
+      <Text style={styles.sectionLabel} allowFontScaling={false}>{label}</Text>
       <View style={variant === 'tile' ? styles.tileGrid : styles.segmentGrid}>
         {options.map(option => {
           const selected = option.value === value;
@@ -58,11 +68,15 @@ function OptionGroup<T extends string | number>({
                   variant === 'tile' ? styles.tileLabel : styles.segmentLabel,
                   selected && styles.selectedLabel,
                 ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.74}
+                allowFontScaling={false}
               >
                 {option.label}
               </Text>
               {option.desc ? (
-                <Text style={styles.tileDesc} numberOfLines={2}>
+                <Text style={styles.tileDesc} numberOfLines={2} allowFontScaling={false}>
                   {option.desc}
                 </Text>
               ) : null}
@@ -118,104 +132,129 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
 
   return (
     <ScreenShell>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        <Pressable onPress={handleHeroPress} style={({ pressed }) => [pressed && styles.heroPressed]}>
-          <View style={styles.heroPanel}>
-            <Text style={styles.title}>SETUP YOUR</Text>
-            <Text style={[styles.title, styles.titleAccent]}>WORKOUT</Text>
-          </View>
-        </Pressable>
-
-        {!isReady ? (
-          <View style={styles.loadingPanel}>
-            <ActivityIndicator color={colors.accent} />
-            <Text style={styles.loadingText}>Loading your last session...</Text>
-          </View>
-        ) : (
-          <>
-            <OptionGroup
-              label="Difficulty"
-              options={DIFFICULTIES}
-              value={settings.difficulty}
-              onSelect={difficulty => onChange({ difficulty })}
-            />
-            <OptionGroup
-              label="Round Duration"
-              options={ROUND_DURATIONS}
-              value={settings.roundDuration}
-              onSelect={roundDuration => onChange({ roundDuration })}
-              variant="segment"
-            />
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Rounds</Text>
-              <View style={styles.roundStepper}>
-                <Pressable
-                  accessibilityLabel="Decrease rounds"
-                  disabled={settings.totalRounds <= MIN_ROUNDS}
-                  onPress={() => onChange({ totalRounds: Math.max(MIN_ROUNDS, settings.totalRounds - 1) })}
-                  style={({ pressed }) => [
-                    styles.stepperButton,
-                    settings.totalRounds <= MIN_ROUNDS && styles.stepperButtonDisabled,
-                    pressed && styles.buttonPressed,
-                  ]}
-                >
-                  <Text style={styles.stepperSymbol}>-</Text>
-                </Pressable>
-                <Text style={styles.roundValue}>{settings.totalRounds}</Text>
-                <Pressable
-                  accessibilityLabel="Increase rounds"
-                  disabled={settings.totalRounds >= MAX_ROUNDS}
-                  onPress={() => onChange({ totalRounds: Math.min(MAX_ROUNDS, settings.totalRounds + 1) })}
-                  style={({ pressed }) => [
-                    styles.stepperButton,
-                    settings.totalRounds >= MAX_ROUNDS && styles.stepperButtonDisabled,
-                    pressed && styles.buttonPressed,
-                  ]}
-                >
-                  <Text style={styles.stepperSymbol}>+</Text>
-                </Pressable>
-              </View>
+      <View style={styles.screen}>
+        <ScrollView
+          style={styles.scroller}
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable onPress={handleHeroPress} style={({ pressed }) => [pressed && styles.heroPressed]}>
+            <View style={styles.heroPanel}>
+              <Text
+                style={styles.title}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.82}
+                allowFontScaling={false}
+              >
+                SETUP YOUR
+              </Text>
+              <Text
+                style={[styles.title, styles.titleAccent]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.82}
+                allowFontScaling={false}
+              >
+                WORKOUT
+              </Text>
             </View>
+          </Pressable>
 
-            <OptionGroup
-              label="Rest Period"
-              options={REST_DURATIONS}
-              value={settings.restDuration}
-              onSelect={restDuration => onChange({ restDuration })}
-              variant="segment"
-            />
+          {!isReady ? (
+            <View style={styles.loadingPanel}>
+              <ActivityIndicator color={colors.accent} />
+              <Text style={styles.loadingText} allowFontScaling={false}>Loading your last session...</Text>
+            </View>
+          ) : (
+            <>
+              <OptionGroup
+                label="Difficulty"
+                options={DIFFICULTIES}
+                value={settings.difficulty}
+                onSelect={difficulty => onChange({ difficulty })}
+              />
+              <OptionGroup
+                label="Round Duration"
+                options={ROUND_DURATIONS}
+                value={settings.roundDuration}
+                onSelect={roundDuration => onChange({ roundDuration })}
+                variant="segment"
+              />
 
-            <Pressable
-              onPress={() => onChange({ audioCuesEnabled: !settings.audioCuesEnabled })}
-              style={({ pressed }) => [
-                styles.audioCueRow,
-                pressed && styles.buttonPressed,
-              ]}
-            >
-              <View style={styles.audioLabelWrap}>
-                <AudioIcon />
-                <Text style={styles.audioCueLabel}>Voice + Bell</Text>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel} allowFontScaling={false}>Rounds</Text>
+                <View style={styles.roundStepper}>
+                  <Pressable
+                    accessibilityLabel="Decrease rounds"
+                    disabled={settings.totalRounds <= MIN_ROUNDS}
+                    onPress={() => onChange({ totalRounds: Math.max(MIN_ROUNDS, settings.totalRounds - 1) })}
+                    style={({ pressed }) => [
+                      styles.stepperButton,
+                      settings.totalRounds <= MIN_ROUNDS && styles.stepperButtonDisabled,
+                      pressed && styles.buttonPressed,
+                    ]}
+                  >
+                    <Text style={styles.stepperSymbol} allowFontScaling={false}>-</Text>
+                  </Pressable>
+                  <Text style={styles.roundValue} allowFontScaling={false}>{settings.totalRounds}</Text>
+                  <Pressable
+                    accessibilityLabel="Increase rounds"
+                    disabled={settings.totalRounds >= MAX_ROUNDS}
+                    onPress={() => onChange({ totalRounds: Math.min(MAX_ROUNDS, settings.totalRounds + 1) })}
+                    style={({ pressed }) => [
+                      styles.stepperButton,
+                      settings.totalRounds >= MAX_ROUNDS && styles.stepperButtonDisabled,
+                      pressed && styles.buttonPressed,
+                    ]}
+                  >
+                    <Text style={styles.stepperSymbol} allowFontScaling={false}>+</Text>
+                  </Pressable>
+                </View>
               </View>
-              <View
-                style={[
-                  styles.toggleTrack,
-                  settings.audioCuesEnabled && styles.toggleTrackOn,
+
+              <OptionGroup
+                label="Rest Period"
+                options={REST_DURATIONS}
+                value={settings.restDuration}
+                onSelect={restDuration => onChange({ restDuration })}
+                variant="segment"
+              />
+
+              <Pressable
+                onPress={() => onChange({ audioCuesEnabled: !settings.audioCuesEnabled })}
+                style={({ pressed }) => [
+                  styles.audioCueRow,
+                  pressed && styles.buttonPressed,
                 ]}
               >
+                <View style={styles.audioLabelWrap}>
+                  <AudioIcon />
+                  <Text style={styles.audioCueLabel} allowFontScaling={false}>Voice + Bell</Text>
+                </View>
                 <View
                   style={[
-                    styles.toggleThumb,
-                    settings.audioCuesEnabled && styles.toggleThumbOn,
+                    styles.toggleTrack,
+                    settings.audioCuesEnabled && styles.toggleTrackOn,
                   ]}
-                />
-              </View>
-            </Pressable>
+                >
+                  <View
+                    style={[
+                      styles.toggleThumb,
+                      settings.audioCuesEnabled && styles.toggleThumbOn,
+                    ]}
+                  />
+                </View>
+              </Pressable>
+            </>
+          )}
+        </ScrollView>
 
+        {isReady ? (
+          <View style={styles.floatingCta}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Start workout"
               onPress={() => onStart(settings)}
               style={({ pressed }) => [
                 styles.startButton,
@@ -223,24 +262,31 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
               ]}
             >
               <View style={styles.playTriangle} />
-              <Text style={styles.startButtonText}>START WORKOUT</Text>
+              <Text style={styles.startButtonText} allowFontScaling={false}>START WORKOUT</Text>
             </Pressable>
-          </>
-        )}
-      </ScrollView>
+          </View>
+        ) : null}
+      </View>
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  scroller: {
+    marginBottom: 0,
+  },
   container: {
     paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 42,
-    gap: 24,
+    paddingTop: 30,
+    paddingBottom: 137,
+    gap: 20,
   },
   heroPanel: {
-    paddingBottom: 24,
+    paddingTop: 6,
+    paddingBottom: 0,
   },
   heroPressed: {
     opacity: 0.98,
@@ -248,9 +294,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.peach,
+    fontFamily: displayFont,
     fontSize: 58,
-    lineHeight: 60,
-    fontWeight: '900',
+    lineHeight: 72,
     letterSpacing: 0,
     textTransform: 'uppercase',
   },
@@ -274,9 +320,9 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     color: colors.peach,
+    fontFamily: labelFont,
     fontSize: 14,
     lineHeight: 16,
-    fontWeight: '800',
     letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
@@ -291,13 +337,13 @@ const styles = StyleSheet.create({
   },
   tileButton: {
     width: '49.4%',
-    minHeight: 86,
+    minHeight: 80,
     borderWidth: 2,
     borderColor: colors.border,
     backgroundColor: colors.surface,
     justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     gap: 4,
   },
   tileButtonSelected: {
@@ -323,23 +369,25 @@ const styles = StyleSheet.create({
   },
   tileLabel: {
     color: colors.textMuted,
-    fontSize: 19,
-    lineHeight: 26,
-    fontWeight: '900',
+    fontFamily: displayFont,
+    fontSize: 18,
+    lineHeight: 30,
     letterSpacing: 0,
     textTransform: 'uppercase',
   },
   tileDesc: {
     color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 19,
+    fontFamily: bodyFont,
+    fontSize: 13,
+    lineHeight: 17,
   },
   segmentLabel: {
     color: colors.textMuted,
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '900',
+    fontFamily: displayFont,
+    fontSize: 24,
+    lineHeight: 30,
     letterSpacing: 0,
+    transform: [{ translateY: 4 }],
   },
   selectedLabel: {
     color: colors.text,
@@ -365,16 +413,18 @@ const styles = StyleSheet.create({
   },
   stepperSymbol: {
     color: colors.peach,
+    fontFamily: labelFont,
     fontSize: 34,
     lineHeight: 38,
-    fontWeight: '400',
+    transform: [{ translateY: 3 }],
   },
   roundValue: {
     color: colors.peach,
-    fontSize: 58,
-    lineHeight: 64,
-    fontWeight: '900',
+    fontFamily: displayFont,
+    fontSize: 64,
+    lineHeight: 78,
     fontVariant: ['tabular-nums'],
+    transform: [{ translateY: 6 }],
   },
   audioCueRow: {
     minHeight: 54,
@@ -393,9 +443,9 @@ const styles = StyleSheet.create({
   },
   audioCueLabel: {
     color: colors.peach,
+    fontFamily: labelFont,
     fontSize: 14,
     lineHeight: 16,
-    fontWeight: '800',
     letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
@@ -464,14 +514,29 @@ const styles = StyleSheet.create({
   toggleThumbOn: {
     transform: [{ translateX: 24 }],
   },
+  floatingCta: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 117,
+    paddingHorizontal: 16,
+    paddingTop: 17,
+    paddingBottom: 16,
+    backgroundColor: 'transparent',
+  },
   startButton: {
-    marginTop: 22,
-    minHeight: 74,
+    minHeight: 84,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 12,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
   },
   startButtonPressed: {
     opacity: 0.92,
@@ -489,9 +554,9 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     color: colors.text,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '900',
+    fontFamily: displayFont,
+    fontSize: 30,
+    lineHeight: 36,
     letterSpacing: 0,
     textTransform: 'uppercase',
   },

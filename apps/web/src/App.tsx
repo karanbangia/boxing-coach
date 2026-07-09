@@ -213,7 +213,7 @@ function MainApp() {
     return (
       <PrepScreen
         secondsLeft={prepSecondsLeft}
-        totalRounds={config.totalRounds}
+        totalSeconds={resolvePrepCountdownSeconds(config.tuning)}
         onSkip={() => setPrepSecondsLeft(0)}
         onCancel={handleStop}
       />

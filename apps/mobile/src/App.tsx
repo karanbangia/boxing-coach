@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import type { EngineConfig } from '@boxing-coach/core';
@@ -24,6 +25,13 @@ import { PlanScreen } from './screens/PlanScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 
 export function App() {
+  const [fontsLoaded] = useFonts({
+    Anton: require('../assets/fonts/Anton-Regular.ttf'),
+    ArchivoNarrow: require('../assets/fonts/ArchivoNarrow-Regular.ttf'),
+    ArchivoNarrowBold: require('../assets/fonts/ArchivoNarrow-Bold.ttf'),
+    SpaceGrotesk: require('../assets/fonts/SpaceGrotesk-Regular.ttf'),
+    SpaceGroteskBold: require('../assets/fonts/SpaceGrotesk-Bold.ttf'),
+  });
   const [activeTab, setActiveTab] = useState<AppTab>('timer');
   const { settings, updateSettings, isReady: settingsReady } = useStoredSettings();
   const { tuning, setTuning, isReady: tuningReady } = useStoredTuning();
@@ -42,7 +50,7 @@ export function App() {
   const sounds = useSounds(sessionVolumeRef);
   const coach = useCoachVoice(sessionVolumeRef, audioCuesRef);
 
-  const isReady = settingsReady && tuningReady && session.ready;
+  const isReady = settingsReady && tuningReady && session.ready && fontsLoaded;
 
   const inPrep =
     Boolean(config && prepSecondsLeft !== null && prepSecondsLeft > 0 && workout.phase === 'idle');
@@ -190,6 +198,14 @@ export function App() {
     setActiveTab('timer');
   }, [coach, workout]);
 
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#131313' }}>
+        <StatusBar style="light" />
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1 }}>
       <StatusBar style="light" />
@@ -223,7 +239,7 @@ export function App() {
       ) : workout.phase === 'idle' && prepSecondsLeft !== null && prepSecondsLeft > 0 ? (
         <PrepScreen
           secondsLeft={prepSecondsLeft}
-          totalRounds={config.totalRounds}
+          totalSeconds={resolvePrepCountdownSeconds(config.tuning)}
           onSkip={() => setPrepSecondsLeft(0)}
           onCancel={handleStop}
         />

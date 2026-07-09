@@ -7,6 +7,7 @@ dist
 .DS_Store
 .idea
 .expo
+.codex-audit
 
 # Accidental Expo output at the repo root. The native app lives in apps/mobile.
 /android/
