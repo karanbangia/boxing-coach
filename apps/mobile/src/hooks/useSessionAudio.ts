@@ -48,10 +48,13 @@ export function useSessionAudio() {
 
   useEffect(() => {
     if (!ready) return;
-    void AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ masterVolume, muted } satisfies Stored),
-    ).catch(() => {});
+    const timeout = setTimeout(() => {
+      void AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ masterVolume, muted } satisfies Stored),
+      ).catch(() => {});
+    }, 250);
+    return () => clearTimeout(timeout);
   }, [ready, masterVolume, muted]);
 
   const effectiveVolume = muted ? 0 : masterVolume;
@@ -77,6 +80,12 @@ export function useSessionAudio() {
     setMasterVolumeState(v => Math.min(1, Math.round((v + 0.1) * 10) / 10));
   }, []);
 
+  const setVolumePercent = useCallback((percent: number) => {
+    const nextPercent = Math.max(0, Math.min(100, Math.round(percent)));
+    setMutedState(false);
+    setMasterVolumeState(nextPercent / 100);
+  }, []);
+
   return {
     ready,
     masterVolume,
@@ -85,5 +94,6 @@ export function useSessionAudio() {
     toggleMute,
     volumeDown,
     volumeUp,
+    setVolumePercent,
   };
 }

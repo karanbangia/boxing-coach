@@ -1,310 +1,434 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { ScreenShell } from '../components/ScreenShell';
-import { formatClock } from '../lib/time';
-import { colors, shadow } from '../theme';
+import { colors } from '../theme';
 
 interface Props {
   currentRound: number;
   totalRounds: number;
   timeRemaining: number;
+  totalSeconds: number;
   onSkipRest: () => void;
 }
 
-export function RestScreen({ currentRound, totalRounds, timeRemaining, onSkipRest }: Props) {
-  const pulse = useRef(new Animated.Value(0.9)).current;
+const RING_TICK_COUNT = 120;
+
+export function RestScreen({
+  currentRound,
+  totalRounds,
+  timeRemaining,
+  totalSeconds,
+  onSkipRest,
+}: Props) {
+  const { height } = useWindowDimensions();
+  const compact = height < 760;
+  const veryCompact = height < 690;
   const nextRound = Math.min(currentRound + 1, totalRounds);
+  const secondsLeft = Math.max(0, Math.ceil(timeRemaining));
+  const progress = Math.max(0, Math.min(1, secondsLeft / Math.max(1, totalSeconds)));
+  const animatedProgress = useRef(new Animated.Value(progress)).current;
+  const ringTicks = useMemo(() => Array.from({ length: RING_TICK_COUNT }, (_, index) => index), []);
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1.06,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 0.9,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    animation.start();
-
-    return () => {
-      animation.stop();
-    };
-  }, [pulse]);
+    Animated.timing(animatedProgress, {
+      toValue: progress,
+      duration: 1000,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
+  }, [animatedProgress, progress]);
 
   return (
     <ScreenShell>
-      <View pointerEvents="none" style={styles.redWash} />
-      <View pointerEvents="none" style={styles.redGlow} />
-      <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          compact && styles.containerCompact,
+          veryCompact && styles.containerVeryCompact,
+        ]}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         <View style={styles.topRail}>
           <View style={styles.roundBlock}>
             <Text style={styles.railLabel} allowFontScaling={false}>Round</Text>
-            <Text style={styles.railValue} allowFontScaling={false}>
+            <Text
+              style={[
+                styles.roundValue,
+                compact && styles.roundValueCompact,
+                veryCompact && styles.roundValueVeryCompact,
+              ]}
+              allowFontScaling={false}
+            >
               {currentRound}
-              <Text style={styles.railValueMuted}>/{totalRounds}</Text>
+              <Text style={styles.roundTotal}>/{totalRounds}</Text>
             </Text>
           </View>
 
           <View style={styles.nextBlock}>
             <Text style={styles.railLabel} allowFontScaling={false}>Next up</Text>
-            <Text style={styles.nextValue} allowFontScaling={false}>
+            <Text
+              style={[
+                styles.nextValue,
+                compact && styles.nextValueCompact,
+                veryCompact && styles.nextValueVeryCompact,
+              ]}
+              allowFontScaling={false}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
               {nextRound === currentRound ? 'Final bell' : `Round ${nextRound}`}
             </Text>
           </View>
         </View>
 
-        <View style={styles.stage}>
-          <Text style={styles.kicker} allowFontScaling={false}>RESTING</Text>
-          <Text style={styles.title} allowFontScaling={false}>CATCH YOUR BREATH</Text>
-          <Text style={styles.subtitle} allowFontScaling={false}>
-            Shake out your arms. Slow nasal breath. Guard comes back up on the bell.
-          </Text>
-        </View>
-
-        <View style={styles.timerWrap} accessibilityLabel={`${formatClock(timeRemaining)} rest remaining`}>
-          <Animated.View
-            style={[
-              styles.pulseRing,
-              {
-                transform: [{ scale: pulse }],
-                opacity: pulse,
-              },
-            ]}
-          />
-          <View style={styles.outerRing} />
-          <View style={styles.timerCard}>
-            <Text style={styles.timerText} allowFontScaling={false}>
-              {formatClock(timeRemaining)}
-            </Text>
-            <Text style={styles.timerLabel} allowFontScaling={false}>REST LEFT</Text>
-          </View>
-        </View>
-
-        <View style={styles.breathPanel}>
-          <Text style={styles.breathCue} allowFontScaling={false}>IN 4</Text>
-          <View style={styles.breathDivider} />
-          <Text style={styles.breathCue} allowFontScaling={false}>OUT 6</Text>
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Skip rest"
-          onPress={onSkipRest}
-          style={({ pressed }) => [
-            styles.button,
-            pressed && styles.buttonPressed,
+        <View
+          style={[
+            styles.centeredContent,
+            compact && styles.centeredContentCompact,
+            veryCompact && styles.centeredContentVeryCompact,
           ]}
         >
-          <Text style={styles.buttonText}>SKIP REST</Text>
-        </Pressable>
-      </View>
+          <View style={styles.hero}>
+            <Text
+              style={[
+                styles.title,
+                compact && styles.titleCompact,
+                veryCompact && styles.titleVeryCompact,
+              ]}
+              allowFontScaling={false}
+            >
+              CATCH YOUR BREATH
+            </Text>
+            <Text
+              style={[
+                styles.subtitle,
+                compact && styles.subtitleCompact,
+                veryCompact && styles.subtitleVeryCompact,
+              ]}
+              allowFontScaling={false}
+            >
+              Shake out your arms. Slow nasal breath.{`\n`}Guard comes back up on the bell.
+            </Text>
+          </View>
+
+          <View
+            accessible
+            accessibilityLabel={`${secondsLeft} seconds rest remaining`}
+            style={[
+              styles.timerRing,
+              compact && styles.timerRingCompact,
+              veryCompact && styles.timerRingVeryCompact,
+            ]}
+          >
+            <View style={styles.progressTickLayer} pointerEvents="none">
+              {ringTicks.map((index) => {
+                const opacity = animatedProgress.interpolate({
+                  inputRange: [index / RING_TICK_COUNT, (index + 1) / RING_TICK_COUNT],
+                  outputRange: [0, 1],
+                  extrapolate: 'clamp',
+                });
+                const tickOffset = veryCompact ? -79 : compact ? -89 : -105;
+                const transform = [
+                  { rotate: `${(index / RING_TICK_COUNT) * 360}deg` },
+                  { translateY: tickOffset },
+                ];
+
+                return (
+                  <View key={index} style={styles.progressTickSlot}>
+                    <View
+                      style={[styles.progressTick, styles.progressTickInactive, { transform }]}
+                    />
+                    <Animated.View
+                      style={[
+                        styles.progressTick,
+                        styles.progressTickActive,
+                        { opacity, transform },
+                      ]}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={styles.timerValueWrap}>
+              <Text
+                style={[
+                  styles.timer,
+                  compact && styles.timerCompact,
+                  veryCompact && styles.timerVeryCompact,
+                ]}
+                allowFontScaling={false}
+              >
+                {secondsLeft}
+              </Text>
+              <Text
+                style={[styles.timerLabel, veryCompact && styles.timerLabelVeryCompact]}
+                allowFontScaling={false}
+              >
+                REST LEFT
+              </Text>
+            </View>
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Skip rest"
+            onPress={onSkipRest}
+            style={({ pressed }) => [
+              styles.skipButton,
+              compact && styles.skipButtonCompact,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Ionicons
+              name="play-skip-forward"
+              size={22}
+              color={colors.text}
+              accessibilityElementsHidden
+            />
+            <Text style={styles.skipButtonText} allowFontScaling={false}>SKIP REST</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  redWash: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 230,
-    backgroundColor: 'rgba(255,20,20,0.1)',
-  },
-  redGlow: {
-    position: 'absolute',
-    top: -120,
-    alignSelf: 'center',
-    width: 380,
-    height: 380,
-    borderRadius: 190,
-    backgroundColor: 'rgba(255,20,20,0.16)',
-  },
   container: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: 42,
+  },
+  containerCompact: {
+    paddingTop: 10,
     paddingBottom: 24,
+  },
+  containerVeryCompact: {
+    paddingTop: 8,
+    paddingBottom: 18,
   },
   topRail: {
     width: '100%',
+    maxWidth: 336,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingTop: 16,
   },
   roundBlock: {
     minWidth: 94,
   },
   nextBlock: {
-    minWidth: 112,
+    minWidth: 138,
     alignItems: 'flex-end',
   },
   railLabel: {
-    color: colors.textMuted,
-    fontFamily: 'SpaceGroteskBold',
-    fontSize: 11,
-    lineHeight: 14,
-    letterSpacing: 1.6,
-    textTransform: 'uppercase',
-    marginBottom: 5,
-  },
-  railValue: {
-    color: colors.peach,
-    fontFamily: 'Anton',
-    fontSize: 36,
-    lineHeight: 44,
-    letterSpacing: 0,
-  },
-  railValueMuted: {
-    color: colors.textMuted,
-  },
-  nextValue: {
-    color: colors.text,
-    fontFamily: 'SpaceGroteskBold',
-    fontSize: 14,
-    lineHeight: 18,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  stage: {
-    width: '100%',
-    alignItems: 'center',
-    marginTop: 44,
-  },
-  kicker: {
-    color: colors.accent,
-    fontFamily: 'SpaceGroteskBold',
-    fontSize: 14,
-    lineHeight: 18,
-    letterSpacing: 2.8,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  title: {
-    color: colors.peach,
-    fontFamily: 'Anton',
-    fontSize: 52,
-    lineHeight: 62,
-    letterSpacing: 0,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-  },
-  subtitle: {
-    color: colors.textMuted,
-    fontFamily: 'ArchivoNarrow',
-    fontSize: 17,
-    lineHeight: 22,
-    marginTop: 10,
-    textAlign: 'center',
-    maxWidth: 322,
-  },
-  timerWrap: {
-    width: 286,
-    height: 286,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 32,
-  },
-  pulseRing: {
-    position: 'absolute',
-    width: 256,
-    height: 256,
-    borderRadius: 999,
-    borderWidth: 3,
-    borderColor: 'rgba(255, 20, 20, 0.24)',
-  },
-  outerRing: {
-    position: 'absolute',
-    width: 244,
-    height: 244,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: colors.border,
-  },
-  timerCard: {
-    width: 202,
-    height: 202,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accent,
-    borderWidth: 10,
-    borderColor: colors.background,
-    ...shadow,
-  },
-  timerText: {
-    color: colors.text,
-    fontFamily: 'Anton',
-    fontSize: 58,
-    lineHeight: 70,
-    letterSpacing: 0,
-    fontVariant: ['tabular-nums'],
-    transform: [{ translateY: 4 }],
-  },
-  timerLabel: {
-    color: colors.text,
+    color: '#d9c1bd',
     fontFamily: 'SpaceGroteskBold',
     fontSize: 11,
     lineHeight: 14,
     letterSpacing: 2.2,
     textTransform: 'uppercase',
+    marginBottom: 3,
   },
-  breathPanel: {
+  roundValue: {
+    color: colors.peach,
+    fontFamily: 'Anton',
+    fontSize: 40,
+    lineHeight: 52,
+  },
+  roundValueCompact: {
+    fontSize: 36,
+    lineHeight: 48,
+  },
+  roundValueVeryCompact: {
+    fontSize: 32,
+    lineHeight: 44,
+  },
+  roundTotal: {
+    color: colors.textMuted,
+  },
+  nextValue: {
+    color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 40,
+    lineHeight: 52,
+    textTransform: 'uppercase',
+    textAlign: 'right',
+  },
+  nextValueCompact: {
+    fontSize: 36,
+    lineHeight: 48,
+  },
+  nextValueVeryCompact: {
+    fontSize: 32,
+    lineHeight: 44,
+  },
+  centeredContent: {
+    flexGrow: 1,
     width: '100%',
-    maxWidth: 320,
-    minHeight: 58,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    flexDirection: 'row',
+    maxWidth: 336,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
+    gap: 38,
   },
-  breathCue: {
-    flex: 1,
+  centeredContentCompact: {
+    justifyContent: 'flex-start',
+    gap: 24,
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+  centeredContentVeryCompact: {
+    gap: 18,
+    paddingTop: 14,
+    paddingBottom: 18,
+  },
+  hero: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  title: {
     color: colors.peach,
-    fontFamily: 'SpaceGroteskBold',
-    fontSize: 14,
-    lineHeight: 18,
-    letterSpacing: 1.8,
+    fontFamily: 'Anton',
+    fontSize: 48,
+    lineHeight: 62,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
-  breathDivider: {
-    width: 2,
-    alignSelf: 'stretch',
-    backgroundColor: colors.border,
+  titleCompact: {
+    fontSize: 42,
+    lineHeight: 56,
   },
-  button: {
-    width: '100%',
-    maxWidth: 320,
-    minHeight: 58,
-    marginTop: 14,
-    borderWidth: 2,
-    borderColor: colors.accent,
+  titleVeryCompact: {
+    fontSize: 36,
+    lineHeight: 48,
+  },
+  subtitle: {
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 16,
+    lineHeight: 21,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  subtitleCompact: {
+    marginTop: 9,
+  },
+  subtitleVeryCompact: {
+    fontSize: 15,
+    lineHeight: 19,
+    marginTop: 7,
+  },
+  timerRing: {
+    width: 222,
+    height: 222,
+    borderRadius: 111,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+  },
+  timerRingCompact: {
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+  },
+  timerRingVeryCompact: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+  },
+  progressTickLayer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressTickSlot: {
+    position: 'absolute',
+  },
+  progressTick: {
+    position: 'absolute',
+    width: 2,
+    height: 10,
+    borderRadius: 1,
+  },
+  progressTickActive: {
+    backgroundColor: colors.accent,
+  },
+  progressTickInactive: {
+    backgroundColor: 'rgba(255, 20, 20, 0.18)',
+  },
+  timerValueWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
+  timer: {
+    color: colors.peach,
+    fontFamily: 'Anton',
+    fontSize: 72,
+    lineHeight: 94,
+    fontVariant: ['tabular-nums'],
+    transform: [{ translateY: 4 }],
+  },
+  timerCompact: {
+    fontSize: 64,
+    lineHeight: 86,
+  },
+  timerVeryCompact: {
+    fontSize: 56,
+    lineHeight: 76,
+  },
+  timerLabel: {
+    color: '#d9c1bd',
+    fontFamily: 'SpaceGroteskBold',
+    fontSize: 10,
+    lineHeight: 13,
+    letterSpacing: 3.2,
+    textTransform: 'uppercase',
+    marginTop: 8,
+  },
+  timerLabelVeryCompact: {
+    marginTop: 5,
+  },
+  skipButton: {
+    width: '100%',
+    minHeight: 58,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+  },
+  skipButtonCompact: {
+    minHeight: 56,
+  },
+  skipButtonText: {
+    color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 26,
+    lineHeight: 36,
+    textTransform: 'uppercase',
+    transform: [{ translateY: 2 }],
   },
   buttonPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
-  },
-  buttonText: {
-    color: colors.text,
-    fontFamily: 'SpaceGroteskBold',
-    fontSize: 14,
-    lineHeight: 18,
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
   },
 });

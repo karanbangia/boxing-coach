@@ -1,5 +1,17 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import {
+  Animated,
+  Modal,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 import type { Action } from '@boxing-coach/core';
 import { ScreenShell } from '../components/ScreenShell';
 import { formatClock } from '../lib/time';
@@ -15,9 +27,9 @@ interface Props {
   isFreestyle: boolean;
   actionKey: number;
   muted: boolean;
+  masterVolume: number;
   onToggleMute: () => void;
-  onVolumeDown: () => void;
-  onVolumeUp: () => void;
+  onVolumePercentChange: (percent: number) => void;
   onPause: () => void;
   onResume: () => void;
   onSkipRound: () => void;
@@ -65,6 +77,153 @@ function StopIcon() {
   return <View style={styles.stopIcon} accessibilityElementsHidden />;
 }
 
+interface VolumeModalProps {
+  visible: boolean;
+  muted: boolean;
+  volumePercent: number;
+  onChange: (percent: number) => void;
+  onClose: () => void;
+}
+
+function VolumeModal({
+  visible,
+  muted,
+  volumePercent,
+  onChange,
+  onClose,
+}: VolumeModalProps) {
+  const trackRef = useRef<View | null>(null);
+  const trackHeightRef = useRef(0);
+  const trackPageYRef = useRef(0);
+  const lastEmittedRef = useRef(Math.round(volumePercent));
+  const isDraggingRef = useRef(false);
+  const hasPendingChangeRef = useRef(false);
+  const displayPercent = muted ? 0 : Math.round(volumePercent);
+  const animatedVolume = useRef(new Animated.Value(displayPercent)).current;
+  const fillHeight = animatedVolume.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
+  const fillColor = animatedVolume.interpolate({
+    inputRange: [0, 70, 100],
+    outputRange: [colors.peach, colors.peach, colors.accent],
+  });
+
+  useEffect(() => {
+    lastEmittedRef.current = Math.round(volumePercent);
+  }, [volumePercent]);
+
+  useEffect(() => {
+    if (isDraggingRef.current) {
+      return;
+    }
+    const animation = Animated.timing(animatedVolume, {
+      toValue: displayPercent,
+      duration: 180,
+      useNativeDriver: false,
+    });
+    animation.start();
+    return animation.stop;
+  }, [animatedVolume, displayPercent]);
+
+  const measureTrack = (afterMeasure?: () => void) => {
+    trackRef.current?.measureInWindow((_x, y, _width, height) => {
+      trackPageYRef.current = y;
+      trackHeightRef.current = height;
+      afterMeasure?.();
+    });
+  };
+
+  const updateFromPageY = (pageY: number) => {
+    if (trackHeightRef.current <= 0) {
+      return;
+    }
+
+    const localY = pageY - trackPageYRef.current;
+    const ratio = Math.max(0, Math.min(1, 1 - localY / trackHeightRef.current));
+    const nextValue = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+
+    if (nextValue === lastEmittedRef.current) {
+      return;
+    }
+
+    lastEmittedRef.current = nextValue;
+    hasPendingChangeRef.current = true;
+    animatedVolume.setValue(nextValue);
+  };
+
+  const commitPendingVolume = () => {
+    isDraggingRef.current = false;
+    if (!hasPendingChangeRef.current) {
+      return;
+    }
+
+    hasPendingChangeRef.current = false;
+    onChange(lastEmittedRef.current);
+  };
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: event => {
+          isDraggingRef.current = true;
+          hasPendingChangeRef.current = false;
+          measureTrack(() => {
+            updateFromPageY(event.nativeEvent.pageY);
+          });
+        },
+        onPanResponderMove: event => {
+          updateFromPageY(event.nativeEvent.pageY);
+        },
+        onPanResponderRelease: commitPendingVolume,
+        onPanResponderTerminate: commitPendingVolume,
+      }),
+    [onChange],
+  );
+
+  const handleTrackLayout = (event: LayoutChangeEvent) => {
+    trackHeightRef.current = event.nativeEvent.layout.height;
+    measureTrack();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.volumeModalRoot}>
+        <BlurView intensity={34} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <View style={styles.volumeModalDim} />
+        <Pressable
+          style={StyleSheet.absoluteFillObject}
+          onPress={onClose}
+          accessibilityLabel="Close volume"
+        />
+        <View style={styles.volumeSheet} pointerEvents="box-none">
+          <View
+            ref={trackRef}
+            style={styles.volumeTrack}
+            onLayout={handleTrackLayout}
+            {...panResponder.panHandlers}
+            accessibilityRole="adjustable"
+            accessibilityLabel="Coach volume"
+            accessibilityValue={{ min: 0, max: 100, now: displayPercent }}
+          >
+            <Animated.View style={[styles.volumeFill, { height: fillHeight, backgroundColor: fillColor }]} />
+            <Ionicons
+              name={muted ? 'volume-mute-outline' : 'volume-high-outline'}
+              size={31}
+              color="#ffffff"
+              style={styles.volumeTrackIcon}
+              accessibilityElementsHidden
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function WorkoutScreen({
   currentRound,
   timeRemaining,
@@ -74,9 +233,9 @@ export function WorkoutScreen({
   isFreestyle,
   actionKey,
   muted,
+  masterVolume,
   onToggleMute,
-  onVolumeDown,
-  onVolumeUp,
+  onVolumePercentChange,
   onPause,
   onResume,
   onSkipRound,
@@ -89,6 +248,9 @@ export function WorkoutScreen({
   const comboDescription = currentAction?.description ?? 'JAB - CROSS - LEAD HOOK';
   const isHot = intensity === 'intense' || isFreestyle;
   const isDoubleDigitRound = currentRound >= 10;
+  const [volumeOpen, setVolumeOpen] = useState(false);
+  const volumePercent = Math.round(masterVolume * 100);
+  const isMuted = muted || volumePercent === 0;
   const redHeaderHeight = 0;
   const timerBandTop = Math.round(height * 0.292);
   const timerBandHeight = Math.round(height * 0.072);
@@ -149,30 +311,23 @@ export function WorkoutScreen({
         />
         <View style={styles.header}>
           <View style={styles.sessionType}>
-            <View style={styles.sessionMark}>
-              <View style={styles.sessionMarkCap} />
-              <View style={styles.sessionMarkStrap} />
-            </View>
-            <Text style={styles.headerTitle}>HEAVY BAG</Text>
+            <Ionicons name="flame-outline" size={26} color={colors.peach} accessibilityElementsHidden />
+            <Text style={styles.headerTitle} allowFontScaling={false}>HEAVY BAG</Text>
           </View>
 
-          <View style={styles.statusCluster}>
-            <Pressable
-              onPress={onToggleMute}
-              onLongPress={onVolumeDown}
-              style={({ pressed }) => [styles.iconHitTarget, pressed && styles.buttonPressed]}
-              accessibilityLabel={muted ? 'Unmute coach' : 'Mute coach'}
-            >
-              <Text style={styles.statusIcon} allowFontScaling={false}>{muted ? 'OFF' : 'VOL'}</Text>
-            </Pressable>
-            <Pressable
-              onPress={onVolumeUp}
-              style={({ pressed }) => [styles.iconHitTarget, pressed && styles.buttonPressed]}
-              accessibilityLabel="Increase coach volume"
-            >
-              <Text style={styles.statusIcon} allowFontScaling={false}>+</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => setVolumeOpen(true)}
+            onLongPress={onToggleMute}
+            style={({ pressed }) => [styles.soundButton, pressed && styles.buttonPressed]}
+            accessibilityLabel="Open volume"
+          >
+            <Ionicons
+              name={isMuted ? 'volume-mute-outline' : 'volume-high-outline'}
+              size={25}
+              color="#ffffff"
+              accessibilityElementsHidden
+            />
+          </Pressable>
         </View>
 
         <View style={[styles.roundBlock, { top: Math.round(height * 0.12) }]}>
@@ -298,6 +453,14 @@ export function WorkoutScreen({
           <StopIcon />
           <Text style={styles.stopButtonText} allowFontScaling={false}>STOP WORKOUT</Text>
         </Pressable>
+
+        <VolumeModal
+          visible={volumeOpen}
+          muted={isMuted}
+          volumePercent={volumePercent}
+          onChange={onVolumePercentChange}
+          onClose={() => setVolumeOpen(false)}
+        />
       </View>
     </ScreenShell>
   );
@@ -324,9 +487,9 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 29,
-    left: 30,
-    right: 28,
+    top: 26,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -334,55 +497,20 @@ const styles = StyleSheet.create({
   sessionType: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 11,
-  },
-  sessionMark: {
-    width: 16,
-    height: 20,
-    alignItems: 'center',
-  },
-  sessionMarkCap: {
-    position: 'absolute',
-    top: 0,
-    width: 6,
-    height: 3,
-    backgroundColor: colors.peach,
-    borderRadius: 2,
-  },
-  sessionMarkStrap: {
-    position: 'absolute',
-    bottom: 0,
-    width: 13,
-    height: 17,
-    borderWidth: 2,
-    borderColor: colors.peach,
-    borderRadius: 7,
+    gap: 18,
   },
   headerTitle: {
     color: '#ead9d5',
     fontFamily: 'SpaceGroteskBold',
-    fontSize: 11,
-    lineHeight: 15,
-    letterSpacing: 3,
+    fontSize: 16,
+    lineHeight: 20,
+    letterSpacing: 1.2,
   },
-  statusCluster: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconHitTarget: {
-    minWidth: 56,
-    minHeight: 30,
+  soundButton: {
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 7,
-  },
-  statusIcon: {
-    color: '#efe6e2',
-    fontSize: 12,
-    lineHeight: 16,
-    fontFamily: 'SpaceGroteskBold',
   },
   roundBlock: {
     position: 'absolute',
@@ -594,6 +722,39 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     letterSpacing: 5,
+  },
+  volumeModalRoot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  volumeModalDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 10, 10, 0.58)',
+  },
+  volumeSheet: {
+    width: 132,
+    height: 384,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  volumeTrack: {
+    width: 88,
+    height: '100%',
+    borderRadius: 0,
+    backgroundColor: '#252525',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  volumeFill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  volumeTrackIcon: {
+    zIndex: 1,
   },
   buttonPressed: {
     opacity: 0.92,

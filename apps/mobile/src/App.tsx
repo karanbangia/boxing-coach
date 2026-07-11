@@ -256,6 +256,7 @@ export function App() {
           currentRound={workout.currentRound}
           totalRounds={config.totalRounds}
           timeRemaining={workout.timeRemaining}
+          totalSeconds={config.restDuration}
           onSkipRest={workout.skipRest}
         />
       ) : (
@@ -269,9 +270,9 @@ export function App() {
           isFreestyle={workout.isFreestyle}
           actionKey={workout.actionKey}
           muted={session.muted}
+          masterVolume={session.masterVolume}
           onToggleMute={session.toggleMute}
-          onVolumeDown={session.volumeDown}
-          onVolumeUp={session.volumeUp}
+          onVolumePercentChange={session.setVolumePercent}
           onPause={workout.pause}
           onResume={workout.resume}
           onSkipRound={workout.skipRound}

@@ -16,8 +16,6 @@ export function PrepScreen({ secondsLeft, totalSeconds, onSkip, onCancel }: Prop
 
   return (
     <div className="relative flex h-full min-h-[100dvh] flex-col items-center justify-between overflow-hidden bg-[var(--color-bg)] px-6 pb-[42px] pt-12 text-white">
-      <div className="pointer-events-none absolute top-32 h-[260px] w-[260px] rounded-full bg-[rgba(255,20,20,0.05)]" />
-
       <div className="relative flex w-full max-w-[340px] flex-col items-center">
         <div className="py-1 text-center font-['Anton'] uppercase">
           <div className="text-[46px] leading-[56px] text-[var(--color-peach)]">GET</div>
@@ -55,7 +53,6 @@ export function PrepScreen({ secondsLeft, totalSeconds, onSkip, onCancel }: Prop
               style={{ transition: 'stroke-dashoffset 1000ms linear' }}
             />
           </svg>
-          <div className="absolute h-[142px] w-[142px] rounded-full border border-white/10" />
           <div className="translate-y-1.5 font-['Anton'] text-[72px] leading-[94px] tabular-nums text-[var(--color-peach)]">
             {secondsLeft}
           </div>

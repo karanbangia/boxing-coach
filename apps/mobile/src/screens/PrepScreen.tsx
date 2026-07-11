@@ -27,10 +27,9 @@ export function PrepScreen({ secondsLeft, totalSeconds, onSkip, onCancel }: Prop
   }, [animatedProgress, progress]);
 
   return (
-    <ScreenShell>
-      <View style={styles.container}>
-        <View style={styles.redGlow} pointerEvents="none" />
-
+    <View style={styles.screenOverlay}>
+      <ScreenShell>
+        <View style={styles.container}>
         <View style={styles.hero}>
           <View style={styles.titleWrap}>
             <Text style={styles.titleTop} allowFontScaling={false}>GET</Text>
@@ -81,7 +80,6 @@ export function PrepScreen({ secondsLeft, totalSeconds, onSkip, onCancel }: Prop
                 );
               })}
             </View>
-            <View style={styles.innerRing} />
             <Text style={styles.timer} allowFontScaling={false}>{secondsLeft}</Text>
           </View>
 
@@ -113,12 +111,16 @@ export function PrepScreen({ secondsLeft, totalSeconds, onSkip, onCancel }: Prop
             <Text style={styles.secondaryBtnText} allowFontScaling={false}>CANCEL WORKOUT</Text>
           </Pressable>
         </View>
-      </View>
-    </ScreenShell>
+        </View>
+      </ScreenShell>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
   container: {
     flex: 1,
     alignItems: 'center',
@@ -127,14 +129,6 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 42,
     overflow: 'hidden',
-  },
-  redGlow: {
-    position: 'absolute',
-    top: 128,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(255, 20, 20, 0.05)',
   },
   hero: {
     width: '100%',
@@ -204,14 +198,6 @@ const styles = StyleSheet.create({
   },
   progressTickInactive: {
     backgroundColor: 'rgba(255, 20, 20, 0.18)',
-  },
-  innerRing: {
-    position: 'absolute',
-    width: 142,
-    height: 142,
-    borderRadius: 71,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   timer: {
     color: colors.peach,
