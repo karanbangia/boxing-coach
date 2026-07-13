@@ -222,6 +222,10 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
               />
 
               <Pressable
+                accessibilityRole="switch"
+                accessibilityLabel="Audio cues"
+                accessibilityHint="Plays coach instructions"
+                accessibilityState={{ checked: settings.audioCuesEnabled }}
                 onPress={() => onChange({ audioCuesEnabled: !settings.audioCuesEnabled })}
                 style={({ pressed }) => [
                   styles.audioCueRow,
@@ -230,7 +234,12 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
               >
                 <View style={styles.audioLabelWrap}>
                   <AudioIcon />
-                  <Text style={styles.audioCueLabel} allowFontScaling={false}>Voice + Bell</Text>
+                  <View style={styles.audioCueCopy}>
+                    <Text style={styles.audioCueLabel} allowFontScaling={false}>Audio Cues</Text>
+                    <Text style={styles.audioCueHint} allowFontScaling={false}>
+                      Coach instructions
+                    </Text>
+                  </View>
                 </View>
                 <View
                   style={[
@@ -337,14 +346,14 @@ const styles = StyleSheet.create({
   },
   tileButton: {
     width: '49.4%',
-    minHeight: 80,
+    minHeight: 96,
     borderWidth: 2,
     borderColor: colors.border,
     backgroundColor: colors.surface,
     justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 4,
+    paddingVertical: 12,
+    gap: 8,
   },
   tileButtonSelected: {
     borderColor: colors.accent,
@@ -370,16 +379,16 @@ const styles = StyleSheet.create({
   tileLabel: {
     color: colors.textMuted,
     fontFamily: displayFont,
-    fontSize: 18,
-    lineHeight: 30,
-    letterSpacing: 0,
+    fontSize: 24,
+    lineHeight: 28,
+    letterSpacing: 0.48,
     textTransform: 'uppercase',
   },
   tileDesc: {
     color: colors.textMuted,
     fontFamily: bodyFont,
-    fontSize: 13,
-    lineHeight: 17,
+    fontSize: 15,
+    lineHeight: 20,
   },
   segmentLabel: {
     color: colors.textMuted,
@@ -419,7 +428,7 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 3 }],
   },
   roundValue: {
-    color: colors.peach,
+    color: colors.text,
     fontFamily: displayFont,
     fontSize: 64,
     lineHeight: 78,
@@ -427,7 +436,7 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 6 }],
   },
   audioCueRow: {
-    minHeight: 54,
+    minHeight: 64,
     borderWidth: 2,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -437,9 +446,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   audioLabelWrap: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  audioCueCopy: {
+    flex: 1,
+    gap: 2,
   },
   audioCueLabel: {
     color: colors.peach,
@@ -448,6 +462,12 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
+  },
+  audioCueHint: {
+    color: colors.textMuted,
+    fontFamily: bodyFont,
+    fontSize: 14,
+    lineHeight: 16,
   },
   audioIcon: {
     width: 22,

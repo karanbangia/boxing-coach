@@ -160,12 +160,12 @@ const styles = StyleSheet.create({
   microCopy: {
     color: colors.textMuted,
     fontFamily: 'SpaceGroteskBold',
-    fontSize: 10,
+    fontSize: 12,
     lineHeight: 13,
     letterSpacing: 2.6,
     textTransform: 'uppercase',
     marginTop: 27,
-    marginBottom: 15,
+    marginBottom: 20,
   },
   timerRing: {
     width: 178,
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 20, 20, 0.18)',
   },
   timer: {
-    color: colors.peach,
+    color: '#fff',
     fontFamily: 'Anton',
     fontSize: 72,
     lineHeight: 94,
@@ -280,8 +280,8 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontFamily: 'SpaceGroteskBold',
     fontSize: 14,
-    lineHeight: 18,
-    letterSpacing: 1.6,
+    lineHeight: 19,
+    letterSpacing: 2.5,
     textTransform: 'uppercase',
   },
   btnPressed: {

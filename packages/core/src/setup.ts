@@ -15,10 +15,10 @@ export interface SetupOption<T extends string | number> {
 }
 
 export const DIFFICULTIES: SetupOption<Difficulty>[] = [
-  { value: 'beginner', label: 'BEGINNER', desc: 'Jabs & crosses, slow pace' },
-  { value: 'intermediate', label: 'INTERMEDIATE', desc: 'Adds hooks, moderate build' },
-  { value: 'advanced', label: 'ADVANCED', desc: 'All punches, fast ramp up' },
-  { value: 'pro', label: 'PROFESSIONAL', desc: 'Counters, feints, advanced combos' },
+  { value: 'beginner', label: 'BASIC', desc: 'Basic punches · steady' },
+  { value: 'intermediate', label: 'MEDIUM', desc: 'Add hooks · quicker' },
+  { value: 'advanced', label: 'ADVANCED', desc: 'All punches · fast' },
+  { value: 'pro', label: 'PRO', desc: 'Counters · fight pace' },
 ];
 
 export const ROUND_DURATIONS: SetupOption<number>[] = [

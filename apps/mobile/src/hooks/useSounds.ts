@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AudioPlayer, setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 
 function playFromStart(player: AudioPlayer, volume: number) {
@@ -13,7 +13,7 @@ function playFromStart(player: AudioPlayer, volume: number) {
     });
 }
 
-export function useSounds(sessionVolumeRef: MutableRefObject<number>) {
+export function useSounds(masterVolume: number) {
   const roundStartPlayer = useAudioPlayer(
     require('../../assets/audio/round-start.wav'),
     { keepAudioSessionActive: true },
@@ -30,14 +30,16 @@ export function useSounds(sessionVolumeRef: MutableRefObject<number>) {
     require('../../assets/audio/freestyle.wav'),
     { keepAudioSessionActive: true },
   );
+  const masterVolumeRef = useRef(masterVolume);
   const lastWarningRef = useRef(0);
 
+  masterVolumeRef.current = masterVolume;
+
   useEffect(() => {
-    const mul = sessionVolumeRef.current;
-    roundStartPlayer.volume = 0.85 * mul;
-    roundEndPlayer.volume = 0.9 * mul;
-    warningPlayer.volume = 0.45 * mul;
-    freestylePlayer.volume = 0.65 * mul;
+    roundStartPlayer.volume = 0.85 * masterVolume;
+    roundEndPlayer.volume = 0.9 * masterVolume;
+    warningPlayer.volume = 0.45 * masterVolume;
+    freestylePlayer.volume = 0.65 * masterVolume;
 
     void setAudioModeAsync({
       playsInSilentMode: true,
@@ -48,28 +50,28 @@ export function useSounds(sessionVolumeRef: MutableRefObject<number>) {
     }).catch(() => {
       // Silent-mode playback is best-effort.
     });
-  }, [freestylePlayer, roundEndPlayer, roundStartPlayer, warningPlayer, sessionVolumeRef]);
+  }, [freestylePlayer, masterVolume, roundEndPlayer, roundStartPlayer, warningPlayer]);
 
   const roundStart = useCallback(() => {
-    const mul = sessionVolumeRef.current;
+    const mul = masterVolumeRef.current;
     if (mul <= 0) return;
     playFromStart(roundStartPlayer, 0.85 * mul);
-  }, [roundStartPlayer, sessionVolumeRef]);
+  }, [roundStartPlayer]);
 
   const roundEnd = useCallback(() => {
-    const mul = sessionVolumeRef.current;
+    const mul = masterVolumeRef.current;
     if (mul <= 0) return;
     playFromStart(roundEndPlayer, 0.9 * mul);
-  }, [roundEndPlayer, sessionVolumeRef]);
+  }, [roundEndPlayer]);
 
   const freestyleStart = useCallback(() => {
-    const mul = sessionVolumeRef.current;
+    const mul = masterVolumeRef.current;
     if (mul <= 0) return;
     playFromStart(freestylePlayer, 0.65 * mul);
-  }, [freestylePlayer, sessionVolumeRef]);
+  }, [freestylePlayer]);
 
   const tenSecondWarning = useCallback(() => {
-    const mul = sessionVolumeRef.current;
+    const mul = masterVolumeRef.current;
     if (mul <= 0) return;
     const now = Date.now();
     if (now - lastWarningRef.current < 800) {
@@ -78,7 +80,10 @@ export function useSounds(sessionVolumeRef: MutableRefObject<number>) {
 
     lastWarningRef.current = now;
     playFromStart(warningPlayer, 0.45 * mul);
-  }, [warningPlayer, sessionVolumeRef]);
+  }, [warningPlayer]);
 
-  return { roundStart, roundEnd, freestyleStart, tenSecondWarning };
+  return useMemo(
+    () => ({ roundStart, roundEnd, freestyleStart, tenSecondWarning }),
+    [freestyleStart, roundEnd, roundStart, tenSecondWarning],
+  );
 }

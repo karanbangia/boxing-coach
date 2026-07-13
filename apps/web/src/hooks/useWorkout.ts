@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   WorkoutController,
+  countActionPunches,
   getInitialWorkoutViewState,
   type EngineConfig,
   type WorkoutEvent,
@@ -9,9 +10,12 @@ import {
 export function useWorkout(config: EngineConfig | null) {
   const controllerRef = useRef<WorkoutController | null>(null);
   const [state, setState] = useState(getInitialWorkoutViewState);
+  const [punchesThrown, setPunchesThrown] = useState(0);
 
   useEffect(() => {
     if (!config) return;
+
+    setPunchesThrown(0);
 
     const controller = new WorkoutController(config, {
       onEvent: (event: WorkoutEvent) => {
@@ -28,6 +32,7 @@ export function useWorkout(config: EngineConfig | null) {
         }
       },
       onAction: action => {
+        setPunchesThrown(total => total + countActionPunches(action));
         if (navigator.vibrate) {
           navigator.vibrate(action.type === 'combo' ? 50 : 30);
         }
@@ -69,5 +74,5 @@ export function useWorkout(config: EngineConfig | null) {
     controllerRef.current?.stop();
   }, []);
 
-  return { ...state, start, pause, resume, skipRest, skipRound, stop };
+  return { ...state, punchesThrown, start, pause, resume, skipRest, skipRound, stop };
 }

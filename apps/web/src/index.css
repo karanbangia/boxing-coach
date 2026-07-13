@@ -14,6 +14,9 @@
   --color-green: #22c55e;
   --color-yellow: #eab308;
   --color-red: #ff1414;
+  --color-blue: #60a5fa;
+  --color-amber: #fbbf24;
+  --color-accent-shadow: rgba(255, 20, 20, 0.3);
 }
 
 html, body, #root {
@@ -58,4 +61,20 @@ html, body, #root {
 
 .animate-pulse-ring {
   animation: pulse-ring 1s ease-out infinite;
+}
+
+@keyframes complete-confetti-fall {
+  0% { opacity: 0; transform: translate3d(0, -16px, 0) rotate(0deg); }
+  12% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(18px, 360px, 0) rotate(540deg); }
+}
+
+.complete-confetti {
+  animation-name: complete-confetti-fall;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .complete-confetti { display: none; }
 }

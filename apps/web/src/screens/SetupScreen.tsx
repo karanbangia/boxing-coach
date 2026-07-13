@@ -82,7 +82,7 @@ function OptionGroup<T extends string | number>({
                   ? "border-[var(--color-accent)] text-white"
                   : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-peach)]",
                 hasDescriptions
-                  ? "flex min-h-[90px] flex-col items-start justify-center gap-1 px-4 py-4 text-left"
+                  ? "flex min-h-[96px] flex-col items-start justify-center gap-2 px-4 py-4 text-left"
                   : "flex min-h-14 items-center justify-center px-2 py-3 text-center",
                 variant === "inline" && selected ? "bg-[var(--color-accent)]" : "",
               ].join(" ")}
@@ -90,14 +90,14 @@ function OptionGroup<T extends string | number>({
               <span
                 className={
                   hasDescriptions
-                    ? "font-['Anton'] text-xl font-normal uppercase leading-[1.35]"
+                    ? "font-['Anton'] text-2xl font-normal uppercase leading-none tracking-[0.02em]"
                     : "font-['Anton'] text-2xl font-normal uppercase leading-none"
                 }
               >
                 {opt.label}
               </span>
               {opt.desc && (
-                <span className="text-sm leading-5 text-[var(--color-text-muted)]">
+                <span className="font-['Archivo_Narrow'] text-base leading-5 text-[var(--color-text-muted)]">
                   {opt.desc}
                 </span>
               )}
@@ -236,7 +236,7 @@ export function SetupScreen({ onStart }: Props) {
               >
                 -
               </button>
-              <div className="font-['Anton'] text-[64px] leading-none text-[var(--color-peach)]">
+              <div className="font-['Anton'] text-[64px] leading-none text-white">
                 {totalRounds}
               </div>
               <button
@@ -266,18 +266,25 @@ export function SetupScreen({ onStart }: Props) {
               className="flex min-h-[52px] w-full items-center justify-between border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-left transition-colors hover:border-[var(--color-peach)]"
               aria-pressed={audioCuesEnabled}
             >
-              <span className="flex items-center gap-3 font-['Space_Grotesk'] text-sm font-bold uppercase tracking-[0.1em] text-[var(--color-peach)]">
-                <svg width="22" height="20" viewBox="0 0 22 20" fill="none" aria-hidden>
+              <span className="flex min-w-0 items-center gap-3">
+                <svg className="shrink-0 text-[var(--color-accent)]" width="22" height="20" viewBox="0 0 22 20" fill="none" aria-hidden>
                   <path d="M4 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="2" />
                   <path d="M0 18c0-3 1.8-5 4-5s4 2 4 5" stroke="currentColor" strokeWidth="2" />
                   <path d="M12 6.5c1.6 1.6 1.6 4.4 0 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                   <path d="M16 3c3.5 3.6 3.5 9.4 0 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
-                Voice + Bell
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="font-['Space_Grotesk'] text-sm font-bold uppercase leading-4 tracking-[0.1em] text-[var(--color-peach)]">
+                    Audio Cues
+                  </span>
+                  <span className="font-['Archivo_Narrow'] text-sm leading-4 text-[var(--color-text-muted)]">
+                    Coach instructions
+                  </span>
+                </span>
               </span>
               <span
                 className={[
-                  "relative h-6 w-12 rounded-full transition-colors",
+                  "relative h-6 w-12 shrink-0 rounded-full transition-colors",
                   audioCuesEnabled ? "bg-[var(--color-accent)]" : "bg-[var(--color-border)]",
                 ].join(" ")}
               >

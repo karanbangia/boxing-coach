@@ -206,14 +206,14 @@ function VolumeModal({
             onLayout={handleTrackLayout}
             {...panResponder.panHandlers}
             accessibilityRole="adjustable"
-            accessibilityLabel="Coach volume"
+            accessibilityLabel="Workout volume"
             accessibilityValue={{ min: 0, max: 100, now: displayPercent }}
           >
             <Animated.View style={[styles.volumeFill, { height: fillHeight, backgroundColor: fillColor }]} />
             <Ionicons
               name={muted ? 'volume-mute-outline' : 'volume-high-outline'}
               size={31}
-              color="#ffffff"
+              color={colors.text}
               style={styles.volumeTrackIcon}
               accessibilityElementsHidden
             />
@@ -324,7 +324,7 @@ export function WorkoutScreen({
             <Ionicons
               name={isMuted ? 'volume-mute-outline' : 'volume-high-outline'}
               size={25}
-              color="#ffffff"
+              color={colors.text}
               accessibilityElementsHidden
             />
           </Pressable>
@@ -469,7 +469,7 @@ export function WorkoutScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: colors.background,
     overflow: 'hidden',
   },
   redPanel: {
@@ -477,13 +477,13 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#121212',
+    backgroundColor: colors.background,
   },
   timerBand: {
     position: 'absolute',
     left: 0,
     right: 0,
-    backgroundColor: '#121212',
+    backgroundColor: colors.background,
   },
   header: {
     position: 'absolute',
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   headerTitle: {
-    color: '#ead9d5',
+    color: colors.text,
     fontFamily: 'SpaceGroteskBold',
     fontSize: 16,
     lineHeight: 20,
@@ -519,10 +519,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   roundLabel: {
-    color: '#d9c1bd',
+    color: colors.textMuted,
     fontFamily: 'SpaceGroteskBold',
-    fontSize: 11,
-    lineHeight: 12,
+    fontSize: 14,
+    lineHeight: 21,
     letterSpacing: 7,
   },
   roundNumber: {
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   hotRoundNumber: {
-    color: '#ffc0b4',
+    color: colors.peach,
   },
   timerWrap: {
     position: 'absolute',
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timer: {
-    color: '#ffffff',
+    color: colors.text,
     fontFamily: 'Anton',
     fontSize: 86,
     lineHeight: 108,
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 30,
     right: 29,
-    backgroundColor: '#1a1b1b',
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     overflow: 'hidden',
   },
@@ -568,14 +568,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   comboLabel: {
-    color: '#d9c1bd',
+    color: colors.textMuted,
     fontFamily: 'SpaceGroteskBold',
     fontSize: 12,
     lineHeight: 16,
     letterSpacing: 5,
   },
   comboValue: {
-    color: '#ffffff',
+    color: colors.text,
     fontFamily: 'SpaceGroteskBold',
     fontSize: 44,
     lineHeight: 52,
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
     maxWidth: '92%',
   },
   comboPausedValue: {
-    color: '#ffffff',
+    color: colors.text,
     fontFamily: 'SpaceGroteskBold',
     fontSize: 44,
     lineHeight: 52,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     maxWidth: '92%',
   },
   comboDescription: {
-    color: '#c7bdbb',
+    color: colors.textMuted,
     fontFamily: 'SpaceGrotesk',
     fontSize: 16,
     lineHeight: 21,
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
   pauseIconBar: {
     width: 7,
     height: 28,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.text,
   },
   playIcon: {
     width: 0,
@@ -654,9 +654,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 14,
     borderBottomWidth: 14,
     borderLeftWidth: 22,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#ffffff',
+    borderTopColor: colors.transparent,
+    borderBottomColor: colors.transparent,
+    borderLeftColor: colors.text,
     marginLeft: 2,
   },
   skipIcon: {
@@ -671,18 +671,18 @@ const styles = StyleSheet.create({
     borderTopWidth: 11,
     borderBottomWidth: 11,
     borderLeftWidth: 13,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#ffffff',
+    borderTopColor: colors.transparent,
+    borderBottomColor: colors.transparent,
+    borderLeftColor: colors.text,
     marginRight: 1,
   },
   skipStem: {
     width: 5,
     height: 24,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.text,
   },
   buttonPrefix: {
-    color: '#ffffff',
+    color: colors.text,
     fontFamily: 'SpaceGroteskBold',
     fontSize: 12,
     lineHeight: 15,
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -1 }],
   },
   controlButtonText: {
-    color: '#ffffff',
+    color: colors.text,
     fontFamily: 'Anton',
     fontSize: 34,
     lineHeight: 42,
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
     bottom: 18,
     height: 54,
     borderWidth: 1,
-    borderColor: '#9b7a73',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -714,14 +714,14 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderWidth: 2,
-    borderColor: '#d9c1bd',
+    borderColor: colors.textMuted,
   },
   stopButtonText: {
-    color: '#d9c1bd',
+    color: colors.text,
     fontFamily: 'SpaceGroteskBold',
-    fontSize: 11,
-    lineHeight: 15,
-    letterSpacing: 5,
+    fontSize: 14,
+    lineHeight: 19,
+    letterSpacing: 2.5,
   },
   volumeModalRoot: {
     flex: 1,
@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
   },
   volumeModalDim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 10, 10, 0.58)',
+    backgroundColor: colors.overlay,
   },
   volumeSheet: {
     width: 132,
@@ -742,7 +742,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: '100%',
     borderRadius: 0,
-    backgroundColor: '#252525',
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

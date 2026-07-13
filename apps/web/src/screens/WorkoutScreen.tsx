@@ -45,9 +45,9 @@ function intensityColor(intensity: 'normal' | 'building' | 'intense', freestyle:
 function actionTypeStyle(type: string, freestyle: boolean) {
   if (freestyle) return 'text-[var(--color-accent)]';
   switch (type) {
-    case 'movement': return 'text-blue-400';
-    case 'defense': return 'text-amber-400';
-    default: return 'text-white';
+    case 'movement': return 'text-[var(--color-blue)]';
+    case 'defense': return 'text-[var(--color-amber)]';
+    default: return 'text-[var(--color-text)]';
   }
 }
 
@@ -199,8 +199,8 @@ function CoachVolumeFillTrack({ value, onChange, autoFocus }: CoachVolumeFillTra
         style={{ height: `${value}%` }}
       />
       <div className="absolute inset-0 flex flex-col items-center justify-between py-2.5 pointer-events-none z-10">
-        <IconSpeakerHigh className="text-white w-5 h-5 shrink-0" />
-        <IconSpeakerLow className="text-white w-5 h-5 shrink-0" />
+        <IconSpeakerHigh className="text-[var(--color-text)] w-5 h-5 shrink-0" />
+        <IconSpeakerLow className="text-[var(--color-text)] w-5 h-5 shrink-0" />
       </div>
     </div>
   );
@@ -284,16 +284,16 @@ export function WorkoutScreen({
                 w-11 h-11 rounded-xl flex items-center justify-center
                 bg-[var(--color-surface-2)] text-[var(--color-text-muted)]
                 active:scale-95 transition-transform
-                ${volumeOpen ? 'ring-2 ring-[var(--color-accent-glow)] text-white' : ''}
+                ${volumeOpen ? 'ring-2 ring-[var(--color-accent-glow)] text-[var(--color-text)]' : ''}
               `}
               aria-expanded={volumeOpen}
               aria-haspopup="dialog"
               aria-label="Volume"
             >
               {muted ? (
-                <IconSpeakerMuted className="text-white" />
+                <IconSpeakerMuted className="text-[var(--color-text)]" />
               ) : (
-                <IconSpeakerHigh className="text-white" />
+                <IconSpeakerHigh className="text-[var(--color-text)]" />
               )}
             </button>
 
@@ -305,7 +305,7 @@ export function WorkoutScreen({
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 <div className="flex flex-col items-center gap-2">
-                  <span className="text-sm font-bold text-white tracking-wide">Coach</span>
+                  <span className="text-sm font-bold text-[var(--color-text)] tracking-wide">Coach</span>
                   <CoachVolumeFillTrack
                     value={volumePercent}
                     onChange={onVolumePercentChange}
@@ -381,12 +381,13 @@ export function WorkoutScreen({
           }}
           className="
             w-20 h-20 rounded-full
-            bg-[var(--color-accent)] text-white
+            bg-[var(--color-accent)] text-[var(--color-text)]
             flex items-center justify-center
             text-sm font-black tracking-wider
-            shadow-lg shadow-red-500/30
+            shadow-lg
             active:scale-90 transition-transform
           "
+          style={{ boxShadow: '0 10px 15px -3px var(--color-accent-shadow)' }}
         >
           {isPaused ? 'GO' : 'PAUSE'}
         </button>

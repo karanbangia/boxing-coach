@@ -16,6 +16,8 @@ export const colors = {
   red: '#ff1414',
   blue: '#60a5fa',
   amber: '#fbbf24',
+  transparent: 'transparent',
+  overlay: 'rgba(10, 10, 10, 0.58)',
 };
 
 export const shadow = {

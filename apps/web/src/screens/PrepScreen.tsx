@@ -53,7 +53,7 @@ export function PrepScreen({ secondsLeft, totalSeconds, onSkip, onCancel }: Prop
               style={{ transition: 'stroke-dashoffset 1000ms linear' }}
             />
           </svg>
-          <div className="translate-y-1.5 font-['Anton'] text-[72px] leading-[94px] tabular-nums text-[var(--color-peach)]">
+          <div className="translate-y-1.5 font-['Anton'] text-[72px] leading-[94px] tabular-nums text-white">
             {secondsLeft}
           </div>
         </div>

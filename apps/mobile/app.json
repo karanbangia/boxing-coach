@@ -3,6 +3,7 @@
     "name": "Boxing Coach",
     "slug": "boxing-coach-mobile",
     "version": "1.0.0",
+    "newArchEnabled": true,
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -35,6 +36,14 @@
       "expo-audio",
       "expo-font"
     ],
+    "autolinking": {
+      "ios": {
+        "buildFromSource": [
+          "react-native-reanimated",
+          "react-native-worklets"
+        ]
+      }
+    },
     "scheme": "boxingcoach"
   }
 }

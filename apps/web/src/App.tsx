@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { EngineConfig } from '@boxing-coach/core';
-import { resolvePrepCountdownSeconds } from '@boxing-coach/core';
+import { calculateWorkoutPerformance, resolvePrepCountdownSeconds } from '@boxing-coach/core';
 import type { StartWorkoutPayload } from './screens/SetupScreen';
 import { MainTabShell } from './components/MainTabShell';
 import type { AppTab } from './components/BottomTabBar';
@@ -11,6 +11,7 @@ import { useCoachVoice } from './hooks/useCoachVoice';
 import { useAudioSession } from './hooks/useAudioSession';
 import { unlockHtmlAudioForCoach } from './lib/unlockHtmlAudio';
 import { alog } from './lib/audioLog';
+import { saveWorkoutToHistory } from './lib/workoutHistory';
 import { SetupScreen } from './screens/SetupScreen';
 import { WorkoutScreen } from './screens/WorkoutScreen';
 import { RestScreen } from './screens/RestScreen';
@@ -43,7 +44,10 @@ function MainApp() {
   const [config, setConfig] = useState<EngineConfig | null>(null);
   const [prepSecondsLeft, setPrepSecondsLeft] = useState<number | null>(null);
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(true);
+  const [isPersonalBest, setIsPersonalBest] = useState(false);
   const workout = useWorkout(config);
+  const workoutIdRef = useRef('');
+  const savedWorkoutIdRef = useRef('');
 
   const sessionVolumeRef = useRef(1);
   const audioCuesRef = useRef(true);
@@ -89,6 +93,27 @@ function MainApp() {
     prevRoundRef.current = workout.currentRound;
     prevFreestyleRef.current = workout.isFreestyle;
   }, [workout.phase, workout.currentRound, workout.isFreestyle, sounds]);
+
+  useEffect(() => {
+    const workoutId = workoutIdRef.current;
+    if (!config || workout.phase !== 'complete' || !workoutId || savedWorkoutIdRef.current === workoutId) return;
+
+    savedWorkoutIdRef.current = workoutId;
+    const performance = calculateWorkoutPerformance({
+      punches: workout.punchesThrown,
+      difficulty: config.difficulty,
+      totalRounds: config.totalRounds,
+      roundDuration: config.roundDuration,
+    });
+    setIsPersonalBest(saveWorkoutToHistory({
+      id: workoutId,
+      completedAt: new Date().toISOString(),
+      difficulty: config.difficulty,
+      totalRounds: config.totalRounds,
+      roundDuration: config.roundDuration,
+      ...performance,
+    }));
+  }, [config, workout.phase, workout.punchesThrown]);
 
   useEffect(() => {
     const ctx = {
@@ -146,6 +171,9 @@ function MainApp() {
     unlockHtmlAudioForCoach();
     lastCoachActionKeyRef.current = -1;
     const { audioCuesEnabled: cues, ...engine } = payload;
+    workoutIdRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    savedWorkoutIdRef.current = '';
+    setIsPersonalBest(false);
     alog('workout:start', {
       difficulty: engine.difficulty,
       rounds: engine.totalRounds,
@@ -225,11 +253,17 @@ function MainApp() {
   }
 
   if (workout.phase === 'complete') {
+    const performance = calculateWorkoutPerformance({
+      punches: workout.punchesThrown,
+      difficulty: config.difficulty,
+      totalRounds: config.totalRounds,
+      roundDuration: config.roundDuration,
+    });
     return (
       <CompleteScreen
-        totalRounds={config.totalRounds}
-        roundDuration={config.roundDuration}
-        onRestart={handleRestart}
+        performance={performance}
+        isPersonalBest={isPersonalBest}
+        onReturnToGym={handleRestart}
       />
     );
   }

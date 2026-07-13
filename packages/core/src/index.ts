@@ -34,6 +34,8 @@ export {
   TOTAL_ROUNDS,
 } from './setup.js';
 export type { SetupOption, SetupSettings } from './setup.js';
+export { calculateWorkoutPerformance, countActionPunches } from './workout-stats.js';
+export type { WorkoutPerformance } from './workout-stats.js';
 export {
   WorkoutController,
   getInitialWorkoutViewState,

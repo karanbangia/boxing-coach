@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     lineHeight: 44,
   },
   roundTotal: {
-    color: colors.textMuted,
+    color: colors.text,
   },
   nextValue: {
     color: colors.text,
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textMuted,
     fontFamily: 'ArchivoNarrow',
-    fontSize: 16,
+    fontSize: 18,
     lineHeight: 21,
     marginTop: 12,
     textAlign: 'center',
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   timer: {
-    color: colors.peach,
+    color: colors.text,
     fontFamily: 'Anton',
     fontSize: 72,
     lineHeight: 94,
@@ -396,10 +396,10 @@ const styles = StyleSheet.create({
     lineHeight: 76,
   },
   timerLabel: {
-    color: '#d9c1bd',
+    color: colors.peach,
     fontFamily: 'SpaceGroteskBold',
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 12,
+    lineHeight: 17,
     letterSpacing: 3.2,
     textTransform: 'uppercase',
     marginTop: 8,

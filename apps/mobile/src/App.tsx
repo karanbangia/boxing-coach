@@ -3,7 +3,7 @@ import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import type { EngineConfig } from '@boxing-coach/core';
-import { resolvePrepCountdownSeconds } from '@boxing-coach/core';
+import { calculateWorkoutPerformance, resolvePrepCountdownSeconds } from '@boxing-coach/core';
 import type { SetupSettings } from './config';
 import { MainTabShell } from './components/MainTabShell';
 import type { AppTab } from './components/BottomTabBar';
@@ -14,6 +14,7 @@ import { useSessionAudio } from './hooks/useSessionAudio';
 import { useStoredTuning } from './hooks/useStoredTuning';
 import { useWakeLock } from './hooks/useWakeLock';
 import { useWorkout } from './hooks/useWorkout';
+import { saveWorkoutToHistory } from './lib/workoutHistory';
 import { CompleteScreen } from './screens/CompleteScreen';
 import { DevScreen } from './screens/DevScreen';
 import { RestScreen } from './screens/RestScreen';
@@ -39,16 +40,15 @@ export function App() {
   const [prepSecondsLeft, setPrepSecondsLeft] = useState<number | null>(null);
   const [showDevScreen, setShowDevScreen] = useState(false);
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(settings.audioCuesEnabled);
+  const [isPersonalBest, setIsPersonalBest] = useState(false);
   const workout = useWorkout(config);
+  const workoutIdRef = useRef('');
+  const savedWorkoutIdRef = useRef('');
 
-  const sessionVolumeRef = useRef(1);
-  const audioCuesRef = useRef(true);
   const session = useSessionAudio();
-  sessionVolumeRef.current = session.effectiveVolume;
-  audioCuesRef.current = audioCuesEnabled;
 
-  const sounds = useSounds(sessionVolumeRef);
-  const coach = useCoachVoice(sessionVolumeRef, audioCuesRef);
+  const sounds = useSounds(session.effectiveVolume);
+  const coach = useCoachVoice(session.effectiveVolume, audioCuesEnabled);
 
   const isReady = settingsReady && tuningReady && session.ready && fontsLoaded;
 
@@ -62,6 +62,7 @@ export function App() {
   const prevFreestyleRef = useRef(workout.isFreestyle);
   const prevTimeRef = useRef(workout.timeRemaining);
   const lastCoachActionKeyRef = useRef(-1);
+  const coachWasPausedRef = useRef(false);
 
   useEffect(() => {
     setAudioCuesEnabled(settings.audioCuesEnabled);
@@ -113,14 +114,40 @@ export function App() {
   ]);
 
   useEffect(() => {
+    const workoutId = workoutIdRef.current;
+    if (!config || workout.phase !== 'complete' || !workoutId || savedWorkoutIdRef.current === workoutId) return;
+
+    savedWorkoutIdRef.current = workoutId;
+    const performance = calculateWorkoutPerformance({
+      punches: workout.punchesThrown,
+      difficulty: config.difficulty,
+      totalRounds: config.totalRounds,
+      roundDuration: config.roundDuration,
+    });
+    void saveWorkoutToHistory({
+      id: workoutId,
+      completedAt: new Date().toISOString(),
+      difficulty: config.difficulty,
+      totalRounds: config.totalRounds,
+      roundDuration: config.roundDuration,
+      ...performance,
+    }).then(isBest => {
+      if (workoutIdRef.current === workoutId) setIsPersonalBest(isBest);
+    });
+  }, [config, workout.phase, workout.punchesThrown]);
+
+  useEffect(() => {
     if (workout.phase !== 'round') {
       lastCoachActionKeyRef.current = -1;
+      coachWasPausedRef.current = false;
       coach.stopCoachAudio();
       return;
     }
     if (workout.isPaused) {
+      coachWasPausedRef.current = true;
       coach.pauseCoachAudio();
-    } else {
+    } else if (coachWasPausedRef.current) {
+      coachWasPausedRef.current = false;
       coach.resumeCoachAudio();
     }
   }, [workout.phase, workout.isPaused, coach]);
@@ -157,6 +184,9 @@ export function App() {
         restDuration: s.restDuration,
         ...(hasOverrides ? { tuning } : {}),
       };
+      workoutIdRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      savedWorkoutIdRef.current = '';
+      setIsPersonalBest(false);
       setConfig(engine);
       setPrepSecondsLeft(resolvePrepCountdownSeconds(engine.tuning));
       setActiveTab('workout');
@@ -247,9 +277,14 @@ export function App() {
         <View style={{ flex: 1, backgroundColor: '#0a0a0a' }} />
       ) : workout.phase === 'complete' ? (
         <CompleteScreen
-          totalRounds={config.totalRounds}
-          roundDuration={config.roundDuration}
-          onRestart={handleRestart}
+          performance={calculateWorkoutPerformance({
+            punches: workout.punchesThrown,
+            difficulty: config.difficulty,
+            totalRounds: config.totalRounds,
+            roundDuration: config.roundDuration,
+          })}
+          isPersonalBest={isPersonalBest}
+          onReturnToGym={handleRestart}
         />
       ) : workout.phase === 'rest' ? (
         <RestScreen
