@@ -4,7 +4,6 @@ import type { WorkoutPerformance } from '@boxing-coach/core';
 
 interface Props {
   performance: WorkoutPerformance;
-  isPersonalBest: boolean;
   onReturnToGym: () => void;
 }
 
@@ -12,7 +11,7 @@ const APP_NAME = 'Boxing Coach';
 const DOWNLOAD_LINK = '';
 const CONFETTI_COLORS = ['#ff1414', '#f9bdad', '#f5f0ef', '#ff5a4f'];
 
-export function CompleteScreen({ performance, isPersonalBest, onReturnToGym }: Props) {
+export function CompleteScreen({ performance, onReturnToGym }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
@@ -116,13 +115,6 @@ export function CompleteScreen({ performance, isPersonalBest, onReturnToGym }: P
             </div>
           </div>
         </div>
-
-        {isPersonalBest && (
-          <div className="mt-8 flex min-h-10 items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-5 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.14em]">
-            <span className="text-[var(--color-accent)]">▰</span>
-            New personal best
-          </div>
-        )}
       </section>
 
       <div className="relative w-full max-w-[336px] shrink-0">

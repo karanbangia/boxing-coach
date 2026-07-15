@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { ScreenShell } from '../components/ScreenShell';
+import { TactilePressable } from '../components/TactilePressable';
 import { colors } from '../theme';
 
 interface Props {
@@ -89,27 +90,31 @@ export function PrepScreen({ secondsLeft, totalSeconds, onSkip, onCancel }: Prop
         </View>
 
         <View style={styles.actions}>
-          <Pressable
+          <TactilePressable
             accessibilityRole="button"
             accessibilityLabel="Start now"
             onPress={onSkip}
-            style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed]}
+            haptic="medium"
+            pressedScale={0.975}
+            style={styles.primaryBtn}
           >
             <View style={styles.playTriangle} />
             <Text style={styles.primaryBtnText} allowFontScaling={false}>START NOW</Text>
-          </Pressable>
-          <Pressable
+          </TactilePressable>
+          <TactilePressable
             accessibilityRole="button"
             accessibilityLabel="Cancel workout"
             onPress={onCancel}
-            style={({ pressed }) => [styles.secondaryBtn, pressed && styles.btnPressed]}
+            haptic="light"
+            pressedScale={0.98}
+            style={styles.secondaryBtn}
           >
             <View style={styles.cancelIcon} accessibilityElementsHidden>
               <View style={[styles.cancelIconBar, styles.cancelIconBarForward]} />
               <View style={[styles.cancelIconBar, styles.cancelIconBarBack]} />
             </View>
             <Text style={styles.secondaryBtnText} allowFontScaling={false}>CANCEL WORKOUT</Text>
-          </Pressable>
+          </TactilePressable>
         </View>
         </View>
       </ScreenShell>

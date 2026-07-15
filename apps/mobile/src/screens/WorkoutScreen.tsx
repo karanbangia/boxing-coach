@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import {
   Animated,
+  Easing,
   Modal,
   PanResponder,
   Pressable,
@@ -12,8 +13,11 @@ import {
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Action } from '@boxing-coach/core';
 import { ScreenShell } from '../components/ScreenShell';
+import { TactilePressable } from '../components/TactilePressable';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { formatClock } from '../lib/time';
 import { colors } from '../theme';
 
@@ -224,6 +228,62 @@ function VolumeModal({
   );
 }
 
+function StopWorkoutModal({
+  visible,
+  onContinue,
+  onStop,
+}: {
+  visible: boolean;
+  onContinue: () => void;
+  onStop: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onContinue}>
+      <View style={styles.stopModalRoot}>
+        <BlurView intensity={34} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <View style={styles.stopModalDim} />
+        <Pressable
+          style={StyleSheet.absoluteFillObject}
+          onPress={onContinue}
+          accessibilityLabel="Keep training"
+        />
+        <View style={[styles.stopSheet, { marginBottom: Math.max(insets.bottom, 20) }]}>
+          <View style={styles.stopSheetKickerRow}>
+            <View style={styles.stopSheetKickerMark} />
+            <Text style={styles.stopSheetKicker} allowFontScaling={false}>SESSION CONTROL</Text>
+          </View>
+          <Text style={styles.stopSheetTitle} allowFontScaling={false}>END THIS{`\n`}SESSION?</Text>
+          <Text style={styles.stopSheetCopy} allowFontScaling={false}>
+            This workout will not appear in your training log.
+          </Text>
+          <TactilePressable
+            accessibilityRole="button"
+            accessibilityLabel="Keep training"
+            onPress={onContinue}
+            haptic="light"
+            pressedScale={0.98}
+            style={styles.keepTrainingButton}
+          >
+            <Text style={styles.keepTrainingButtonText} allowFontScaling={false}>KEEP TRAINING</Text>
+          </TactilePressable>
+          <TactilePressable
+            accessibilityRole="button"
+            accessibilityLabel="End workout without saving"
+            onPress={onStop}
+            haptic="medium"
+            pressedScale={0.98}
+            style={styles.confirmStopButton}
+          >
+            <Text style={styles.confirmStopButtonText} allowFontScaling={false}>END WORKOUT</Text>
+          </TactilePressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function WorkoutScreen({
   currentRound,
   timeRemaining,
@@ -244,11 +304,13 @@ export function WorkoutScreen({
   const { height } = useWindowDimensions();
   const actionAnim = useRef(new Animated.Value(1)).current;
   const voiceAnim = useRef(equalizerBars.map(() => new Animated.Value(0))).current;
+  const reduceMotion = useReducedMotion();
   const comboLabel = normalizeComboLabel(currentAction);
   const comboDescription = currentAction?.description ?? 'JAB - CROSS - LEAD HOOK';
   const isHot = intensity === 'intense' || isFreestyle;
   const isDoubleDigitRound = currentRound >= 10;
   const [volumeOpen, setVolumeOpen] = useState(false);
+  const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
   const volumePercent = Math.round(masterVolume * 100);
   const isMuted = muted || volumePercent === 0;
   const redHeaderHeight = 0;
@@ -261,6 +323,10 @@ export function WorkoutScreen({
   const equalizerTop = Math.round(height * 0.626);
 
   useEffect(() => {
+    if (reduceMotion) {
+      actionAnim.setValue(1);
+      return;
+    }
     actionAnim.setValue(0.86);
     Animated.spring(actionAnim, {
       toValue: 1,
@@ -268,9 +334,25 @@ export function WorkoutScreen({
       tension: 80,
       useNativeDriver: true,
     }).start();
-  }, [actionAnim, actionKey, isPaused]);
+  }, [actionAnim, actionKey, isPaused, reduceMotion]);
 
   useEffect(() => {
+    if (isPaused || reduceMotion) {
+      const settle = Animated.parallel(
+        voiceAnim.map(value =>
+          Animated.timing(value, {
+            toValue: 0,
+            duration: 180,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: false,
+          }),
+        ),
+      );
+      settle.start();
+
+      return () => settle.stop();
+    }
+
     const animations = voiceAnim.map((value, index) =>
       Animated.loop(
         Animated.sequence([
@@ -294,7 +376,7 @@ export function WorkoutScreen({
     return () => {
       animations.forEach(animation => animation.stop());
     };
-  }, [voiceAnim]);
+  }, [isPaused, reduceMotion, voiceAnim]);
 
   return (
     <ScreenShell>
@@ -315,10 +397,13 @@ export function WorkoutScreen({
             <Text style={styles.headerTitle} allowFontScaling={false}>HEAVY BAG</Text>
           </View>
 
-          <Pressable
+          <TactilePressable
             onPress={() => setVolumeOpen(true)}
             onLongPress={onToggleMute}
-            style={({ pressed }) => [styles.soundButton, pressed && styles.buttonPressed]}
+            accessibilityRole="button"
+            haptic="selection"
+            pressedScale={0.9}
+            style={styles.soundButton}
             accessibilityLabel="Open volume"
           >
             <Ionicons
@@ -327,7 +412,7 @@ export function WorkoutScreen({
               color={colors.text}
               accessibilityElementsHidden
             />
-          </Pressable>
+          </TactilePressable>
         </View>
 
         <View style={[styles.roundBlock, { top: Math.round(height * 0.12) }]}>
@@ -405,9 +490,12 @@ export function WorkoutScreen({
 
         <View style={[styles.equalizer, { top: equalizerTop }]} accessibilityElementsHidden>
           {equalizerBars.map((barHeight, index) => {
+            const idleHeight = isPaused || reduceMotion
+              ? Math.max(7, Math.round(barHeight * 0.18))
+              : Math.max(18, barHeight * 0.48);
             const animatedHeight = voiceAnim[index].interpolate({
               inputRange: [0, 1],
-              outputRange: [Math.max(18, barHeight * 0.48), barHeight],
+              outputRange: [idleHeight, barHeight],
             });
 
             return (
@@ -420,39 +508,45 @@ export function WorkoutScreen({
         </View>
 
         <View style={styles.controlRow}>
-          <Pressable
+          <TactilePressable
             onPress={isPaused ? onResume : onPause}
-            style={({ pressed }) => [
-              styles.controlButton,
-              pressed && styles.buttonPressed,
-            ]}
+            accessibilityRole="button"
+            accessibilityLabel={isPaused ? 'Resume workout' : 'Pause workout'}
+            haptic="medium"
+            pressedScale={0.965}
+            style={styles.controlButton}
           >
             {isPaused ? <PlayIcon /> : <PauseIcon />}
             <Text style={styles.controlButtonText} allowFontScaling={false}>
               {isPaused ? 'RESUME' : 'PAUSE'}
             </Text>
-          </Pressable>
+          </TactilePressable>
 
-          <Pressable
+          <TactilePressable
             onPress={onSkipRound}
-            style={({ pressed }) => [
-              styles.controlButton,
-              pressed && styles.buttonPressed,
-            ]}
+            accessibilityRole="button"
+            haptic="light"
+            pressedScale={0.965}
+            style={styles.controlButton}
             accessibilityLabel="Skip round"
           >
             <SkipIcon />
             <Text style={styles.controlButtonText} allowFontScaling={false}>SKIP</Text>
-          </Pressable>
+          </TactilePressable>
         </View>
 
-        <Pressable
-          onPress={onStop}
-          style={({ pressed }) => [styles.stopButton, pressed && styles.buttonPressed]}
+        <TactilePressable
+          onPress={() => setStopConfirmOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="End workout"
+          accessibilityHint="Asks for confirmation before ending your session"
+          haptic="selection"
+          pressedScale={0.98}
+          style={styles.stopButton}
         >
           <StopIcon />
           <Text style={styles.stopButtonText} allowFontScaling={false}>STOP WORKOUT</Text>
-        </Pressable>
+        </TactilePressable>
 
         <VolumeModal
           visible={volumeOpen}
@@ -460,6 +554,11 @@ export function WorkoutScreen({
           volumePercent={volumePercent}
           onChange={onVolumePercentChange}
           onClose={() => setVolumeOpen(false)}
+        />
+        <StopWorkoutModal
+          visible={stopConfirmOpen}
+          onContinue={() => setStopConfirmOpen(false)}
+          onStop={onStop}
         />
       </View>
     </ScreenShell>
@@ -755,6 +854,84 @@ const styles = StyleSheet.create({
   },
   volumeTrackIcon: {
     zIndex: 1,
+  },
+  stopModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+  },
+  stopModalDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10,10,10,0.62)',
+  },
+  stopSheet: {
+    padding: 22,
+    borderWidth: 1,
+    borderTopWidth: 3,
+    borderColor: 'rgba(249,189,173,0.32)',
+    borderTopColor: colors.accent,
+    backgroundColor: '#171717',
+  },
+  stopSheetKickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stopSheetKickerMark: {
+    width: 8,
+    height: 8,
+    backgroundColor: colors.accent,
+  },
+  stopSheetKicker: {
+    color: colors.peach,
+    fontFamily: 'SpaceGroteskBold',
+    fontSize: 10,
+    lineHeight: 13,
+    letterSpacing: 1.8,
+  },
+  stopSheetTitle: {
+    color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 44,
+    lineHeight: 62,
+    marginTop: 13,
+  },
+  stopSheetCopy: {
+    maxWidth: 280,
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 19,
+    lineHeight: 23,
+    marginTop: 9,
+  },
+  keepTrainingButton: {
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 25,
+    backgroundColor: colors.text,
+  },
+  keepTrainingButtonText: {
+    color: '#4a1113',
+    fontFamily: 'SpaceGroteskBold',
+    fontSize: 12,
+    lineHeight: 15,
+    letterSpacing: 1.75,
+  },
+  confirmStopButton: {
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(255,20,20,0.72)',
+  },
+  confirmStopButtonText: {
+    color: colors.accentGlow,
+    fontFamily: 'SpaceGroteskBold',
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 1.75,
   },
   buttonPressed: {
     opacity: 0.92,

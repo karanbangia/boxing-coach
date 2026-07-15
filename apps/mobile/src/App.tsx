@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import { View } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import type { EngineConfig } from '@boxing-coach/core';
 import { calculateWorkoutPerformance, resolvePrepCountdownSeconds } from '@boxing-coach/core';
 import type { SetupSettings } from './config';
@@ -14,6 +14,7 @@ import { useSessionAudio } from './hooks/useSessionAudio';
 import { useStoredTuning } from './hooks/useStoredTuning';
 import { useWakeLock } from './hooks/useWakeLock';
 import { useWorkout } from './hooks/useWorkout';
+import { useReducedMotion } from './hooks/useReducedMotion';
 import { saveWorkoutToHistory } from './lib/workoutHistory';
 import { CompleteScreen } from './screens/CompleteScreen';
 import { DevScreen } from './screens/DevScreen';
@@ -24,6 +25,9 @@ import { WorkoutScreen } from './screens/WorkoutScreen';
 import { WorkoutHomeScreen } from './screens/WorkoutHomeScreen';
 import { PlanScreen } from './screens/PlanScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { colors } from './theme';
+
+const PREP_ENTRANCE_DURATION = 260;
 
 export function App() {
   const [fontsLoaded] = useFonts({
@@ -40,12 +44,15 @@ export function App() {
   const [prepSecondsLeft, setPrepSecondsLeft] = useState<number | null>(null);
   const [showDevScreen, setShowDevScreen] = useState(false);
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(settings.audioCuesEnabled);
-  const [isPersonalBest, setIsPersonalBest] = useState(false);
+  const [isEnteringPrep, setIsEnteringPrep] = useState(false);
   const workout = useWorkout(config);
   const workoutIdRef = useRef('');
   const savedWorkoutIdRef = useRef('');
+  const prepEntrance = useRef(new Animated.Value(0)).current;
+  const setupExit = useRef(new Animated.Value(1)).current;
 
   const session = useSessionAudio();
+  const reduceMotion = useReducedMotion();
 
   const sounds = useSounds(session.effectiveVolume);
   const coach = useCoachVoice(session.effectiveVolume, audioCuesEnabled);
@@ -63,6 +70,41 @@ export function App() {
   const prevTimeRef = useRef(workout.timeRemaining);
   const lastCoachActionKeyRef = useRef(-1);
   const coachWasPausedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!isEnteringPrep) return;
+
+    prepEntrance.stopAnimation();
+    setupExit.stopAnimation();
+
+    if (reduceMotion) {
+      prepEntrance.setValue(1);
+      setupExit.setValue(0);
+      setIsEnteringPrep(false);
+      return;
+    }
+
+    const entrance = Animated.parallel([
+      Animated.timing(prepEntrance, {
+        toValue: 1,
+        duration: PREP_ENTRANCE_DURATION,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(setupExit, {
+        toValue: 0,
+        duration: PREP_ENTRANCE_DURATION,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+
+    entrance.start(({ finished }) => {
+      if (finished) setIsEnteringPrep(false);
+    });
+
+    return () => entrance.stop();
+  }, [isEnteringPrep, prepEntrance, reduceMotion, setupExit]);
 
   useEffect(() => {
     setAudioCuesEnabled(settings.audioCuesEnabled);
@@ -131,8 +173,6 @@ export function App() {
       totalRounds: config.totalRounds,
       roundDuration: config.roundDuration,
       ...performance,
-    }).then(isBest => {
-      if (workoutIdRef.current === workoutId) setIsPersonalBest(isBest);
     });
   }, [config, workout.phase, workout.punchesThrown]);
 
@@ -186,12 +226,15 @@ export function App() {
       };
       workoutIdRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       savedWorkoutIdRef.current = '';
-      setIsPersonalBest(false);
+      prepEntrance.stopAnimation();
+      setupExit.stopAnimation();
+      prepEntrance.setValue(0);
+      setupExit.setValue(1);
+      setIsEnteringPrep(true);
       setConfig(engine);
       setPrepSecondsLeft(resolvePrepCountdownSeconds(engine.tuning));
-      setActiveTab('workout');
     },
-    [tuning],
+    [prepEntrance, setupExit, tuning],
   );
 
   useEffect(() => {
@@ -200,10 +243,10 @@ export function App() {
 
   useEffect(() => {
     if (prepSecondsLeft === null || prepSecondsLeft <= 0) return;
-    const t = setTimeout(() => {
-      setPrepSecondsLeft(s => (s === null || s <= 1 ? 0 : s - 1));
+    const timer = setTimeout(() => {
+      setPrepSecondsLeft(seconds => (seconds === null || seconds <= 1 ? 0 : seconds - 1));
     }, 1000);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [prepSecondsLeft]);
 
   useLayoutEffect(() => {
@@ -214,19 +257,29 @@ export function App() {
 
   const handleRestart = useCallback(() => {
     lastCoachActionKeyRef.current = -1;
+    prepEntrance.stopAnimation();
+    setupExit.stopAnimation();
+    prepEntrance.setValue(0);
+    setupExit.setValue(1);
+    setIsEnteringPrep(false);
     coach.stopCoachAudio();
     workout.stop();
     setConfig(null);
     setActiveTab('timer');
-  }, [coach, workout]);
+  }, [coach, prepEntrance, setupExit, workout]);
 
   const handleStop = useCallback(() => {
     lastCoachActionKeyRef.current = -1;
+    prepEntrance.stopAnimation();
+    setupExit.stopAnimation();
+    prepEntrance.setValue(0);
+    setupExit.setValue(1);
+    setIsEnteringPrep(false);
     coach.stopCoachAudio();
     workout.stop();
     setConfig(null);
     setActiveTab('timer');
-  }, [coach, workout]);
+  }, [coach, prepEntrance, setupExit, workout]);
 
   if (!fontsLoaded) {
     return (
@@ -236,11 +289,14 @@ export function App() {
     );
   }
 
+  const isPrepScreenVisible = Boolean(
+    config && workout.phase === 'idle' && prepSecondsLeft !== null && prepSecondsLeft > 0,
+  );
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.app}>
       <StatusBar style="light" />
 
-      {!config ? (
+      {!config || isEnteringPrep ? (
         showDevScreen ? (
           <DevScreen
             tuning={tuning}
@@ -248,34 +304,57 @@ export function App() {
             onBack={() => setShowDevScreen(false)}
           />
         ) : (
-          <MainTabShell activeTab={activeTab} onTabChange={setActiveTab}>
-            {activeTab === 'timer' ? (
-              <SetupScreen
-                settings={settings}
-                isReady={isReady}
-                onChange={updateSettings}
-                onStart={handleStart}
-                onOpenDev={() => setShowDevScreen(true)}
-              />
-            ) : activeTab === 'workout' ? (
-              <WorkoutHomeScreen onOpenTimer={() => setActiveTab('timer')} />
-            ) : activeTab === 'plan' ? (
-              <PlanScreen />
-            ) : (
-              <ProfileScreen />
-            )}
-          </MainTabShell>
+          <Animated.View
+            pointerEvents={isEnteringPrep ? 'none' : 'auto'}
+            style={[
+              styles.fullScreenLayer,
+              { opacity: setupExit },
+            ]}
+          >
+            <MainTabShell activeTab={activeTab} onTabChange={setActiveTab}>
+              {activeTab === 'timer' ? (
+                <SetupScreen
+                  settings={settings}
+                  isReady={isReady}
+                  onChange={updateSettings}
+                  onStart={handleStart}
+                  onOpenDev={() => setShowDevScreen(true)}
+                />
+              ) : activeTab === 'workout' ? (
+                <WorkoutHomeScreen onOpenTimer={() => setActiveTab('timer')} />
+              ) : activeTab === 'plan' ? (
+                <PlanScreen
+                  onBuildWorkout={preset => {
+                    updateSettings(preset);
+                    setActiveTab('timer');
+                  }}
+                />
+              ) : (
+                <ProfileScreen />
+              )}
+            </MainTabShell>
+          </Animated.View>
         )
-      ) : workout.phase === 'idle' && prepSecondsLeft !== null && prepSecondsLeft > 0 ? (
-        <PrepScreen
-          secondsLeft={prepSecondsLeft}
-          totalSeconds={resolvePrepCountdownSeconds(config.tuning)}
-          onSkip={() => setPrepSecondsLeft(0)}
-          onCancel={handleStop}
-        />
-      ) : workout.phase === 'idle' ? (
+      ) : null}
+
+      {isPrepScreenVisible && config ? (
+        <Animated.View
+          pointerEvents={isEnteringPrep ? 'none' : 'auto'}
+          style={[
+            styles.fullScreenLayer,
+            { opacity: prepEntrance },
+          ]}
+        >
+          <PrepScreen
+            secondsLeft={prepSecondsLeft ?? 0}
+            totalSeconds={resolvePrepCountdownSeconds(config.tuning)}
+            onSkip={() => setPrepSecondsLeft(0)}
+            onCancel={handleStop}
+          />
+        </Animated.View>
+      ) : config && workout.phase === 'idle' ? (
         <View style={{ flex: 1, backgroundColor: '#0a0a0a' }} />
-      ) : workout.phase === 'complete' ? (
+      ) : config && workout.phase === 'complete' ? (
         <CompleteScreen
           performance={calculateWorkoutPerformance({
             punches: workout.punchesThrown,
@@ -283,10 +362,9 @@ export function App() {
             totalRounds: config.totalRounds,
             roundDuration: config.roundDuration,
           })}
-          isPersonalBest={isPersonalBest}
           onReturnToGym={handleRestart}
         />
-      ) : workout.phase === 'rest' ? (
+      ) : config && workout.phase === 'rest' ? (
         <RestScreen
           currentRound={workout.currentRound}
           totalRounds={config.totalRounds}
@@ -294,7 +372,7 @@ export function App() {
           totalSeconds={config.restDuration}
           onSkipRest={workout.skipRest}
         />
-      ) : (
+      ) : config ? (
         <WorkoutScreen
           currentRound={workout.currentRound}
           totalRounds={config.totalRounds}
@@ -313,7 +391,17 @@ export function App() {
           onSkipRound={workout.skipRound}
           onStop={handleStop}
         />
-      )}
+      ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  app: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  fullScreenLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+});

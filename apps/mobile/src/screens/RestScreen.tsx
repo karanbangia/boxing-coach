@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   Animated,
   Easing,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { ScreenShell } from '../components/ScreenShell';
+import { TactilePressable } from '../components/TactilePressable';
 import { colors } from '../theme';
 
 interface Props {
@@ -182,14 +182,15 @@ export function RestScreen({
             </View>
           </View>
 
-          <Pressable
+          <TactilePressable
             accessibilityRole="button"
             accessibilityLabel="Skip rest"
             onPress={onSkipRest}
-            style={({ pressed }) => [
+            haptic="light"
+            pressedScale={0.975}
+            style={[
               styles.skipButton,
               compact && styles.skipButtonCompact,
-              pressed && styles.buttonPressed,
             ]}
           >
             <Ionicons
@@ -199,7 +200,7 @@ export function RestScreen({
               accessibilityElementsHidden
             />
             <Text style={styles.skipButtonText} allowFontScaling={false}>SKIP REST</Text>
-          </Pressable>
+          </TactilePressable>
         </View>
       </ScrollView>
     </ScreenShell>

@@ -15,7 +15,7 @@ export interface WorkoutHistoryItem {
   caloriesBurned: number;
 }
 
-async function loadWorkoutHistory(): Promise<WorkoutHistoryItem[]> {
+export async function loadWorkoutHistory(): Promise<WorkoutHistoryItem[]> {
   try {
     const value = await AsyncStorage.getItem(STORAGE_KEY);
     return value ? (JSON.parse(value) as WorkoutHistoryItem[]) : [];
@@ -24,9 +24,8 @@ async function loadWorkoutHistory(): Promise<WorkoutHistoryItem[]> {
   }
 }
 
-export async function saveWorkoutToHistory(item: WorkoutHistoryItem): Promise<boolean> {
+export async function saveWorkoutToHistory(item: WorkoutHistoryItem): Promise<void> {
   const previous = await loadWorkoutHistory();
-  const previousBest = previous.reduce((best, workout) => Math.max(best, workout.punches), 0);
   const next = [item, ...previous.filter(workout => workout.id !== item.id)].slice(0, MAX_HISTORY_ITEMS);
 
   try {
@@ -34,6 +33,4 @@ export async function saveWorkoutToHistory(item: WorkoutHistoryItem): Promise<bo
   } catch {
     // The summary remains usable when storage is unavailable.
   }
-
-  return item.punches > previousBest;
 }

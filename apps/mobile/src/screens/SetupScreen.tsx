@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import {
   type SetupSettings,
 } from '../config';
 import { ScreenShell } from '../components/ScreenShell';
+import { TactilePressable } from '../components/TactilePressable';
 import { colors } from '../theme';
 
 const DEV_TAP_THRESHOLD = 3;
@@ -53,14 +53,17 @@ function OptionGroup<T extends string | number>({
           const selected = option.value === value;
 
           return (
-            <Pressable
+            <TactilePressable
               key={String(option.value)}
               onPress={() => onSelect(option.value)}
-              style={({ pressed }) => [
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              haptic="selection"
+              pressedScale={0.985}
+              style={[
                 variant === 'tile' ? styles.tileButton : styles.segmentButton,
                 variant === 'tile' && selected && styles.tileButtonSelected,
                 variant === 'segment' && selected && styles.segmentButtonSelected,
-                pressed && styles.buttonPressed,
               ]}
             >
               <Text
@@ -80,7 +83,7 @@ function OptionGroup<T extends string | number>({
                   {option.desc}
                 </Text>
               ) : null}
-            </Pressable>
+            </TactilePressable>
           );
         })}
       </View>
@@ -138,7 +141,11 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
         >
-          <Pressable onPress={handleHeroPress} style={({ pressed }) => [pressed && styles.heroPressed]}>
+          <TactilePressable
+            onPress={handleHeroPress}
+            haptic="none"
+            pressedScale={0.995}
+          >
             <View style={styles.heroPanel}>
               <Text
                 style={styles.title}
@@ -159,7 +166,7 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
                 WORKOUT
               </Text>
             </View>
-          </Pressable>
+          </TactilePressable>
 
           {!isReady ? (
             <View style={styles.loadingPanel}>
@@ -185,31 +192,35 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
               <View style={styles.section}>
                 <Text style={styles.sectionLabel} allowFontScaling={false}>Rounds</Text>
                 <View style={styles.roundStepper}>
-                  <Pressable
+                  <TactilePressable
+                    accessibilityRole="button"
                     accessibilityLabel="Decrease rounds"
                     disabled={settings.totalRounds <= MIN_ROUNDS}
                     onPress={() => onChange({ totalRounds: Math.max(MIN_ROUNDS, settings.totalRounds - 1) })}
-                    style={({ pressed }) => [
+                    haptic="selection"
+                    pressedScale={0.9}
+                    style={[
                       styles.stepperButton,
                       settings.totalRounds <= MIN_ROUNDS && styles.stepperButtonDisabled,
-                      pressed && styles.buttonPressed,
                     ]}
                   >
                     <Text style={styles.stepperSymbol} allowFontScaling={false}>-</Text>
-                  </Pressable>
+                  </TactilePressable>
                   <Text style={styles.roundValue} allowFontScaling={false}>{settings.totalRounds}</Text>
-                  <Pressable
+                  <TactilePressable
+                    accessibilityRole="button"
                     accessibilityLabel="Increase rounds"
                     disabled={settings.totalRounds >= MAX_ROUNDS}
                     onPress={() => onChange({ totalRounds: Math.min(MAX_ROUNDS, settings.totalRounds + 1) })}
-                    style={({ pressed }) => [
+                    haptic="selection"
+                    pressedScale={0.9}
+                    style={[
                       styles.stepperButton,
                       settings.totalRounds >= MAX_ROUNDS && styles.stepperButtonDisabled,
-                      pressed && styles.buttonPressed,
                     ]}
                   >
                     <Text style={styles.stepperSymbol} allowFontScaling={false}>+</Text>
-                  </Pressable>
+                  </TactilePressable>
                 </View>
               </View>
 
@@ -221,16 +232,15 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
                 variant="segment"
               />
 
-              <Pressable
+              <TactilePressable
                 accessibilityRole="switch"
                 accessibilityLabel="Audio cues"
                 accessibilityHint="Plays coach instructions"
                 accessibilityState={{ checked: settings.audioCuesEnabled }}
                 onPress={() => onChange({ audioCuesEnabled: !settings.audioCuesEnabled })}
-                style={({ pressed }) => [
-                  styles.audioCueRow,
-                  pressed && styles.buttonPressed,
-                ]}
+                haptic="selection"
+                pressedScale={0.985}
+                style={styles.audioCueRow}
               >
                 <View style={styles.audioLabelWrap}>
                   <AudioIcon />
@@ -254,25 +264,24 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
                     ]}
                   />
                 </View>
-              </Pressable>
+              </TactilePressable>
             </>
           )}
         </ScrollView>
 
         {isReady ? (
           <View style={styles.floatingCta}>
-            <Pressable
+            <TactilePressable
               accessibilityRole="button"
               accessibilityLabel="Start workout"
               onPress={() => onStart(settings)}
-              style={({ pressed }) => [
-                styles.startButton,
-                pressed && styles.startButtonPressed,
-              ]}
+              haptic="medium"
+              pressedScale={0.98}
+              style={styles.startButton}
             >
               <View style={styles.playTriangle} />
               <Text style={styles.startButtonText} allowFontScaling={false}>START WORKOUT</Text>
-            </Pressable>
+            </TactilePressable>
           </View>
         ) : null}
       </View>
@@ -387,7 +396,7 @@ const styles = StyleSheet.create({
   tileDesc: {
     color: colors.textMuted,
     fontFamily: bodyFont,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 20,
   },
   segmentLabel: {
@@ -468,6 +477,7 @@ const styles = StyleSheet.create({
     fontFamily: bodyFont,
     fontSize: 14,
     lineHeight: 16,
+    letterSpacing: 1.6,
   },
   audioIcon: {
     width: 22,

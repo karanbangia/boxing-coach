@@ -1,27 +1,29 @@
 import { useRef, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Share, StyleSheet, Text, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
 import { CannonConfetti, PIConfetti } from 'react-native-fast-confetti';
 import type { WorkoutPerformance } from '@boxing-coach/core';
 import { ScreenShell } from '../components/ScreenShell';
+import { TactilePressable } from '../components/TactilePressable';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { colors } from '../theme';
 
 interface Props {
   performance: WorkoutPerformance;
-  isPersonalBest: boolean;
   onReturnToGym: () => void;
 }
 
 const APP_NAME = 'Boxing Coach';
 const DOWNLOAD_LINK = '';
 
-export function CompleteScreen({ performance, isPersonalBest, onReturnToGym }: Props) {
+export function CompleteScreen({ performance, onReturnToGym }: Props) {
   const cardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
   const [burstKey, setBurstKey] = useState(0);
+  const reduceMotion = useReducedMotion();
 
   const handleShare = async () => {
     if (!cardRef.current || isSharing) return;
@@ -61,36 +63,40 @@ export function CompleteScreen({ performance, isPersonalBest, onReturnToGym }: P
   return (
     <ScreenShell backgroundColor="#000000">
       <View style={styles.container}>
-        <View style={styles.confettiLayer} pointerEvents="none" accessibilityElementsHidden>
-          <CannonConfetti autoplay gravity={3} containerStyle={styles.confettiCanvas}>
-            <CannonConfetti.Origin position="bottom-left" count={150} initialSpeed={3}>
-              <CannonConfetti.Flake size={12} radius={6} />
-            </CannonConfetti.Origin>
-            <CannonConfetti.Origin position="bottom-right" count={150} initialSpeed={3}>
-              <CannonConfetti.Flake size={12} />
-            </CannonConfetti.Origin>
-          </CannonConfetti>
+        {!reduceMotion ? (
+          <View style={styles.confettiLayer} pointerEvents="none" accessibilityElementsHidden>
+            <CannonConfetti autoplay gravity={3} containerStyle={styles.confettiCanvas}>
+              <CannonConfetti.Origin position="bottom-left" count={150} initialSpeed={3}>
+                <CannonConfetti.Flake size={12} radius={6} />
+              </CannonConfetti.Origin>
+              <CannonConfetti.Origin position="bottom-right" count={150} initialSpeed={3}>
+                <CannonConfetti.Flake size={12} />
+              </CannonConfetti.Origin>
+            </CannonConfetti>
 
-          {burstKey > 0 ? (
-            <PIConfetti key={burstKey} autoplay containerStyle={styles.confettiCanvas}>
-              <PIConfetti.Origin blastPosition="center" count={200}>
-                <PIConfetti.Flake size={12} />
-              </PIConfetti.Origin>
-            </PIConfetti>
-          ) : null}
-        </View>
+            {burstKey > 0 ? (
+              <PIConfetti key={burstKey} autoplay containerStyle={styles.confettiCanvas}>
+                <PIConfetti.Origin blastPosition="center" count={200}>
+                  <PIConfetti.Flake size={12} />
+                </PIConfetti.Origin>
+              </PIConfetti>
+            ) : null}
+          </View>
+        ) : null}
 
         <View ref={cardRef} collapsable={false} style={styles.shareCard}>
-          <Pressable
+          <TactilePressable
             accessibilityRole="button"
             accessibilityLabel="Celebrate session complete"
             hitSlop={10}
             onPress={() => setBurstKey(key => key + 1)}
+            haptic="success"
+            pressedScale={0.985}
             style={styles.titleBlock}
           >
             <Text style={styles.titleTop} allowFontScaling={false}>SESSION</Text>
             <Text style={styles.titleBottom} allowFontScaling={false}>COMPLETE</Text>
-          </Pressable>
+          </TactilePressable>
 
           <View style={styles.primaryMetric}>
             <Text style={styles.metricLabel} allowFontScaling={false}>TOTAL VOLUME</Text>
@@ -115,35 +121,32 @@ export function CompleteScreen({ performance, isPersonalBest, onReturnToGym }: P
               </View>
             </View>
           </View>
-
-          {/*{isPersonalBest && (*/}
-          {/*  <View style={styles.personalBest}>*/}
-          {/*    <Text style={styles.personalBestIcon} allowFontScaling={false}>▰</Text>*/}
-          {/*    <Text style={styles.personalBestText} allowFontScaling={false}>NEW PERSONAL BEST</Text>*/}
-          {/*  </View>*/}
-          {/*)}*/}
         </View>
 
-        <View style={[styles.actions, isPersonalBest && styles.actionsWithPersonalBest]}>
-          <Pressable
+        <View style={styles.actions}>
+          <TactilePressable
             accessibilityRole="button"
             accessibilityLabel="Share performance"
             disabled={isSharing}
             onPress={handleShare}
-            style={({ pressed }) => [styles.primaryButton, (pressed || isSharing) && styles.pressed]}
+            haptic="medium"
+            pressedScale={0.975}
+            style={styles.primaryButton}
           >
             <Text style={styles.primaryButtonText} allowFontScaling={false}>
               {isSharing ? 'PREPARING...' : shareStatus || 'SHARE PERFORMANCE'}
             </Text>
-          </Pressable>
-          <Pressable
+          </TactilePressable>
+          <TactilePressable
             accessibilityRole="button"
             accessibilityLabel="Return to gym"
             onPress={onReturnToGym}
-            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
+            haptic="light"
+            pressedScale={0.98}
+            style={styles.secondaryButton}
           >
             <Text style={styles.secondaryButtonText} allowFontScaling={false}>RETURN TO GYM</Text>
-          </Pressable>
+          </TactilePressable>
         </View>
       </View>
     </ScreenShell>
@@ -279,42 +282,11 @@ const styles = StyleSheet.create({
     paddingTop: 3,
     includeFontPadding: true,
   },
-  personalBest: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 24,
-    paddingHorizontal: 22,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  personalBestIcon: {
-    color: colors.accent,
-    fontSize: 12,
-    lineHeight: 20,
-    paddingTop: 2,
-    includeFontPadding: true,
-  },
-  personalBestText: {
-    color: colors.text,
-    fontFamily: 'SpaceGroteskBold',
-    fontSize: 12,
-    lineHeight: 20,
-    letterSpacing: 1.5,
-    paddingTop: 2,
-    includeFontPadding: true,
-  },
   actions: {
     width: '100%',
     maxWidth: 352,
     marginTop: 44,
     zIndex: 3,
-  },
-  actionsWithPersonalBest: {
-    marginTop: 28,
   },
   primaryButton: {
     minHeight: 64,

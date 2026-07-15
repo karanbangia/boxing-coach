@@ -1,5 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
+import { TactilePressable } from './TactilePressable';
 
 export type AppTab = 'timer' | 'workout' | 'plan' | 'profile';
 
@@ -8,6 +10,12 @@ const tabs: { id: AppTab; label: string }[] = [
   { id: 'workout', label: 'STATS' },
   { id: 'plan', label: 'PLANS' },
 ];
+
+export const TAB_DOCK_CONTENT_HEIGHT = 60;
+
+export function getTabDockHeight(bottomInset: number) {
+  return TAB_DOCK_CONTENT_HEIGHT + Math.max(bottomInset, 6);
+}
 
 function LineIcon({ tab, active }: { tab: AppTab; active: boolean }) {
   const tint = active ? colors.peach : colors.textMuted;
@@ -58,22 +66,29 @@ export function BottomTabBar({
   activeTab: AppTab;
   onChange: (tab: AppTab) => void;
 }) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View pointerEvents="box-none" style={styles.tabSafeArea}>
-      <View style={styles.tabWrap}>
+    <View
+      pointerEvents="box-none"
+      style={[styles.tabSafeArea, { height: getTabDockHeight(insets.bottom) }]}
+    >
+      <View style={[styles.tabWrap, { paddingBottom: Math.max(insets.bottom, 6) }]}>
         <View style={styles.tabBar}>
           {tabs.map(tab => {
             const active = tab.id === activeTab;
             return (
-              <Pressable
+              <TactilePressable
                 key={tab.id}
                 accessibilityRole="tab"
+                accessibilityLabel={`${tab.label.toLowerCase()} tab`}
                 accessibilityState={{ selected: active }}
                 onPress={() => onChange(tab.id)}
-                style={({ pressed }) => [
+                haptic="selection"
+                pressedScale={0.94}
+                style={[
                   styles.tabButton,
                   active && styles.tabButtonActive,
-                  pressed && styles.tabButtonPressed,
                 ]}
               >
                 <LineIcon tab={tab.id} active={active} />
@@ -84,7 +99,7 @@ export function BottomTabBar({
                 >
                   {tab.label}
                 </Text>
-              </Pressable>
+              </TactilePressable>
             );
           })}
         </View>
@@ -99,12 +114,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 64,
     backgroundColor: '#0e0e0e',
   },
   tabWrap: {
     paddingHorizontal: 0,
-    paddingBottom: 0,
   },
   tabBar: {
     maxWidth: 420,
@@ -117,7 +130,7 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     flex: 1,
-    height: 58,
+    height: TAB_DOCK_CONTENT_HEIGHT,
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',

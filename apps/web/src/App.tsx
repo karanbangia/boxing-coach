@@ -44,7 +44,6 @@ function MainApp() {
   const [config, setConfig] = useState<EngineConfig | null>(null);
   const [prepSecondsLeft, setPrepSecondsLeft] = useState<number | null>(null);
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(true);
-  const [isPersonalBest, setIsPersonalBest] = useState(false);
   const workout = useWorkout(config);
   const workoutIdRef = useRef('');
   const savedWorkoutIdRef = useRef('');
@@ -105,14 +104,14 @@ function MainApp() {
       totalRounds: config.totalRounds,
       roundDuration: config.roundDuration,
     });
-    setIsPersonalBest(saveWorkoutToHistory({
+    saveWorkoutToHistory({
       id: workoutId,
       completedAt: new Date().toISOString(),
       difficulty: config.difficulty,
       totalRounds: config.totalRounds,
       roundDuration: config.roundDuration,
       ...performance,
-    }));
+    });
   }, [config, workout.phase, workout.punchesThrown]);
 
   useEffect(() => {
@@ -173,7 +172,6 @@ function MainApp() {
     const { audioCuesEnabled: cues, ...engine } = payload;
     workoutIdRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     savedWorkoutIdRef.current = '';
-    setIsPersonalBest(false);
     alog('workout:start', {
       difficulty: engine.difficulty,
       rounds: engine.totalRounds,
@@ -262,7 +260,6 @@ function MainApp() {
     return (
       <CompleteScreen
         performance={performance}
-        isPersonalBest={isPersonalBest}
         onReturnToGym={handleRestart}
       />
     );

@@ -23,9 +23,8 @@ export function loadWorkoutHistory(): WorkoutHistoryItem[] {
   }
 }
 
-export function saveWorkoutToHistory(item: WorkoutHistoryItem): boolean {
+export function saveWorkoutToHistory(item: WorkoutHistoryItem): void {
   const previous = loadWorkoutHistory();
-  const previousBest = previous.reduce((best, workout) => Math.max(best, workout.punches), 0);
   const next = [item, ...previous.filter(workout => workout.id !== item.id)].slice(0, MAX_HISTORY_ITEMS);
 
   try {
@@ -33,6 +32,4 @@ export function saveWorkoutToHistory(item: WorkoutHistoryItem): boolean {
   } catch {
     // The summary remains usable when storage is unavailable.
   }
-
-  return item.punches > previousBest;
 }

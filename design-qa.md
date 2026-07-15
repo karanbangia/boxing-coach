@@ -34,6 +34,26 @@ console errors checked: no browser console errors were present.
 comparison history: the first same-state comparison found no actionable P0/P1/P2 mismatch; no visual-fix iteration was required.
 final result: passed
 
+## Native iOS training-log and tactile-controls pass — 2026-07-14
+
+**Findings**
+- No actionable visual P0/P1/P2 findings on the iPhone 16e simulator.
+
+**What was verified**
+- The app was built and installed natively on the iPhone 16e simulator; the iOS bundle includes the haptics module and launches without the earlier module-resolution error.
+- `Stats` now renders a high-contrast Training Log from persisted workout history: the latest session, rounds today, all-time volume, bag time, streak, and recent sessions are readable without leaving the screen.
+- The Training Log's `Build Workout` action returns to the setup surface, and the Audio Cues switch changes state and was restored after testing.
+- The shared press treatment is used across setup, bottom navigation, prep, active workout, rest, and completion controls. Each uses a short press-in/spring-out motion and an appropriately weighted native haptic request.
+- Explicit button, radio, switch, and tab semantics are provided where the mobile controls expose an action or selected state.
+
+**Native visual evidence**
+- capture: `.codex/design-qa/native/training-log-1170x2532.png`
+- device: iPhone 16e simulator, iOS 26.3, 1170 × 2532 native capture
+- state: persisted workout history present; Stats tab selected
+
+**Follow-up polish**
+- Haptic strength must still be felt and tuned on a physical iPhone; the Simulator validates the native module, interactions, and visual motion path but does not reproduce physical feedback.
+
 ## Previous QA: workout volume modal
 
 **Findings**
