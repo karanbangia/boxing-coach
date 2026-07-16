@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { ScreenShell } from '../components/ScreenShell';
+import { SkeletonBlock } from '../components/SkeletonBlock';
 import { TactilePressable } from '../components/TactilePressable';
 import {
   DEFAULT_FIGHTER_PROFILE,
@@ -248,6 +249,19 @@ function AuthScreen() {
     errorMessage,
     clearError,
   } = useAuth();
+  const [activeProvider, setActiveProvider] = useState<'apple' | 'google' | null>(null);
+  const authenticationBusy = isBusy || activeProvider !== null;
+
+  const authenticate = async (provider: 'apple' | 'google') => {
+    if (authenticationBusy) return;
+    setActiveProvider(provider);
+    try {
+      if (provider === 'apple') await signInWithApple();
+      else await signInWithGoogle();
+    } finally {
+      setActiveProvider(null);
+    }
+  };
 
   return (
     <ScreenShell>
@@ -267,22 +281,28 @@ function AuthScreen() {
           <ErrorBanner message={errorMessage} onDismiss={clearError} />
           {Platform.OS === 'ios' ? (
             <TactilePressable
-              onPress={() => void signInWithApple()}
-              disabled={isBusy}
+              onPress={() => void authenticate('apple')}
+              disabled={authenticationBusy}
               haptic="medium"
-              style={[styles.providerButton, isBusy && styles.buttonDisabled]}
+              style={[styles.providerButton, authenticationBusy && styles.buttonDisabled]}
             >
-              <Ionicons name="logo-apple" size={22} color={colors.background} />
-              <Text style={styles.providerButtonText}>Continue with Apple</Text>
+              {activeProvider === 'apple' ? (
+                <ActivityIndicator color={colors.background} />
+              ) : (
+                <>
+                  <Ionicons name="logo-apple" size={22} color={colors.background} />
+                  <Text style={styles.providerButtonText}>Continue with Apple</Text>
+                </>
+              )}
             </TactilePressable>
           ) : null}
           <TactilePressable
-            onPress={() => void signInWithGoogle()}
-            disabled={isBusy}
+            onPress={() => void authenticate('google')}
+            disabled={authenticationBusy}
             haptic="medium"
-            style={[styles.providerButton, styles.providerButtonDark, isBusy && styles.buttonDisabled]}
+            style={[styles.providerButton, styles.providerButtonDark, authenticationBusy && styles.buttonDisabled]}
           >
-            {isBusy ? (
+            {activeProvider === 'google' ? (
               <ActivityIndicator color={colors.text} />
             ) : (
               <>
@@ -869,6 +889,56 @@ function AccountData({ onBack }: { onBack: () => void }) {
   );
 }
 
+function ProfileSkeleton() {
+  return (
+    <ScreenShell>
+      <ScrollView
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel="Loading fighter profile"
+        contentContainerStyle={styles.profileContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.skeletonProfileHeader}>
+          <SkeletonBlock style={styles.skeletonAvatar} />
+          <View style={styles.skeletonHeaderCopy}>
+            <SkeletonBlock style={styles.skeletonKicker} />
+            <SkeletonBlock style={styles.skeletonName} />
+            <SkeletonBlock style={styles.skeletonMeta} />
+          </View>
+          <SkeletonBlock style={styles.skeletonEditButton} />
+        </View>
+
+        <SkeletonBlock style={styles.skeletonSyncPill} />
+
+        <View style={styles.metricGrid}>
+          {[0, 1, 2, 3].map(item => (
+            <View key={item} style={styles.metricCard}>
+              <SkeletonBlock style={styles.skeletonMetricLabel} />
+              <SkeletonBlock style={styles.skeletonMetricValue} />
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.profileSection}>
+          <SkeletonBlock style={styles.skeletonSectionTitle} />
+          <View style={styles.detailCard}>
+            {[0, 1, 2, 3].map(item => (
+              <View key={item} style={styles.detailRow}>
+                <SkeletonBlock style={styles.skeletonDetailIcon} />
+                <View style={styles.detailCopy}>
+                  <SkeletonBlock style={styles.skeletonDetailLabel} />
+                  <SkeletonBlock style={styles.skeletonDetailValue} />
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+    </ScreenShell>
+  );
+}
+
 export function ProfileScreen() {
   const { user, profile, isReady } = useAuth();
   const [view, setView] = useState<ProfileView>('profile');
@@ -877,16 +947,7 @@ export function ProfileScreen() {
     if (!user) setView('profile');
   }, [user]);
 
-  if (!isReady) {
-    return (
-      <ScreenShell>
-        <View style={styles.loadingScreen}>
-          <ActivityIndicator color={colors.red} size="large" />
-          <Text style={styles.loadingLabel}>OPENING YOUR CORNER…</Text>
-        </View>
-      </ScreenShell>
-    );
-  }
+  if (!isReady) return <ProfileSkeleton />;
 
   if (!user) return <AuthScreen />;
   if (!profile) return <FighterSetup userName={user.displayName} userPhoto={user.photoURL} />;
@@ -1152,8 +1213,20 @@ const styles = StyleSheet.create({
   accountAction: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   accountActionText: { flex: 1, color: colors.text, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 13, lineHeight: textLineHeight(13), letterSpacing: 1 },
   dangerText: { color: colors.red },
-  loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  loadingLabel: { color: colors.textMuted, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 11, lineHeight: textLineHeight(11), letterSpacing: 1.3 },
+  skeletonProfileHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  skeletonAvatar: { width: 72, height: 72, borderRadius: 36 },
+  skeletonHeaderCopy: { flex: 1, gap: 8 },
+  skeletonKicker: { width: 98, height: 10 },
+  skeletonName: { width: '82%', height: 32 },
+  skeletonMeta: { width: '58%', height: 10 },
+  skeletonEditButton: { width: 42, height: 42 },
+  skeletonSyncPill: { width: 132, height: 32 },
+  skeletonMetricLabel: { width: '64%', height: 10 },
+  skeletonMetricValue: { width: '56%', height: 42 },
+  skeletonSectionTitle: { width: 154, height: 30 },
+  skeletonDetailIcon: { width: 36, height: 36 },
+  skeletonDetailLabel: { width: '44%', height: 9 },
+  skeletonDetailValue: { width: '72%', height: 17, marginTop: 7 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end' },
   modalDismissArea: { flex: 1 },
   confirmSheet: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 30, backgroundColor: '#171717', borderTopWidth: 1, borderTopColor: colors.border, gap: 12 },

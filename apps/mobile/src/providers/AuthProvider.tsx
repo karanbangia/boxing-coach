@@ -207,13 +207,25 @@ async function getAppleCredential() {
     Crypto.CryptoDigestAlgorithm.SHA256,
     rawNonce,
   );
-  const response = await AppleAuthentication.signInAsync({
-    requestedScopes: [
-      AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-      AppleAuthentication.AppleAuthenticationScope.EMAIL,
-    ],
-    nonce: hashedNonce,
-  });
+  let response: AppleAuthentication.AppleAuthenticationCredential;
+  try {
+    response = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+      nonce: hashedNonce,
+    });
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === 'ERR_REQUEST_CANCELED') throw new Error('Apple Sign-In cancelled.');
+    if (code === 'ERR_REQUEST_UNKNOWN') {
+      throw new Error(
+        'Apple Sign-In needs an Apple Account on this device. Sign in in Settings and try again.',
+      );
+    }
+    throw error;
+  }
   if (!response.identityToken) throw new Error('Apple did not return an identity token.');
   const credential = new OAuthProvider('apple.com').credential({
     idToken: response.identityToken,

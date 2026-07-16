@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenShell } from '../components/ScreenShell';
+import { SkeletonBlock } from '../components/SkeletonBlock';
 import { TactilePressable } from '../components/TactilePressable';
 import { loadWorkoutHistoryForScope, type WorkoutHistoryItem } from '../lib/workoutHistory';
 import { useAuth } from '../providers/AuthProvider';
@@ -234,8 +235,62 @@ function buildPunchTrend(history: WorkoutHistoryItem[]): PunchTrendPoint[] {
     .slice(-7);
 }
 
+function ProgressSkeleton() {
+  return (
+    <ScreenShell>
+      <ScrollView
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel="Loading training progress"
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle} allowFontScaling={false}>PROGRESS</Text>
+          <Text style={[styles.pageTitle, styles.pageTitleAccent]} allowFontScaling={false}>OVERVIEW</Text>
+        </View>
+
+        <View style={styles.metricGrid}>
+          {[0, 1, 2, 3].map(item => (
+            <View key={item} style={styles.metricCard}>
+              <SkeletonBlock style={styles.skeletonMetricLabel} />
+              <SkeletonBlock style={styles.skeletonMetricValue} />
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.calendarSection}>
+          <View style={styles.sectionHeader}>
+            <SkeletonBlock style={styles.skeletonSectionTitle} />
+            <SkeletonBlock style={styles.skeletonSectionMeta} />
+          </View>
+          <SkeletonBlock style={styles.skeletonCalendar} />
+        </View>
+
+        <View style={styles.trendSection}>
+          <View style={styles.sectionHeader}>
+            <SkeletonBlock style={styles.skeletonTrendTitle} />
+          </View>
+          <SkeletonBlock style={styles.skeletonChart} />
+        </View>
+
+        <View style={styles.historySection}>
+          <View style={styles.historyHeader}>
+            <SkeletonBlock style={styles.skeletonHistoryTitle} />
+          </View>
+          <View style={styles.skeletonHistoryList}>
+            {[0, 1, 2].map(item => (
+              <SkeletonBlock key={item} style={styles.skeletonHistoryCard} />
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+    </ScreenShell>
+  );
+}
+
 export function ProgressScreen() {
-  const { user, syncStatus } = useAuth();
+  const { user, isReady } = useAuth();
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [displayedMonth, setDisplayedMonth] = useState(() => {
@@ -247,6 +302,14 @@ export function ProgressScreen() {
 
   useEffect(() => {
     let isMounted = true;
+    setIsLoading(true);
+
+    if (!isReady) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
     void loadWorkoutHistoryForScope(user?.uid ?? null).then(items => {
       if (!isMounted) return;
       setHistory(Array.isArray(items) ? items : []);
@@ -256,7 +319,7 @@ export function ProgressScreen() {
     return () => {
       isMounted = false;
     };
-  }, [syncStatus, user?.uid]);
+  }, [isReady, user?.uid]);
 
   const orderedHistory = useMemo(() => sortNewestFirst(history), [history]);
 
@@ -293,6 +356,8 @@ export function ProgressScreen() {
     ? orderedHistory.find(workout => workout.id === selectedWorkoutId) ?? null
     : null;
   const todayKey = toDateKey(new Date());
+
+  if (isLoading || !isReady) return <ProgressSkeleton />;
 
   const changeMonth = (direction: -1 | 1) => {
     setDisplayedMonth(current => new Date(current.getFullYear(), current.getMonth() + direction, 1));
@@ -857,6 +922,16 @@ const styles = StyleSheet.create({
   metricValueAccent: {
     color: colors.accentGlow,
   },
+  skeletonMetricLabel: { width: '66%', height: 12 },
+  skeletonMetricValue: { width: '58%', height: 48 },
+  skeletonSectionTitle: { width: 154, height: 28, marginBottom: 5 },
+  skeletonSectionMeta: { width: 82, height: 10, marginBottom: 10 },
+  skeletonCalendar: { width: '100%', height: 268, marginTop: 14 },
+  skeletonTrendTitle: { width: 216, height: 28, marginBottom: 5 },
+  skeletonChart: { width: '100%', height: 188, marginTop: 18 },
+  skeletonHistoryTitle: { width: 112, height: 28 },
+  skeletonHistoryList: { gap: 8, marginTop: 14 },
+  skeletonHistoryCard: { width: '100%', height: 84 },
   calendarSection: {
     marginTop: 40,
   },

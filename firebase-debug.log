@@ -1,0 +1,52 @@
+[debug] [2026-07-16T09:08:59.514Z] ----------------------------------------------------------------------
+[debug] [2026-07-16T09:08:59.521Z] Command:       /Users/karanbangia/.nvm/versions/node/v20.19.6/bin/node /Users/karanbangia/Library/Caches/pnpm/dlx/2402b0c3cdd1fcb526e7eed2ebae83ae76fcab92875ab6a62e3feaa1ee419824/19f69e653bb-9b7b/node_modules/.pnpm/firebase-tools@15.24.0_@types+node@26.1.1/node_modules/firebase-tools/lib/bin/firebase.js deploy --only storage --project boxing-coach-8f8c5 --non-interactive
+[debug] [2026-07-16T09:08:59.522Z] CLI Version:   15.24.0
+[debug] [2026-07-16T09:08:59.522Z] Platform:      darwin
+[debug] [2026-07-16T09:08:59.522Z] Node Version:  v20.19.6
+[debug] [2026-07-16T09:08:59.522Z] Detected Agent: codex_cli
+[debug] [2026-07-16T09:08:59.523Z] Time:          Thu Jul 16 2026 14:38:59 GMT+0530 (India Standard Time)
+[debug] [2026-07-16T09:08:59.523Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-16T09:09:03.117Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-16T09:09:03.118Z] > authorizing via signed-in user (karanbangia14@gmail.com)
+[debug] [2026-07-16T09:09:03.118Z] [iam] checking project boxing-coach-8f8c5 for permissions ["firebase.projects.get","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]
+[debug] [2026-07-16T09:09:03.120Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:03.121Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:03.123Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/boxing-coach-8f8c5:testIamPermissions [none]
+[debug] [2026-07-16T09:09:03.123Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/boxing-coach-8f8c5:testIamPermissions  x-goog-user-project=boxing-coach-8f8c5
+[debug] [2026-07-16T09:09:03.124Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/boxing-coach-8f8c5:testIamPermissions {"permissions":["firebase.projects.get","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]}
+[debug] [2026-07-16T09:09:04.723Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/boxing-coach-8f8c5:testIamPermissions 200
+[debug] [2026-07-16T09:09:04.723Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/boxing-coach-8f8c5:testIamPermissions {"permissions":["firebase.projects.get","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]}
+[info] 
+[info] === Deploying to 'boxing-coach-8f8c5'...
+[info] 
+[info] i  deploying storage 
+[info] i  storage: ensuring required API firebasestorage.googleapis.com is enabled... 
+[debug] [2026-07-16T09:09:04.729Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:04.729Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:04.729Z] >>> [apiv2][query] GET https://firebasestorage.googleapis.com/v1alpha/projects/boxing-coach-8f8c5/defaultBucket [none]
+[debug] [2026-07-16T09:09:05.413Z] <<< [apiv2][status] GET https://firebasestorage.googleapis.com/v1alpha/projects/boxing-coach-8f8c5/defaultBucket 200
+[debug] [2026-07-16T09:09:05.413Z] <<< [apiv2][body] GET https://firebasestorage.googleapis.com/v1alpha/projects/boxing-coach-8f8c5/defaultBucket {"name":"projects/boxing-coach-8f8c5/defaultBucket","location":"US-EAST1","bucket":{"name":"projects/boxing-coach-8f8c5/buckets/boxing-coach-8f8c5.firebasestorage.app"},"storageClass":"REGIONAL"}
+[info] i  firebase.storage: checking firebase/storage.rules for compilation errors... 
+[debug] [2026-07-16T09:09:05.416Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:05.416Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:05.416Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5:test [none]
+[debug] [2026-07-16T09:09:05.416Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5:test [omitted]
+[debug] [2026-07-16T09:09:06.878Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5:test 200
+[debug] [2026-07-16T09:09:06.878Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5:test {}
+[info] ✔  firebase.storage: rules file firebase/storage.rules compiled successfully 
+[debug] [2026-07-16T09:09:06.879Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:06.879Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:06.880Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5/releases pageSize=10&pageToken=
+[debug] [2026-07-16T09:09:08.387Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5/releases 200
+[debug] [2026-07-16T09:09:08.387Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5/releases {"releases":[{"name":"projects/boxing-coach-8f8c5/releases/cloud.firestore","rulesetName":"projects/boxing-coach-8f8c5/rulesets/67498f43-ce6f-4683-b8ed-f24f837c8f30","createTime":"2026-07-16T07:46:26.435122Z","updateTime":"2026-07-16T07:51:35.382092Z"},{"name":"projects/boxing-coach-8f8c5/releases/firebase.storage/boxing-coach-8f8c5.firebasestorage.app","rulesetName":"projects/boxing-coach-8f8c5/rulesets/a4828c5f-4f00-4b3a-bafe-7c82a1be97de","createTime":"2026-07-16T09:00:59.178764Z","updateTime":"2026-07-16T09:00:59.178764Z"}]}
+[debug] [2026-07-16T09:09:08.399Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:08.399Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:08.399Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5/rulesets/a4828c5f-4f00-4b3a-bafe-7c82a1be97de [none]
+[debug] [2026-07-16T09:09:09.765Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5/rulesets/a4828c5f-4f00-4b3a-bafe-7c82a1be97de 200
+[debug] [2026-07-16T09:09:09.765Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5/rulesets/a4828c5f-4f00-4b3a-bafe-7c82a1be97de [omitted]
+[info] i  storage: uploading rules firebase/storage.rules... 
+[debug] [2026-07-16T09:09:09.767Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:09.767Z] Checked if tokens are valid: true, expires at: 1784194606427
+[debug] [2026-07-16T09:09:09.767Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5/rulesets [none]
+[debug] [2026-07-16T09:09:09.767Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/boxing-coach-8f8c5/rulesets [omitted]
