@@ -3,6 +3,7 @@ import { DIFFICULTIES } from '@boxing-coach/core';
 import { BlurView } from 'expo-blur';
 import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import {
+  InteractionManager,
   Modal,
   Pressable,
   ScrollView,
@@ -14,8 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenShell } from '../components/ScreenShell';
 import { SkeletonBlock } from '../components/SkeletonBlock';
 import { TactilePressable } from '../components/TactilePressable';
-import { loadWorkoutHistoryForScope, type WorkoutHistoryItem } from '../lib/workoutHistory';
-import { useAuth } from '../providers/AuthProvider';
+import type { WorkoutHistoryItem } from '../lib/workoutHistory';
+import { useWorkoutHistory } from '../providers/WorkoutHistoryProvider';
 import { colors } from '../theme';
 
 const LINE_HEIGHT_RATIO = 1.4;
@@ -235,64 +236,50 @@ function buildPunchTrend(history: WorkoutHistoryItem[]): PunchTrendPoint[] {
     .slice(-7);
 }
 
-function ProgressSkeleton() {
+function ProgressSkeletonBody() {
   return (
-    <ScreenShell>
-      <ScrollView
-        accessible
-        accessibilityRole="progressbar"
-        accessibilityLabel="Loading training progress"
-        contentContainerStyle={styles.pageContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.pageHeader}>
-          <Text style={styles.pageTitle} allowFontScaling={false}>PROGRESS</Text>
-          <Text style={[styles.pageTitle, styles.pageTitleAccent]} allowFontScaling={false}>OVERVIEW</Text>
-        </View>
+    <>
+      <View style={styles.metricGrid}>
+        {[0, 1, 2, 3].map(item => (
+          <View key={item} style={styles.metricCard}>
+            <SkeletonBlock style={styles.skeletonMetricLabel} />
+            <SkeletonBlock style={styles.skeletonMetricValue} />
+          </View>
+        ))}
+      </View>
 
-        <View style={styles.metricGrid}>
-          {[0, 1, 2, 3].map(item => (
-            <View key={item} style={styles.metricCard}>
-              <SkeletonBlock style={styles.skeletonMetricLabel} />
-              <SkeletonBlock style={styles.skeletonMetricValue} />
-            </View>
+      <View style={styles.calendarSection}>
+        <View style={styles.sectionHeader}>
+          <SkeletonBlock style={styles.skeletonSectionTitle} />
+          <SkeletonBlock style={styles.skeletonSectionMeta} />
+        </View>
+        <SkeletonBlock style={styles.skeletonCalendar} />
+      </View>
+
+      <View style={styles.trendSection}>
+        <View style={styles.sectionHeader}>
+          <SkeletonBlock style={styles.skeletonTrendTitle} />
+        </View>
+        <SkeletonBlock style={styles.skeletonChart} />
+      </View>
+
+      <View style={styles.historySection}>
+        <View style={styles.historyHeader}>
+          <SkeletonBlock style={styles.skeletonHistoryTitle} />
+        </View>
+        <View style={styles.skeletonHistoryList}>
+          {[0, 1, 2].map(item => (
+            <SkeletonBlock key={item} style={styles.skeletonHistoryCard} />
           ))}
         </View>
-
-        <View style={styles.calendarSection}>
-          <View style={styles.sectionHeader}>
-            <SkeletonBlock style={styles.skeletonSectionTitle} />
-            <SkeletonBlock style={styles.skeletonSectionMeta} />
-          </View>
-          <SkeletonBlock style={styles.skeletonCalendar} />
-        </View>
-
-        <View style={styles.trendSection}>
-          <View style={styles.sectionHeader}>
-            <SkeletonBlock style={styles.skeletonTrendTitle} />
-          </View>
-          <SkeletonBlock style={styles.skeletonChart} />
-        </View>
-
-        <View style={styles.historySection}>
-          <View style={styles.historyHeader}>
-            <SkeletonBlock style={styles.skeletonHistoryTitle} />
-          </View>
-          <View style={styles.skeletonHistoryList}>
-            {[0, 1, 2].map(item => (
-              <SkeletonBlock key={item} style={styles.skeletonHistoryCard} />
-            ))}
-          </View>
-        </View>
-      </ScrollView>
-    </ScreenShell>
+      </View>
+    </>
   );
 }
 
 export function ProgressScreen() {
-  const { user, isReady } = useAuth();
-  const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { history, isReady } = useWorkoutHistory();
+  const [contentReady, setContentReady] = useState(false);
   const [displayedMonth, setDisplayedMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -301,25 +288,23 @@ export function ProgressScreen() {
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-    setIsLoading(true);
-
     if (!isReady) {
-      return () => {
-        isMounted = false;
-      };
+      setContentReady(false);
+      return;
     }
 
-    void loadWorkoutHistoryForScope(user?.uid ?? null).then(items => {
-      if (!isMounted) return;
-      setHistory(Array.isArray(items) ? items : []);
-      setIsLoading(false);
+    let revealTimer: ReturnType<typeof setTimeout> | null = null;
+    const interaction = InteractionManager.runAfterInteractions(() => {
+      revealTimer = setTimeout(() => setContentReady(true), 80);
     });
 
     return () => {
-      isMounted = false;
+      interaction.cancel();
+      if (revealTimer) clearTimeout(revealTimer);
     };
-  }, [isReady, user?.uid]);
+  }, [isReady]);
+
+  const isLoading = !isReady || !contentReady;
 
   const orderedHistory = useMemo(() => sortNewestFirst(history), [history]);
 
@@ -357,8 +342,6 @@ export function ProgressScreen() {
     : null;
   const todayKey = toDateKey(new Date());
 
-  if (isLoading || !isReady) return <ProgressSkeleton />;
-
   const changeMonth = (direction: -1 | 1) => {
     setDisplayedMonth(current => new Date(current.getFullYear(), current.getMonth() + direction, 1));
     setSelectedDateKey(null);
@@ -368,7 +351,13 @@ export function ProgressScreen() {
   return (
     <>
       <ScreenShell>
-        <ScrollView contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          accessible={isLoading}
+          accessibilityRole={isLoading ? 'progressbar' : undefined}
+          accessibilityLabel={isLoading ? 'Loading training progress' : undefined}
+          contentContainerStyle={styles.pageContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.pageHeader}>
             <Text
               style={styles.pageTitle}
@@ -390,155 +379,164 @@ export function ProgressScreen() {
             </Text>
           </View>
 
-          <View style={styles.metricGrid}>
-            <MetricCard value={isLoading ? '—' : String(summary.totalRounds)} label="TOTAL ROUNDS" />
-            <MetricCard value={isLoading ? '—' : formatTotalTime(summary.totalSeconds)} label="TOTAL TIME" />
-            <MetricCard value={isLoading ? '—' : String(summary.totalSessions)} label="TOTAL SESSIONS" />
-            <MetricCard
-              value={isLoading ? '—' : formatPunches(summary.totalPunches)}
-              label="PUNCHES THROWN"
-              accent
-            />
-          </View>
-
-          <View style={styles.calendarSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle} allowFontScaling={false}>TRAINING LOG</Text>
-              <View style={styles.monthControls}>
-                <TactilePressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Previous month"
-                  onPress={() => changeMonth(-1)}
-                  haptic="selection"
-                  pressedScale={0.9}
-                  style={styles.monthButton}
-                >
-                  <Ionicons name="chevron-back" size={16} color={colors.peach} />
-                </TactilePressable>
-                <Text style={styles.monthLabel} allowFontScaling={false}>{formatMonth(displayedMonth)}</Text>
-                <TactilePressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Next month"
-                  onPress={() => changeMonth(1)}
-                  haptic="selection"
-                  pressedScale={0.9}
-                  style={styles.monthButton}
-                >
-                  <Ionicons name="chevron-forward" size={16} color={colors.peach} />
-                </TactilePressable>
-              </View>
-            </View>
-
-            <View style={styles.weekdayRow}>
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => (
-                <Text key={`${day}-${index}`} style={styles.weekday} allowFontScaling={false}>{day}</Text>
-              ))}
-            </View>
-
-            <View style={styles.calendarGrid}>
-              {calendarDays.map(day => {
-                const sessions = historyByDay.get(day.key) ?? [];
-                const intensity = sessions.length ? getWorkoutIntensity(sessions) : 0;
-                const selected = day.key === selectedDateKey;
-                const hasSessions = sessions.length > 0;
-                const isToday = day.key === todayKey;
-
-                return (
-                  <TactilePressable
-                    key={day.key}
-                    accessibilityRole={hasSessions ? 'button' : undefined}
-                    accessibilityLabel={
-                      hasSessions
-                        ? `${formatDayForAccessibility(day.key)}, ${sessions.length} ${sessions.length === 1 ? 'session' : 'sessions'}`
-                        : `${formatDayForAccessibility(day.key)}, no workout`
-                    }
-                    accessibilityHint={hasSessions ? 'Opens the day summary' : undefined}
-                    accessibilityState={hasSessions ? { selected } : undefined}
-                    disabled={!hasSessions}
-                    onPress={() => {
-                      setSelectedWorkoutId(null);
-                      setSelectedDateKey(day.key);
-                    }}
-                    haptic="selection"
-                    pressedScale={0.94}
-                    style={[
-                      styles.calendarDay,
-                      !day.isCurrentMonth && styles.calendarDayOutsideMonth,
-                      hasSessions && {
-                        backgroundColor: getIntensityColor(intensity),
-                        borderColor: getIntensityColor(intensity),
-                      },
-                      selected && styles.calendarDaySelected,
-                      isToday && !selected && styles.calendarDayToday,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.calendarDayText,
-                        !day.isCurrentMonth && styles.calendarDayTextOutsideMonth,
-                        hasSessions && styles.calendarDayTextActive,
-                      ]}
-                      allowFontScaling={false}
-                    >
-                      {day.day}
-                    </Text>
-                  </TactilePressable>
-                );
-              })}
-            </View>
-
-            <View
-              style={styles.legendRow}
-              accessible
-              accessibilityRole="text"
-              accessibilityLabel="Workout intensity from dark red for low intensity to bright red for maximum intensity"
-            >
-              <Text style={styles.legendLabel} allowFontScaling={false}>LOW</Text>
-              {[1, 2, 3, 4].map(level => (
-                <View
-                  key={level}
-                  style={[styles.legendSwatch, { backgroundColor: getIntensityColor(level as WorkoutIntensity) }]}
+          {isLoading ? (
+            <ProgressSkeletonBody />
+          ) : (
+            <>
+              <View style={styles.metricGrid}>
+                <MetricCard value={String(summary.totalRounds)} label="TOTAL ROUNDS" />
+                <MetricCard value={formatTotalTime(summary.totalSeconds)} label="TOTAL TIME" />
+                <MetricCard value={String(summary.totalSessions)} label="TOTAL SESSIONS" />
+                <MetricCard
+                  value={formatPunches(summary.totalPunches)}
+                  label="PUNCHES THROWN"
+                  accent
                 />
-              ))}
-              <Text style={styles.legendLabel} allowFontScaling={false}>HIGH</Text>
-            </View>
-          </View>
+              </View>
 
-          <PunchTrend points={punchTrend} isLoading={isLoading} />
+              <View style={styles.calendarSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle} allowFontScaling={false}>TRAINING LOG</Text>
+                  <View style={styles.monthControls}>
+                    <TactilePressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Previous month"
+                      onPress={() => changeMonth(-1)}
+                      haptic="selection"
+                      pressedScale={0.9}
+                      style={styles.monthButton}
+                    >
+                      <Ionicons name="chevron-back" size={16} color={colors.peach} />
+                    </TactilePressable>
+                    <Text style={styles.monthLabel} allowFontScaling={false}>
+                      {formatMonth(displayedMonth)}
+                    </Text>
+                    <TactilePressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Next month"
+                      onPress={() => changeMonth(1)}
+                      haptic="selection"
+                      pressedScale={0.9}
+                      style={styles.monthButton}
+                    >
+                      <Ionicons name="chevron-forward" size={16} color={colors.peach} />
+                    </TactilePressable>
+                  </View>
+                </View>
 
-          <View style={styles.historySection}>
-            <View style={styles.historyHeader}>
-              <Text style={styles.sectionTitle} allowFontScaling={false}>HISTORY</Text>
-            </View>
+                <View style={styles.weekdayRow}>
+                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => (
+                    <Text key={`${day}-${index}`} style={styles.weekday} allowFontScaling={false}>
+                      {day}
+                    </Text>
+                  ))}
+                </View>
 
-            {isLoading ? (
-              <Text style={styles.statusCopy} allowFontScaling={false}>LOADING YOUR SESSIONS…</Text>
-            ) : orderedHistory.length > 0 ? (
-              <View style={styles.historyList}>
-                {orderedHistory.map((workout, index) => {
-                  return (
-                    <HistoryCard
-                      key={workout.id}
-                      workout={workout}
-                      isLatest={index === 0}
-                      isLast={index === orderedHistory.length - 1}
-                      onPress={() => {
-                        setSelectedDateKey(null);
-                        setSelectedWorkoutId(workout.id);
-                      }}
+                <View style={styles.calendarGrid}>
+                  {calendarDays.map(day => {
+                    const sessions = historyByDay.get(day.key) ?? [];
+                    const intensity = sessions.length ? getWorkoutIntensity(sessions) : 0;
+                    const selected = day.key === selectedDateKey;
+                    const hasSessions = sessions.length > 0;
+                    const isToday = day.key === todayKey;
+
+                    return (
+                      <TactilePressable
+                        key={day.key}
+                        accessibilityRole={hasSessions ? 'button' : undefined}
+                        accessibilityLabel={
+                          hasSessions
+                            ? `${formatDayForAccessibility(day.key)}, ${sessions.length} ${sessions.length === 1 ? 'session' : 'sessions'}`
+                            : `${formatDayForAccessibility(day.key)}, no workout`
+                        }
+                        accessibilityHint={hasSessions ? 'Opens the day summary' : undefined}
+                        accessibilityState={hasSessions ? { selected } : undefined}
+                        disabled={!hasSessions}
+                        onPress={() => {
+                          setSelectedWorkoutId(null);
+                          setSelectedDateKey(day.key);
+                        }}
+                        haptic="selection"
+                        pressedScale={0.94}
+                        style={[
+                          styles.calendarDay,
+                          !day.isCurrentMonth && styles.calendarDayOutsideMonth,
+                          hasSessions && {
+                            backgroundColor: getIntensityColor(intensity),
+                            borderColor: getIntensityColor(intensity),
+                          },
+                          selected && styles.calendarDaySelected,
+                          isToday && !selected && styles.calendarDayToday,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.calendarDayText,
+                            !day.isCurrentMonth && styles.calendarDayTextOutsideMonth,
+                            hasSessions && styles.calendarDayTextActive,
+                          ]}
+                          allowFontScaling={false}
+                        >
+                          {day.day}
+                        </Text>
+                      </TactilePressable>
+                    );
+                  })}
+                </View>
+
+                <View
+                  style={styles.legendRow}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel="Workout intensity from dark red for low intensity to bright red for maximum intensity"
+                >
+                  <Text style={styles.legendLabel} allowFontScaling={false}>LOW</Text>
+                  {[1, 2, 3, 4].map(level => (
+                    <View
+                      key={level}
+                      style={[
+                        styles.legendSwatch,
+                        { backgroundColor: getIntensityColor(level as WorkoutIntensity) },
+                      ]}
                     />
-                  );
-                })}
+                  ))}
+                  <Text style={styles.legendLabel} allowFontScaling={false}>HIGH</Text>
+                </View>
               </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle} allowFontScaling={false}>NO HISTORY YET.</Text>
-                <Text style={styles.emptyCopy} allowFontScaling={false}>
-                  Complete a workout to start your progress timeline.
-                </Text>
+
+              <PunchTrend points={punchTrend} isLoading={false} />
+
+              <View style={styles.historySection}>
+                <View style={styles.historyHeader}>
+                  <Text style={styles.sectionTitle} allowFontScaling={false}>HISTORY</Text>
+                </View>
+
+                {orderedHistory.length > 0 ? (
+                  <View style={styles.historyList}>
+                    {orderedHistory.map((workout, index) => (
+                      <HistoryCard
+                        key={workout.id}
+                        workout={workout}
+                        isLatest={index === 0}
+                        isLast={index === orderedHistory.length - 1}
+                        onPress={() => {
+                          setSelectedDateKey(null);
+                          setSelectedWorkoutId(workout.id);
+                        }}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyTitle} allowFontScaling={false}>NO HISTORY YET.</Text>
+                    <Text style={styles.emptyCopy} allowFontScaling={false}>
+                      Complete a workout to start your progress timeline.
+                    </Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
+            </>
+          )}
         </ScrollView>
       </ScreenShell>
 
@@ -888,6 +886,7 @@ const styles = StyleSheet.create({
   },
   pageTitleAccent: {
     color: colors.accent,
+    marginTop: 58 - lineHeight(58),
   },
   metricGrid: {
     flexDirection: 'row',

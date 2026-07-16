@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
 
 interface Props extends PropsWithChildren {
@@ -8,11 +8,23 @@ interface Props extends PropsWithChildren {
 }
 
 export function ScreenShell({ children, backgroundColor = colors.background }: Props) {
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={[styles.root, { backgroundColor }]}>
-      <SafeAreaView style={styles.safeArea}>
+      <View
+        style={[
+          styles.safeArea,
+          {
+            paddingTop: insets.top,
+            paddingRight: insets.right,
+            paddingBottom: insets.bottom,
+            paddingLeft: insets.left,
+          },
+        ]}
+      >
         {children}
-      </SafeAreaView>
+      </View>
     </View>
   );
 }

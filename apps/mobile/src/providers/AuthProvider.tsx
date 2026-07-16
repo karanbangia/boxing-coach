@@ -68,6 +68,7 @@ interface AuthContextValue {
   syncStatus: SyncStatus;
   errorMessage: string | null;
   connectedProvider: AuthProviderName | null;
+  appleSignInEnabled: boolean;
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   saveProfile: (profile: FighterProfile) => Promise<void>;
@@ -80,6 +81,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const profilePreviewMode = __DEV__ ? process.env.EXPO_PUBLIC_PROFILE_PREVIEW : undefined;
+const loadingPreviewMode = profilePreviewMode === 'loading';
+const appleSignInEnabled = process.env.EXPO_PUBLIC_APPLE_SIGN_IN_ENABLED !== 'false';
 const previewUser = {
   uid: 'profile-preview',
   displayName: 'Jordan “Switch” Lee',
@@ -199,6 +202,11 @@ async function getGoogleCredential(): Promise<AuthCredential | null> {
 }
 
 async function getAppleCredential() {
+  if (!appleSignInEnabled) {
+    throw new Error(
+      'Apple Sign-In is unavailable in this development build. Enable it with an Apple Developer Program team, then rebuild the app.',
+    );
+  }
   if (Platform.OS !== 'ios' || !(await AppleAuthentication.isAvailableAsync())) {
     throw new Error('Apple Sign-In is available on iPhone and iPad.');
   }
@@ -219,10 +227,18 @@ async function getAppleCredential() {
   } catch (error) {
     const code = (error as { code?: string }).code;
     if (code === 'ERR_REQUEST_CANCELED') throw new Error('Apple Sign-In cancelled.');
-    if (code === 'ERR_REQUEST_UNKNOWN') {
+    if (
+      code === 'ERR_REQUEST_UNKNOWN' ||
+      code === 'ERR_REQUEST_FAILED' ||
+      code === 'ERR_REQUEST_INVALID_RESPONSE' ||
+      code === 'ERR_REQUEST_NOT_HANDLED'
+    ) {
       throw new Error(
-        'Apple Sign-In needs an Apple Account on this device. Sign in in Settings and try again.',
+        'Apple could not complete sign-in on this device. Confirm iCloud and two-factor authentication, then retry on a physical iPhone.',
       );
+    }
+    if (code === 'ERR_REQUEST_NOT_INTERACTIVE') {
+      throw new Error('Apple Sign-In could not present its authorization screen. Please try again.');
     }
     throw error;
   }
@@ -238,7 +254,9 @@ async function getAppleCredential() {
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [user, setUser] = useState<User | null>(profilePreviewMode ? previewUser : null);
+  const [user, setUser] = useState<User | null>(
+    profilePreviewMode && !loadingPreviewMode ? previewUser : null,
+  );
   const [profile, setProfile] = useState<FighterProfile | null>(
     profilePreviewMode === 'profile' ? previewProfile : null,
   );
@@ -265,6 +283,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let active = true;
 
     void setActiveHistoryUser(null);
+
+    if (loadingPreviewMode) return undefined;
 
     if (profilePreviewMode) {
       setSyncStatus('synced');
@@ -449,6 +469,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     syncStatus,
     errorMessage,
     connectedProvider: providerForUser(user),
+    appleSignInEnabled,
     signInWithApple,
     signInWithGoogle,
     saveProfile,

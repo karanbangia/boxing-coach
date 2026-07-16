@@ -14,7 +14,7 @@ import {
 } from '../config';
 import { ScreenShell } from '../components/ScreenShell';
 import { TactilePressable } from '../components/TactilePressable';
-import { colors } from '../theme';
+import { colors, textLineHeight } from '../theme';
 
 const DEV_TAP_THRESHOLD = 3;
 const DEV_TAP_WINDOW_MS = 3500;
@@ -314,12 +314,13 @@ const styles = StyleSheet.create({
     color: colors.peach,
     fontFamily: displayFont,
     fontSize: 58,
-    lineHeight: 72,
+    lineHeight: textLineHeight(58),
     letterSpacing: 0,
     textTransform: 'uppercase',
   },
   titleAccent: {
     color: colors.accent,
+    marginTop: 58 - textLineHeight(58),
   },
   loadingPanel: {
     padding: 20,

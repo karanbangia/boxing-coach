@@ -28,8 +28,9 @@ import {
   type FighterProfile,
 } from '../features/profile/types';
 import { profilePhotoUploadsEnabled } from '../lib/firebase';
-import { loadWorkoutHistoryForScope, type WorkoutHistoryItem } from '../lib/workoutHistory';
+import type { WorkoutHistoryItem } from '../lib/workoutHistory';
 import { useAuth } from '../providers/AuthProvider';
+import { useWorkoutHistory } from '../providers/WorkoutHistoryProvider';
 import { colors, textLineHeight } from '../theme';
 
 type ProfileView = 'profile' | 'edit' | 'account';
@@ -248,6 +249,7 @@ function AuthScreen() {
     isBusy,
     errorMessage,
     clearError,
+    appleSignInEnabled,
   } = useAuth();
   const [activeProvider, setActiveProvider] = useState<'apple' | 'google' | null>(null);
   const authenticationBusy = isBusy || activeProvider !== null;
@@ -282,19 +284,30 @@ function AuthScreen() {
           {Platform.OS === 'ios' ? (
             <TactilePressable
               onPress={() => void authenticate('apple')}
-              disabled={authenticationBusy}
+              disabled={authenticationBusy || !appleSignInEnabled}
               haptic="medium"
-              style={[styles.providerButton, authenticationBusy && styles.buttonDisabled]}
+              accessibilityState={{ disabled: authenticationBusy || !appleSignInEnabled }}
+              style={[
+                styles.providerButton,
+                (authenticationBusy || !appleSignInEnabled) && styles.buttonDisabled,
+              ]}
             >
               {activeProvider === 'apple' ? (
                 <ActivityIndicator color={colors.background} />
               ) : (
                 <>
                   <Ionicons name="logo-apple" size={22} color={colors.background} />
-                  <Text style={styles.providerButtonText}>Continue with Apple</Text>
+                  <Text style={styles.providerButtonText}>
+                    {appleSignInEnabled ? 'Continue with Apple' : 'Apple Sign-In unavailable'}
+                  </Text>
                 </>
               )}
             </TactilePressable>
+          ) : null}
+          {Platform.OS === 'ios' && !appleSignInEnabled ? (
+            <Text style={styles.providerUnavailableCopy}>
+              Requires an Apple Developer Program build. Google Sign-In remains available for testing.
+            </Text>
           ) : null}
           <TactilePressable
             onPress={() => void authenticate('google')}
@@ -598,8 +611,14 @@ function FighterSetup({ userName, userPhoto }: { userName: string | null; userPh
 function MetricCard({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
   return (
     <View style={styles.metricCard}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={[styles.metricValue, accent && styles.metricValueAccent]} numberOfLines={1}>
+      <Text style={styles.metricLabel} allowFontScaling={false}>{label}</Text>
+      <Text
+        style={[styles.metricValue, accent && styles.metricValueAccent]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.64}
+        allowFontScaling={false}
+      >
         {value}
       </Text>
     </View>
@@ -621,12 +640,8 @@ function DetailRow({ icon, label, value }: { icon: IoniconName; label: string; v
 }
 
 function ProfileOverview({ onEdit, onAccount }: { onEdit: () => void; onAccount: () => void }) {
-  const { profile, syncStatus, user } = useAuth();
-  const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
-
-  useEffect(() => {
-    void loadWorkoutHistoryForScope(user?.uid ?? null).then(setHistory);
-  }, [profile, syncStatus, user?.uid]);
+  const { profile, syncStatus } = useAuth();
+  const { history } = useWorkoutHistory();
 
   const metrics = useMemo(() => {
     const rounds = history.reduce((total, workout) => total + workout.totalRounds, 0);
@@ -979,11 +994,11 @@ const styles = StyleSheet.create({
   pageTitle: {
     color: colors.peach,
     fontFamily: 'Anton',
-    fontSize: 62,
-    lineHeight: textLineHeight(62),
-    letterSpacing: 0.2,
+    fontSize: 58,
+    lineHeight: textLineHeight(58),
+    letterSpacing: 0,
   },
-  pageTitleAccent: { color: colors.red },
+  pageTitleAccent: { color: colors.red, marginTop: 58 - textLineHeight(58) },
   leadCopy: {
     maxWidth: 330,
     marginTop: 22,
@@ -1016,6 +1031,14 @@ const styles = StyleSheet.create({
   },
   providerButtonTextDark: { color: colors.text },
   buttonDisabled: { opacity: 0.58 },
+  providerUnavailableCopy: {
+    marginTop: -4,
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 13,
+    lineHeight: textLineHeight(13),
+    textAlign: 'center',
+  },
   legalCopy: {
     marginTop: 7,
     paddingHorizontal: 10,
@@ -1177,19 +1200,19 @@ const styles = StyleSheet.create({
   profileAvatar: { width: 72, height: 72, borderRadius: 36, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.text },
   profileAvatarText: { color: colors.background, fontFamily: 'Anton', fontSize: 27, lineHeight: textLineHeight(27) },
   profileHeaderCopy: { flex: 1 },
-  profileName: { marginTop: 4, color: colors.text, fontFamily: 'Anton', fontSize: 30, lineHeight: textLineHeight(30) },
+  profileName: { marginTop: 4, color: colors.text, fontFamily: 'Anton', fontSize: 32, lineHeight: textLineHeight(32) },
   profileMeta: { marginTop: 3, color: colors.textMuted, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 11, lineHeight: textLineHeight(11), letterSpacing: 1.2 },
   editIconButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   syncPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 11, paddingVertical: 7, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   syncPillText: { color: colors.textMuted, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 10, lineHeight: textLineHeight(10), letterSpacing: 1.1 },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   metricCard: { flexBasis: '47%', flexGrow: 1, minHeight: 116, padding: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, justifyContent: 'space-between' },
-  metricLabel: { color: colors.peach, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 11, lineHeight: textLineHeight(11), letterSpacing: 1.1 },
-  metricValue: { color: colors.text, fontFamily: 'Anton', fontSize: 38, lineHeight: textLineHeight(38) },
+  metricLabel: { color: colors.peach, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 14, lineHeight: textLineHeight(14), letterSpacing: 1.1 },
+  metricValue: { color: colors.text, fontFamily: 'Anton', fontSize: 48, lineHeight: textLineHeight(48) },
   metricValueAccent: { color: colors.red },
   profileSection: { gap: 10 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  profileSectionTitle: { color: colors.text, fontFamily: 'Anton', fontSize: 28, lineHeight: textLineHeight(28), letterSpacing: 0.4 },
+  profileSectionTitle: { color: colors.text, fontFamily: 'Anton', fontSize: 32, lineHeight: textLineHeight(32), letterSpacing: 0.4 },
   textAction: { paddingHorizontal: 8, paddingVertical: 6 },
   textActionLabel: { color: colors.peach, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 12, lineHeight: textLineHeight(12), letterSpacing: 1.1 },
   detailCard: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
@@ -1221,9 +1244,9 @@ const styles = StyleSheet.create({
   skeletonMeta: { width: '58%', height: 10 },
   skeletonEditButton: { width: 42, height: 42 },
   skeletonSyncPill: { width: 132, height: 32 },
-  skeletonMetricLabel: { width: '64%', height: 10 },
-  skeletonMetricValue: { width: '56%', height: 42 },
-  skeletonSectionTitle: { width: 154, height: 30 },
+  skeletonMetricLabel: { width: '64%', height: 12 },
+  skeletonMetricValue: { width: '56%', height: 48 },
+  skeletonSectionTitle: { width: 154, height: 34 },
   skeletonDetailIcon: { width: 36, height: 36 },
   skeletonDetailLabel: { width: '44%', height: 9 },
   skeletonDetailValue: { width: '72%', height: 17, marginTop: 7 },

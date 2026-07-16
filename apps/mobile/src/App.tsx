@@ -25,6 +25,7 @@ import { WorkoutScreen } from './screens/WorkoutScreen';
 import { ProgressScreen } from './screens/ProgressScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { useAuth } from './providers/AuthProvider';
+import { useWorkoutHistory } from './providers/WorkoutHistoryProvider';
 import { colors } from './theme';
 
 const PREP_ENTRANCE_DURATION = 260;
@@ -46,6 +47,7 @@ export function App() {
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(settings.audioCuesEnabled);
   const [isEnteringPrep, setIsEnteringPrep] = useState(false);
   const { syncWorkout } = useAuth();
+  const { refreshHistory } = useWorkoutHistory();
   const workout = useWorkout(config);
   const workoutIdRef = useRef('');
   const savedWorkoutIdRef = useRef('');
@@ -175,8 +177,11 @@ export function App() {
       roundDuration: config.roundDuration,
       ...performance,
     };
-    void saveWorkoutToHistory(completedWorkout).then(() => syncWorkout(completedWorkout));
-  }, [config, syncWorkout, workout.phase, workout.punchesThrown]);
+    void saveWorkoutToHistory(completedWorkout).then(async () => {
+      await refreshHistory();
+      await syncWorkout(completedWorkout);
+    });
+  }, [config, refreshHistory, syncWorkout, workout.phase, workout.punchesThrown]);
 
   useEffect(() => {
     if (workout.phase !== 'round') {
