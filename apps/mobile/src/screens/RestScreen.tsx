@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   railLabel: {
     color: '#d9c1bd',
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 11,
     lineHeight: 14,
     letterSpacing: 2.2,
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   },
   timerLabel: {
     color: colors.peach,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 12,
     lineHeight: 17,
     letterSpacing: 3.2,

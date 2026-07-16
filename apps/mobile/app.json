@@ -14,7 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.karanbangia.boxingcoach"
+      "bundleIdentifier": "com.karanbangia.boxingcoach",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.karanbangia.boxingcoach",
@@ -34,7 +38,14 @@
     },
     "plugins": [
       "expo-audio",
-      "expo-font"
+      "expo-font",
+      "expo-apple-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Boxing Coach to choose your fighter profile photo."
+        }
+      ]
     ],
     "autolinking": {
       "ios": {
@@ -44,6 +55,11 @@
         ]
       }
     },
-    "scheme": "boxingcoach"
+    "scheme": "boxingcoach",
+    "extra": {
+      "eas": {
+        "projectId": "38b1da3f-b65c-42e6-95d9-9f321c7e7fb8"
+      }
+    }
   }
 }

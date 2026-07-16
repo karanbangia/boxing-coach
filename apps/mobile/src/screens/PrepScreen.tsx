@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   },
   microCopy: {
     color: colors.textMuted,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 12,
     lineHeight: 13,
     letterSpacing: 2.6,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     color: colors.textMuted,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 14,
     lineHeight: 19,
     letterSpacing: 2.5,

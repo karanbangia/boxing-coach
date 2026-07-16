@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     color: colors.peach,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 1.1,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   },
   smallLabel: {
     color: colors.peach,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 14,
     lineHeight: 21,
     letterSpacing: 1.1,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: colors.textMuted,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 14,
     lineHeight: 19,
     letterSpacing: 2.5,

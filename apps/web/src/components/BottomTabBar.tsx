@@ -94,7 +94,7 @@ export function BottomTabBar({
               aria-current={active ? 'page' : undefined}
               className={`
                 group relative flex h-[61px] min-w-0 flex-col items-center justify-center gap-1
-                border-t-4 font-['Space_Grotesk'] text-[10px] font-normal uppercase tracking-[0.1em] transition-colors duration-200
+                border-t-4 font-['Barlow_Semi_Condensed'] text-[10px] font-normal uppercase tracking-[0.1em] transition-colors duration-200
                 ${active
                   ? 'border-[var(--color-peach)] text-[var(--color-peach)]'
                   : 'border-transparent text-[var(--color-text-muted)] hover:text-white'

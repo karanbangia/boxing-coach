@@ -1,0 +1,469 @@
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from 'react';
+import { Platform } from 'react-native';
+import {
+  deleteUser,
+  GoogleAuthProvider,
+  OAuthProvider,
+  onAuthStateChanged,
+  reauthenticateWithCredential,
+  signInWithCredential,
+  signOut as firebaseSignOut,
+  updateProfile as updateFirebaseProfile,
+  type User,
+  type AuthCredential,
+} from 'firebase/auth';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+  writeBatch,
+} from 'firebase/firestore';
+import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import {
+  DEFAULT_FIGHTER_PROFILE,
+  type Equipment,
+  type Experience,
+  type FighterProfile,
+  type SessionDuration,
+  type Stance,
+  type TrainingGoal,
+} from '../features/profile/types';
+import {
+  firebaseConfigured,
+  googleSignInConfigured,
+  profilePhotoUploadsEnabled,
+  requireFirebase,
+} from '../lib/firebase';
+import {
+  clearWorkoutHistoryForScope,
+  loadWorkoutHistoryForScope,
+  replaceWorkoutHistoryForScope,
+  setActiveHistoryUser,
+  type WorkoutHistoryItem,
+} from '../lib/workoutHistory';
+
+type AuthProviderName = 'apple' | 'google';
+type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
+
+interface AuthContextValue {
+  user: User | null;
+  profile: FighterProfile | null;
+  isReady: boolean;
+  isBusy: boolean;
+  syncStatus: SyncStatus;
+  errorMessage: string | null;
+  connectedProvider: AuthProviderName | null;
+  signInWithApple: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  saveProfile: (profile: FighterProfile) => Promise<void>;
+  signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  syncWorkout: (workout: WorkoutHistoryItem) => Promise<void>;
+  clearError: () => void;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+const profilePreviewMode = __DEV__ ? process.env.EXPO_PUBLIC_PROFILE_PREVIEW : undefined;
+const previewUser = {
+  uid: 'profile-preview',
+  displayName: 'Jordan “Switch” Lee',
+  email: 'jordan@example.com',
+  providerData: [{ providerId: 'google.com' }],
+} as User;
+const previewProfile: FighterProfile = {
+  displayName: 'Jordan “Switch” Lee',
+  photoUrl: null,
+  experience: 'intermediate',
+  stance: 'southpaw',
+  goal: 'fitness',
+  equipment: ['heavy_bag', 'gloves', 'wraps'],
+  targetDaysPerWeek: 4,
+  preferredSessionMinutes: 30,
+};
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string';
+}
+
+function parseProfile(data: Record<string, unknown> | undefined): FighterProfile | null {
+  if (!data || data.profileComplete !== true || !isString(data.displayName)) return null;
+
+  const equipment = Array.isArray(data.equipment)
+    ? data.equipment.filter(isString) as Equipment[]
+    : DEFAULT_FIGHTER_PROFILE.equipment;
+
+  return {
+    displayName: data.displayName,
+    photoUrl: isString(data.photoUrl) ? data.photoUrl : null,
+    experience: (isString(data.experience)
+      ? data.experience
+      : DEFAULT_FIGHTER_PROFILE.experience) as Experience,
+    stance: (isString(data.stance) ? data.stance : DEFAULT_FIGHTER_PROFILE.stance) as Stance,
+    goal: (isString(data.goal) ? data.goal : DEFAULT_FIGHTER_PROFILE.goal) as TrainingGoal,
+    equipment: equipment.length ? equipment : DEFAULT_FIGHTER_PROFILE.equipment,
+    targetDaysPerWeek:
+      typeof data.targetDaysPerWeek === 'number'
+        ? data.targetDaysPerWeek
+        : DEFAULT_FIGHTER_PROFILE.targetDaysPerWeek,
+    preferredSessionMinutes:
+      typeof data.preferredSessionMinutes === 'number'
+        ? data.preferredSessionMinutes as SessionDuration
+        : DEFAULT_FIGHTER_PROFILE.preferredSessionMinutes,
+  };
+}
+
+function parseWorkout(data: Record<string, unknown>, id: string): WorkoutHistoryItem | null {
+  if (
+    !isString(data.completedAt) ||
+    !isString(data.difficulty) ||
+    typeof data.totalRounds !== 'number' ||
+    typeof data.roundDuration !== 'number' ||
+    typeof data.punches !== 'number' ||
+    typeof data.averageHeartRate !== 'number' ||
+    typeof data.caloriesBurned !== 'number'
+  ) return null;
+
+  return {
+    id,
+    completedAt: data.completedAt,
+    difficulty: data.difficulty as WorkoutHistoryItem['difficulty'],
+    totalRounds: data.totalRounds,
+    roundDuration: data.roundDuration,
+    punches: data.punches,
+    averageHeartRate: data.averageHeartRate,
+    caloriesBurned: data.caloriesBurned,
+  };
+}
+
+function providerForUser(user: User | null): AuthProviderName | null {
+  const providerId = user?.providerData[0]?.providerId;
+  if (providerId === 'apple.com') return 'apple';
+  if (providerId === 'google.com') return 'google';
+  return null;
+}
+
+async function mergeWorkoutHistory(userId: string) {
+  const { db } = requireFirebase();
+  const guestHistory = await loadWorkoutHistoryForScope(null);
+  const accountHistory = await loadWorkoutHistoryForScope(userId);
+  const localById = new Map(
+    [...guestHistory, ...accountHistory].map(workout => [workout.id, workout]),
+  );
+
+  if (localById.size) {
+    const batch = writeBatch(db);
+    for (const workout of localById.values()) {
+      batch.set(doc(db, 'users', userId, 'workouts', workout.id), workout, { merge: true });
+    }
+    await batch.commit();
+  }
+
+  const remoteSnapshot = await getDocs(collection(db, 'users', userId, 'workouts'));
+  for (const remote of remoteSnapshot.docs) {
+    const workout = parseWorkout(remote.data(), remote.id);
+    if (workout) localById.set(workout.id, workout);
+  }
+
+  await replaceWorkoutHistoryForScope(userId, [...localById.values()]);
+  await clearWorkoutHistoryForScope(null);
+  await setActiveHistoryUser(userId);
+}
+
+async function getGoogleCredential(): Promise<AuthCredential | null> {
+  if (!googleSignInConfigured) {
+    throw new Error('Google Sign-In needs its Firebase web client ID before it can be used.');
+  }
+  if (Platform.OS === 'android') {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  }
+  const response = await GoogleSignin.signIn();
+  if (response.type !== 'success') return null;
+  if (!response.data.idToken) throw new Error('Google did not return an identity token.');
+  return GoogleAuthProvider.credential(response.data.idToken);
+}
+
+async function getAppleCredential() {
+  if (Platform.OS !== 'ios' || !(await AppleAuthentication.isAvailableAsync())) {
+    throw new Error('Apple Sign-In is available on iPhone and iPad.');
+  }
+  const rawNonce = Crypto.randomUUID();
+  const hashedNonce = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    rawNonce,
+  );
+  const response = await AppleAuthentication.signInAsync({
+    requestedScopes: [
+      AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+      AppleAuthentication.AppleAuthenticationScope.EMAIL,
+    ],
+    nonce: hashedNonce,
+  });
+  if (!response.identityToken) throw new Error('Apple did not return an identity token.');
+  const credential = new OAuthProvider('apple.com').credential({
+    idToken: response.identityToken,
+    rawNonce,
+  });
+  const displayName = [response.fullName?.givenName, response.fullName?.familyName]
+    .filter(Boolean)
+    .join(' ');
+  return { credential, displayName };
+}
+
+export function AuthProvider({ children }: PropsWithChildren) {
+  const [user, setUser] = useState<User | null>(profilePreviewMode ? previewUser : null);
+  const [profile, setProfile] = useState<FighterProfile | null>(
+    profilePreviewMode === 'profile' ? previewProfile : null,
+  );
+  const [isReady, setIsReady] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const run = useCallback(async (operation: () => Promise<void>) => {
+    setIsBusy(true);
+    setErrorMessage(null);
+    try {
+      await operation();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Something went wrong. Try again.';
+      if (!message.toLowerCase().includes('cancel')) setErrorMessage(message);
+      throw error;
+    } finally {
+      setIsBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    void setActiveHistoryUser(null);
+
+    if (profilePreviewMode) {
+      setSyncStatus('synced');
+      setIsReady(true);
+      return undefined;
+    }
+
+    if (!firebaseConfigured) {
+      setIsReady(true);
+      return undefined;
+    }
+
+    const { auth, db } = requireFirebase();
+    const unsubscribe = onAuthStateChanged(auth, nextUser => {
+      void (async () => {
+        if (!active) return;
+        setIsReady(false);
+        setUser(nextUser);
+        setProfile(null);
+
+        if (!nextUser) {
+          await setActiveHistoryUser(null);
+          if (active) {
+            setSyncStatus('idle');
+            setIsReady(true);
+          }
+          return;
+        }
+
+        setSyncStatus('syncing');
+        try {
+          const profileSnapshot = await getDoc(doc(db, 'users', nextUser.uid));
+          if (active) setProfile(parseProfile(profileSnapshot.data()));
+          await mergeWorkoutHistory(nextUser.uid);
+          if (active) setSyncStatus('synced');
+        } catch (error) {
+          await setActiveHistoryUser(nextUser.uid);
+          if (active) {
+            setSyncStatus('error');
+            setErrorMessage(
+              error instanceof Error ? error.message : 'Your account is ready, but sync failed.',
+            );
+          }
+        } finally {
+          if (active) setIsReady(true);
+        }
+      })();
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    await run(async () => {
+      const { auth } = requireFirebase();
+      const credential = await getGoogleCredential();
+      if (!credential) return;
+      await signInWithCredential(auth, credential);
+    }).catch(() => undefined);
+  }, [run]);
+
+  const signInWithApple = useCallback(async () => {
+    await run(async () => {
+      const { auth } = requireFirebase();
+      const { credential, displayName } = await getAppleCredential();
+      const result = await signInWithCredential(auth, credential);
+      if (displayName && !result.user.displayName) {
+        await updateFirebaseProfile(result.user, { displayName });
+      }
+    }).catch(() => undefined);
+  }, [run]);
+
+  const saveProfile = useCallback(async (nextProfile: FighterProfile) => {
+    await run(async () => {
+      if (!user) throw new Error('Sign in before saving your fighter profile.');
+      if (profilePreviewMode) {
+        setProfile({ ...nextProfile, displayName: nextProfile.displayName.trim() });
+        return;
+      }
+      const { db, storage } = requireFirebase();
+      let photoUrl = nextProfile.photoUrl;
+      if (photoUrl && !photoUrl.startsWith('https://')) {
+        if (!profilePhotoUploadsEnabled) {
+          throw new Error('Profile photo uploads are not available yet. Remove the photo and try again.');
+        }
+        const response = await fetch(photoUrl);
+        const blob = await response.blob();
+        const avatarRef = ref(storage, `users/${user.uid}/profile/avatar.jpg`);
+        await uploadBytes(avatarRef, blob, { contentType: blob.type || 'image/jpeg' });
+        photoUrl = await getDownloadURL(avatarRef);
+      }
+      const cleanProfile = {
+        ...nextProfile,
+        photoUrl,
+        displayName: nextProfile.displayName.trim(),
+      };
+      if (!cleanProfile.displayName) throw new Error('Add a display name or boxing nickname.');
+      await setDoc(doc(db, 'users', user.uid), {
+        ...cleanProfile,
+        email: user.email,
+        provider: providerForUser(user),
+        profileComplete: true,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      if (user.displayName !== cleanProfile.displayName) {
+        await updateFirebaseProfile(user, { displayName: cleanProfile.displayName });
+      }
+      setProfile(cleanProfile);
+      setSyncStatus('synced');
+    });
+  }, [run, user]);
+
+  const signOut = useCallback(async () => {
+    await run(async () => {
+      if (profilePreviewMode) {
+        setUser(null);
+        setProfile(null);
+        await setActiveHistoryUser(null);
+        return;
+      }
+      const { auth } = requireFirebase();
+      if (providerForUser(user) === 'google') await GoogleSignin.signOut().catch(() => null);
+      await firebaseSignOut(auth);
+      await setActiveHistoryUser(null);
+      setProfile(null);
+    });
+  }, [run, user]);
+
+  const deleteAccount = useCallback(async () => {
+    await run(async () => {
+      if (!user) return;
+      if (profilePreviewMode) {
+        setUser(null);
+        setProfile(null);
+        await setActiveHistoryUser(null);
+        return;
+      }
+      const { db, storage } = requireFirebase();
+      const provider = providerForUser(user);
+      if (provider === 'google') {
+        const credential = await getGoogleCredential();
+        if (!credential) throw new Error('Account deletion cancelled.');
+        await reauthenticateWithCredential(user, credential);
+      } else if (provider === 'apple') {
+        const { credential } = await getAppleCredential();
+        await reauthenticateWithCredential(user, credential);
+      } else {
+        throw new Error('Sign in again before deleting this account.');
+      }
+      const workouts = await getDocs(collection(db, 'users', user.uid, 'workouts'));
+      const batch = writeBatch(db);
+      workouts.docs.forEach(workout => batch.delete(workout.ref));
+      await batch.commit();
+      await deleteDoc(doc(db, 'users', user.uid));
+      await deleteObject(ref(storage, `users/${user.uid}/profile/avatar.jpg`)).catch(() => undefined);
+      await clearWorkoutHistoryForScope(user.uid);
+      await deleteUser(user);
+      await setActiveHistoryUser(null);
+      setProfile(null);
+    });
+  }, [run, user]);
+
+  const syncWorkout = useCallback(async (workout: WorkoutHistoryItem) => {
+    if (!user || !firebaseConfigured || profilePreviewMode) return;
+    try {
+      const { db } = requireFirebase();
+      setSyncStatus('syncing');
+      await setDoc(doc(db, 'users', user.uid, 'workouts', workout.id), workout, { merge: true });
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('error');
+    }
+  }, [user]);
+
+  const value = useMemo<AuthContextValue>(() => ({
+    user,
+    profile,
+    isReady,
+    isBusy,
+    syncStatus,
+    errorMessage,
+    connectedProvider: providerForUser(user),
+    signInWithApple,
+    signInWithGoogle,
+    saveProfile,
+    signOut,
+    deleteAccount,
+    syncWorkout,
+    clearError: () => setErrorMessage(null),
+  }), [
+    deleteAccount,
+    errorMessage,
+    isBusy,
+    isReady,
+    profile,
+    saveProfile,
+    signInWithApple,
+    signInWithGoogle,
+    signOut,
+    syncStatus,
+    syncWorkout,
+    user,
+  ]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const value = useContext(AuthContext);
+  if (!value) throw new Error('useAuth must be used inside AuthProvider.');
+  return value;
+}

@@ -22,7 +22,7 @@ const MIN_ROUNDS = 1;
 const MAX_ROUNDS = 12;
 const displayFont = 'Anton';
 const bodyFont = 'ArchivoNarrow';
-const labelFont = 'SpaceGroteskBold';
+const labelFont = 'BarlowSemiCondensedSemiBold';
 
 interface Props {
   settings: SetupSettings;

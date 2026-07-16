@@ -22,7 +22,7 @@ export function PrepScreen({ secondsLeft, totalSeconds, onSkip, onCancel }: Prop
           <div className="-mt-2.5 text-[52px] leading-[64px] text-[var(--color-accent)]">READY!</div>
         </div>
 
-        <div className="mt-[27px] mb-[15px] font-['Space_Grotesk'] text-[10px] font-bold uppercase leading-[13px] tracking-[0.24em] text-[var(--color-text-muted)]">
+        <div className="mt-[27px] mb-[15px] font-['Barlow_Semi_Condensed'] text-[10px] font-semibold uppercase leading-[13px] tracking-[0.24em] text-[var(--color-text-muted)]">
           Round starts in
         </div>
 
@@ -77,7 +77,7 @@ export function PrepScreen({ secondsLeft, totalSeconds, onSkip, onCancel }: Prop
         <button
           type="button"
           onClick={onCancel}
-          className="mt-2.5 flex min-h-14 w-full items-center justify-center gap-2 border border-[var(--color-border)] bg-[rgba(26,26,26,0.64)] font-['Space_Grotesk'] font-bold uppercase text-[var(--color-text-muted)] active:scale-[0.99] active:opacity-90"
+          className="mt-2.5 flex min-h-14 w-full items-center justify-center gap-2 border border-[var(--color-border)] bg-[rgba(26,26,26,0.64)] font-['Barlow_Semi_Condensed'] font-semibold uppercase text-[var(--color-text-muted)] active:scale-[0.99] active:opacity-90"
           aria-label="Cancel workout"
         >
           <span className="relative inline-flex h-3.5 w-3.5 items-center justify-center" aria-hidden="true">

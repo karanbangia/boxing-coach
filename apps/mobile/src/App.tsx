@@ -22,9 +22,9 @@ import { RestScreen } from './screens/RestScreen';
 import { PrepScreen } from './screens/PrepScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { WorkoutScreen } from './screens/WorkoutScreen';
-import { WorkoutHomeScreen } from './screens/WorkoutHomeScreen';
-import { PlanScreen } from './screens/PlanScreen';
+import { ProgressScreen } from './screens/ProgressScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { useAuth } from './providers/AuthProvider';
 import { colors } from './theme';
 
 const PREP_ENTRANCE_DURATION = 260;
@@ -34,8 +34,8 @@ export function App() {
     Anton: require('../assets/fonts/Anton-Regular.ttf'),
     ArchivoNarrow: require('../assets/fonts/ArchivoNarrow-Regular.ttf'),
     ArchivoNarrowBold: require('../assets/fonts/ArchivoNarrow-Bold.ttf'),
-    SpaceGrotesk: require('../assets/fonts/SpaceGrotesk-Regular.ttf'),
-    SpaceGroteskBold: require('../assets/fonts/SpaceGrotesk-Bold.ttf'),
+    BarlowSemiCondensed: require('../assets/fonts/BarlowSemiCondensed-Regular.ttf'),
+    BarlowSemiCondensedSemiBold: require('../assets/fonts/BarlowSemiCondensed-SemiBold.ttf'),
   });
   const [activeTab, setActiveTab] = useState<AppTab>('timer');
   const { settings, updateSettings, isReady: settingsReady } = useStoredSettings();
@@ -45,6 +45,7 @@ export function App() {
   const [showDevScreen, setShowDevScreen] = useState(false);
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(settings.audioCuesEnabled);
   const [isEnteringPrep, setIsEnteringPrep] = useState(false);
+  const { syncWorkout } = useAuth();
   const workout = useWorkout(config);
   const workoutIdRef = useRef('');
   const savedWorkoutIdRef = useRef('');
@@ -166,15 +167,16 @@ export function App() {
       totalRounds: config.totalRounds,
       roundDuration: config.roundDuration,
     });
-    void saveWorkoutToHistory({
+    const completedWorkout = {
       id: workoutId,
       completedAt: new Date().toISOString(),
       difficulty: config.difficulty,
       totalRounds: config.totalRounds,
       roundDuration: config.roundDuration,
       ...performance,
-    });
-  }, [config, workout.phase, workout.punchesThrown]);
+    };
+    void saveWorkoutToHistory(completedWorkout).then(() => syncWorkout(completedWorkout));
+  }, [config, syncWorkout, workout.phase, workout.punchesThrown]);
 
   useEffect(() => {
     if (workout.phase !== 'round') {
@@ -321,14 +323,7 @@ export function App() {
                   onOpenDev={() => setShowDevScreen(true)}
                 />
               ) : activeTab === 'workout' ? (
-                <WorkoutHomeScreen onOpenTimer={() => setActiveTab('timer')} />
-              ) : activeTab === 'plan' ? (
-                <PlanScreen
-                  onBuildWorkout={preset => {
-                    updateSettings(preset);
-                    setActiveTab('timer');
-                  }}
-                />
+                <ProgressScreen />
               ) : (
                 <ProfileScreen />
               )}

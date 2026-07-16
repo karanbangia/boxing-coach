@@ -66,6 +66,25 @@ Use `--public` instead of `--private` if you want a public repo.
 
 ## 3. Prepare Android release builds
 
+### Configure Firebase accounts and cloud sync
+
+The mobile Profile tab uses Firebase Authentication and Firestore. Cloud Storage is optional and is only used for custom fighter-photo uploads. Training and Progress continue to work when Firebase is not configured, but account buttons will show a configuration error.
+
+1. Create a Firebase project and register the Android package `com.karanbangia.boxingcoach` and iOS bundle ID `com.karanbangia.boxingcoach`.
+2. Enable Google and Apple under **Authentication → Sign-in method**. Add the Android SHA-1/SHA-256 fingerprints and complete Apple's provider setup in both Firebase and Apple Developer.
+3. Create Firestore, then deploy the checked-in owner-only rules:
+
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
+
+4. Copy `apps/mobile/.env.example` to `apps/mobile/.env.local` and fill in the Firebase web-app values plus the Google OAuth client IDs. Keep `.env.local` untracked. The publishable Firebase configuration is safe to bundle; the security boundary is Firebase Authentication plus the checked-in rules. Never place OAuth client secrets, service-account JSON, or Firebase CLI tokens in the app environment.
+5. To enable custom fighter-photo uploads, activate Cloud Storage, deploy `firebase/storage.rules`, and set `EXPO_PUBLIC_FIREBASE_PROFILE_PHOTO_UPLOADS_ENABLED=true`. Leave it `false` when Storage is unavailable.
+6. Add the same `EXPO_PUBLIC_*` values to the EAS `preview` and `production` environments. `EXPO_PUBLIC_FIREBASE_GOOGLE_IOS_URL_SCHEME` must be the reversed iOS client ID beginning with `com.googleusercontent.apps.`.
+7. Rebuild the native app after changing Apple capability or Google URL-scheme configuration; Expo Go cannot load the native Google Sign-In module.
+
+Account data is stored at `users/{uid}` and synced workouts at `users/{uid}/workouts/{workoutId}`. On first successful sign-in, guest workouts are copied into the account and removed from the guest namespace. Guest and signed-in histories remain separate afterward, so signing out never exposes cached account data.
+
 Android release builds are managed from `apps/mobile` with Expo EAS.
 
 ### One-time setup

@@ -3,12 +3,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
 import { TactilePressable } from './TactilePressable';
 
-export type AppTab = 'timer' | 'workout' | 'plan' | 'profile';
+export type AppTab = 'timer' | 'workout' | 'profile';
 
 const tabs: { id: AppTab; label: string }[] = [
   { id: 'timer', label: 'TRAINING' },
-  { id: 'workout', label: 'STATS' },
-  { id: 'plan', label: 'PLANS' },
+  { id: 'workout', label: 'PROGRESS' },
+  { id: 'profile', label: 'PROFILE' },
 ];
 
 export const TAB_DOCK_CONTENT_HEIGHT = 60;
@@ -33,20 +33,14 @@ function LineIcon({ tab, active }: { tab: AppTab; active: boolean }) {
 
   if (tab === 'workout') {
     return (
-      <View style={styles.iconBox}>
-        <View style={[styles.bellBar, { backgroundColor: tint }]} />
-        <View style={[styles.bellBar, styles.bellBarBottom, { backgroundColor: tint }]} />
-        <View style={[styles.bellCapLeft, { backgroundColor: tint }]} />
-        <View style={[styles.bellCapRight, { backgroundColor: tint }]} />
-      </View>
-    );
-  }
-
-  if (tab === 'plan') {
-    return (
-      <View style={[styles.planBox, { borderColor: tint }]}>
-        <View style={[styles.planLine, { backgroundColor: tint }]} />
-        <View style={[styles.planLineShort, { backgroundColor: tint }]} />
+      <View style={[styles.calendarIcon, { borderColor: tint }]}>
+        <View style={[styles.calendarHeader, { borderColor: tint }]} />
+        <View style={[styles.calendarRing, styles.calendarRingLeft, { backgroundColor: tint }]} />
+        <View style={[styles.calendarRing, styles.calendarRingRight, { backgroundColor: tint }]} />
+        <View style={[styles.calendarDate, styles.calendarDateOne, { backgroundColor: tint }]} />
+        <View style={[styles.calendarDate, styles.calendarDateTwo, { backgroundColor: tint }]} />
+        <View style={[styles.calendarDate, styles.calendarDateThree, { backgroundColor: tint }]} />
+        <View style={[styles.calendarDate, styles.calendarDateFour, { backgroundColor: tint }]} />
       </View>
     );
   }
@@ -146,7 +140,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     color: colors.textMuted,
-    fontFamily: 'SpaceGrotesk',
+    fontFamily: 'BarlowSemiCondensed',
     fontSize: 10,
     lineHeight: 15,
     letterSpacing: 1,
@@ -180,31 +174,52 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     transform: [{ rotate: '35deg' }],
   },
-  bellBar: {
-    position: 'absolute',
-    width: 14,
-    height: 2,
-    borderRadius: 2,
-    top: 7,
+  calendarIcon: {
+    width: 20,
+    height: 19,
+    borderWidth: 2,
+    borderRadius: 3,
   },
-  bellBarBottom: {
+  calendarHeader: {
+    position: 'absolute',
+    left: -2,
+    right: -2,
+    top: 4,
+    borderTopWidth: 2,
+  },
+  calendarRing: {
+    position: 'absolute',
+    width: 3,
+    height: 5,
+    borderRadius: 2,
+    top: -4,
+  },
+  calendarRingLeft: {
+    left: 3,
+  },
+  calendarRingRight: {
+    right: 3,
+  },
+  calendarDate: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    top: 9,
+  },
+  calendarDateOne: {
+    left: 4,
+  },
+  calendarDateTwo: {
+    right: 4,
+  },
+  calendarDateThree: {
+    left: 4,
     top: 14,
   },
-  bellCapLeft: {
-    position: 'absolute',
-    width: 2,
-    height: 10,
-    borderRadius: 2,
-    left: 2,
-    top: 6,
-  },
-  bellCapRight: {
-    position: 'absolute',
-    width: 2,
-    height: 10,
-    borderRadius: 2,
-    right: 2,
-    top: 6,
+  calendarDateFour: {
+    right: 4,
+    top: 14,
   },
   planBox: {
     width: 20,

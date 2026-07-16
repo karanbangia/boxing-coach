@@ -4,7 +4,7 @@
 - No actionable P0/P1/P2 findings.
 
 **Required fidelity surfaces**
-- Fonts and typography: `Difficulty`, `Round Duration`, and `Rounds` all render in Space Grotesk Bold at 14px with the same line height, letter spacing, color, and uppercase treatment. Control values use Anton, while secondary explanatory copy uses Archivo Narrow. This is a consistent three-level type hierarchy rather than a mix of styles within the same level.
+- Fonts and typography: `Difficulty`, `Round Duration`, and `Rounds` all render in Barlow Semi Condensed SemiBold at 14px with the same line height, letter spacing, color, and uppercase treatment. Control values use Anton, while secondary explanatory copy uses Archivo Narrow. This is a consistent three-level type hierarchy rather than a mix of styles within the same level.
 - Spacing and layout rhythm: the two-column difficulty grid keeps the source's alignment and density; all four shortened descriptions fit on one line at the tested viewport.
 - Colors and visual tokens: section labels retain the peach token, selected borders retain the red accent, and the round count now renders white (`rgb(255, 255, 255)`).
 - Image quality and asset fidelity: the target region contains no raster imagery, logos, or new icon assets. Existing UI icon treatment was preserved.
@@ -32,6 +32,51 @@ focused region comparison evidence: `/Users/karanbangia/go/src/github.com/boxing
 primary interactions tested: difficulty selection, round increment, and Audio Cues toggle.
 console errors checked: no browser console errors were present.
 comparison history: the first same-state comparison found no actionable P0/P1/P2 mismatch; no visual-fix iteration was required.
+final result: passed
+
+## Profile authentication headline clipping regression — 2026-07-15
+
+**Root cause**
+- The new Profile screen used one-off tight line heights, including `62px / 64px` for the Anton authentication headline. That line box was too small for the font's glyph metrics and contradicted the mobile typography rule of `lineHeight = fontSize * 1.4`.
+
+**Fix and prevention**
+- Added the shared `textLineHeight(fontSize)` helper in the mobile theme with an exact `1.4` multiplier.
+- Audited all 42 text styles in the Profile flow and moved every one to the shared calculation, including authentication, onboarding, signed-in profile, editing, account rows, and confirmation sheets.
+- Re-rendered the Firebase configuration-error state because that was the state shown in the reported regression.
+
+source visual truth path: `/var/folders/4g/hd8s523s2zzgn1g5w1mf_1qh0000gn/T/TemporaryItems/NSIRD_screencaptureui_Ahd5Zi/Screenshot 2026-07-15 at 8.28.00 PM.png`
+implementation screenshot path: `/Users/karanbangia/go/src/github.com/boxing-coach/.codex/design-qa/profile/profile-auth-line-height-fixed-native.png`
+viewport: iPhone 16e simulator, iOS 26.3, 945 × 2048 native capture
+state: guest Profile with the missing-Firebase inline error visible
+validation: both `SAVE YOUR` and `TRAINING` render fully without top or bottom glyph clipping; TypeScript and diff validation passed.
+final result: passed
+
+## Firebase authentication and fighter profile — 2026-07-15
+
+**Findings**
+- No actionable P0/P1/P2 visual or interaction findings at the tested iPhone viewport.
+- P3: Apple/Google provider completion still needs a real Firebase project, OAuth credentials, and physical-device validation before release. The guest flow, inline configuration error, native provider modules, and post-auth states were validated locally.
+
+**Required fidelity surfaces**
+- Typography and hierarchy: Profile reuses the existing Anton display face, Barlow Semi Condensed labels, and Archivo Narrow supporting copy. Editorial peach/red headings remain consistent with Training and Progress.
+- Layout and navigation: the former Plans destination is replaced by a fixed three-item `TRAINING / PROGRESS / PROFILE` dock. Authentication is contained inside Profile, so Training and local Progress remain reachable as a guest.
+- Color and component language: near-black backgrounds, charcoal selection cards, peach labels, red selected borders, square primary actions, and restrained corner radii match the existing app.
+- Content: no age, birthday, gender, weight, or injury fields were added. The profile surface summarizes training preferences without duplicating Progress charts or history.
+- Accessibility: provider actions, tabs, radio selections, multi-select equipment, account actions, and confirmation controls expose semantic roles and selected/checked states.
+
+**Flow and behavior verified**
+- Guest Profile renders Apple and Google actions and leaves the bottom navigation available.
+- Missing Firebase configuration produces an inline, dismissible error without blocking Training or Progress.
+- New-user setup advances through identity, training, and routine/confirmation states. Shadowboxing is mutually exclusive with bag equipment, while bag, gloves, and wraps support multi-select.
+- Completing setup preserves the existing on-device history; the rendered Profile showed the same 32 workouts, 52 rounds, 3-day streak, and 2H 32M of training time.
+- The signed-in overview exposes Edit Fighter Profile and Account & Data; the latter includes connected provider, sync, Free membership, sign out, and delete-account confirmation states.
+- Account deletion reauthenticates with the connected Apple/Google provider before deleting Firestore, Storage, or local account-scoped history.
+
+source visual truth paths: `/Users/karanbangia/go/src/github.com/boxing-coach/.codex/design-qa/dashboard/setup-final-390x844.png` and `/Users/karanbangia/go/src/github.com/boxing-coach/.codex/design-qa/progress/progress-overview-v2-top-430x932.png`
+implementation screenshot paths: `/Users/karanbangia/go/src/github.com/boxing-coach/.codex/design-qa/profile/profile-auth-app-wait.png`, `/Users/karanbangia/go/src/github.com/boxing-coach/.codex/design-qa/profile/profile-setup-1-keyboard-dismissed.png`, `/Users/karanbangia/go/src/github.com/boxing-coach/.codex/design-qa/profile/profile-setup-2-simulator.png`, `/Users/karanbangia/go/src/github.com/boxing-coach/.codex/design-qa/profile/profile-setup-3-simulator.png`, and `/Users/karanbangia/go/src/github.com/boxing-coach/.codex/design-qa/profile/profile-overview-simulator.png`
+viewport: iPhone 16e simulator, iOS 26.3
+primary interactions tested: Profile tab navigation, provider error state, all three setup steps, goal and equipment selection, setup completion, local-history preservation, and signed-in profile rendering.
+validation: TypeScript passed, Expo iOS export passed, CocoaPods installed, and the native Xcode simulator build completed with 0 errors.
 final result: passed
 
 ## Native iOS training-log and tactile-controls pass — 2026-07-14

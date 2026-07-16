@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     color: colors.peach,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 12,
     lineHeight: 15,
     letterSpacing: 2.2,
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   },
   campKicker: {
     color: 'rgba(255,255,255,0.8)',
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 12,
     lineHeight: 15,
     letterSpacing: 2.5,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   campMeta: {
     color: '#fff7f5',
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 10,
     lineHeight: 13,
     letterSpacing: 1.2,
@@ -241,14 +241,14 @@ const styles = StyleSheet.create({
   },
   campDays: {
     color: '#fff7f5',
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 11,
     lineHeight: 14,
     letterSpacing: 1.2,
   },
   campAction: {
     color: '#fff7f5',
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 8,
     lineHeight: 11,
     letterSpacing: 1.2,
@@ -263,14 +263,14 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.peach,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 12,
     lineHeight: 15,
     letterSpacing: 2,
   },
   sectionMeta: {
     color: colors.textMuted,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 10,
     lineHeight: 13,
     letterSpacing: 1.4,
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   dayText: {
     color: colors.textMuted,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 10,
     lineHeight: 13,
     letterSpacing: 1.4,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   },
   nextLabel: {
     color: colors.accentGlow,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 9,
     lineHeight: 11,
     letterSpacing: 1.7,
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   },
   planMeta: {
     color: colors.peach,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 9,
     lineHeight: 12,
     letterSpacing: 1.15,
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   },
   focusLabel: {
     color: colors.peach,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 10,
     lineHeight: 13,
     letterSpacing: 1.5,

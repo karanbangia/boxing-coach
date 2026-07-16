@@ -11,6 +11,10 @@ export const colors = {
   accent: '#ff1414',
   accentGlow: '#ff5a4f',
   accentSoft: 'rgba(239, 68, 68, 0.18)',
+  workoutIntensity1: '#551a1a',
+  workoutIntensity2: '#8c2725',
+  workoutIntensity3: '#c93630',
+  workoutIntensity4: '#ff5540',
   green: '#22c55e',
   yellow: '#eab308',
   red: '#ff1414',
@@ -19,6 +23,12 @@ export const colors = {
   transparent: 'transparent',
   overlay: 'rgba(10, 10, 10, 0.58)',
 };
+
+export const TEXT_LINE_HEIGHT_MULTIPLIER = 1.4;
+
+export function textLineHeight(fontSize: number) {
+  return fontSize * TEXT_LINE_HEIGHT_MULTIPLIER;
+}
 
 export const shadow = {
   shadowColor: '#000',

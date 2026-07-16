@@ -60,7 +60,7 @@ function OptionGroup<T extends string | number>({
 
   return (
     <section className="flex flex-col gap-2">
-      <div className="font-['Space_Grotesk'] text-sm font-bold uppercase tracking-[0.1em] text-[var(--color-peach)]">
+      <div className="font-['Barlow_Semi_Condensed'] text-sm font-semibold uppercase tracking-[0.1em] text-[var(--color-peach)]">
         {label}
       </div>
       <div
@@ -223,14 +223,14 @@ export function SetupScreen({ onStart }: Props) {
           />
 
           <section className="flex flex-col gap-2">
-            <div className="font-['Space_Grotesk'] text-sm font-bold uppercase tracking-[0.1em] text-[var(--color-peach)]">
+            <div className="font-['Barlow_Semi_Condensed'] text-sm font-semibold uppercase tracking-[0.1em] text-[var(--color-peach)]">
               Rounds
             </div>
             <div className="flex min-h-[88px] items-center justify-between border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-5">
               <button
                 type="button"
                 onClick={() => setTotalRounds((rounds) => Math.max(MIN_ROUNDS, rounds - 1))}
-                className="flex h-11 w-11 items-center justify-center font-['Space_Grotesk'] text-4xl leading-none text-[var(--color-peach)] transition-colors hover:text-white disabled:opacity-35"
+                className="flex h-11 w-11 items-center justify-center font-['Barlow_Semi_Condensed'] text-4xl leading-none text-[var(--color-peach)] transition-colors hover:text-white disabled:opacity-35"
                 disabled={totalRounds <= MIN_ROUNDS}
                 aria-label="Decrease rounds"
               >
@@ -242,7 +242,7 @@ export function SetupScreen({ onStart }: Props) {
               <button
                 type="button"
                 onClick={() => setTotalRounds((rounds) => Math.min(MAX_ROUNDS, rounds + 1))}
-                className="flex h-11 w-11 items-center justify-center font-['Space_Grotesk'] text-4xl leading-none text-[var(--color-peach)] transition-colors hover:text-white disabled:opacity-35"
+                className="flex h-11 w-11 items-center justify-center font-['Barlow_Semi_Condensed'] text-4xl leading-none text-[var(--color-peach)] transition-colors hover:text-white disabled:opacity-35"
                 disabled={totalRounds >= MAX_ROUNDS}
                 aria-label="Increase rounds"
               >
@@ -274,7 +274,7 @@ export function SetupScreen({ onStart }: Props) {
                   <path d="M16 3c3.5 3.6 3.5 9.4 0 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="font-['Space_Grotesk'] text-sm font-bold uppercase leading-4 tracking-[0.1em] text-[var(--color-peach)]">
+                  <span className="font-['Barlow_Semi_Condensed'] text-sm font-semibold uppercase leading-4 tracking-[0.1em] text-[var(--color-peach)]">
                     Audio Cues
                   </span>
                   <span className="font-['Archivo_Narrow'] text-sm leading-4 text-[var(--color-text-muted)]">

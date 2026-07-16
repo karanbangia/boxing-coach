@@ -22,7 +22,7 @@ export function RestScreen({ currentRound, totalRounds, timeRemaining, onSkipRes
       <div className="relative z-10 flex h-full flex-col items-center">
         <div className="flex w-full items-start justify-between pt-4">
           <div>
-            <div className="font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+            <div className="font-['Barlow_Semi_Condensed'] text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
               Round
             </div>
             <div className="font-['Anton'] text-4xl leading-none text-[var(--color-peach)]">
@@ -32,17 +32,17 @@ export function RestScreen({ currentRound, totalRounds, timeRemaining, onSkipRes
           </div>
 
           <div className="text-right">
-            <div className="font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+            <div className="font-['Barlow_Semi_Condensed'] text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
               Next up
             </div>
-            <div className="mt-1 font-['Space_Grotesk'] text-sm font-bold uppercase tracking-wide text-white">
+            <div className="mt-1 font-['Barlow_Semi_Condensed'] text-sm font-semibold uppercase tracking-wide text-white">
               {nextRound === currentRound ? 'Final bell' : `Round ${nextRound}`}
             </div>
           </div>
         </div>
 
         <div className="mt-11 w-full text-center">
-          <div className="font-['Space_Grotesk'] text-sm font-bold uppercase tracking-[0.2em] text-[var(--color-accent)]">
+          <div className="font-['Barlow_Semi_Condensed'] text-sm font-semibold uppercase tracking-[0.2em] text-[var(--color-accent)]">
             Resting
           </div>
           <div className="mt-2 font-['Anton'] text-[52px] leading-[0.98] text-[var(--color-peach)]">
@@ -61,7 +61,7 @@ export function RestScreen({ currentRound, totalRounds, timeRemaining, onSkipRes
               <span className="translate-y-1 font-['Anton'] text-[58px] leading-none tabular-nums text-white">
                 {formatTime(timeRemaining)}
               </span>
-              <span className="mt-1 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.18em] text-white">
+              <span className="mt-1 font-['Barlow_Semi_Condensed'] text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
                 Rest left
               </span>
             </div>
@@ -69,11 +69,11 @@ export function RestScreen({ currentRound, totalRounds, timeRemaining, onSkipRes
         </div>
 
         <div className="mt-1 flex min-h-[58px] w-full max-w-xs items-center border-2 border-[var(--color-border)] bg-[var(--color-surface)]">
-          <div className="flex-1 text-center font-['Space_Grotesk'] text-sm font-bold uppercase tracking-[0.14em] text-[var(--color-peach)]">
+          <div className="flex-1 text-center font-['Barlow_Semi_Condensed'] text-sm font-semibold uppercase tracking-[0.14em] text-[var(--color-peach)]">
             In 4
           </div>
           <div className="self-stretch border-l-2 border-[var(--color-border)]" />
-          <div className="flex-1 text-center font-['Space_Grotesk'] text-sm font-bold uppercase tracking-[0.14em] text-[var(--color-peach)]">
+          <div className="flex-1 text-center font-['Barlow_Semi_Condensed'] text-sm font-semibold uppercase tracking-[0.14em] text-[var(--color-peach)]">
             Out 6
           </div>
         </div>
@@ -81,7 +81,7 @@ export function RestScreen({ currentRound, totalRounds, timeRemaining, onSkipRes
         <button
           type="button"
           onClick={onSkipRest}
-          className="mt-3 min-h-[58px] w-full max-w-xs border-2 border-[var(--color-accent)] bg-transparent font-['Space_Grotesk'] text-sm font-bold uppercase tracking-[0.14em] text-white transition-transform active:scale-[0.98]"
+          className="mt-3 min-h-[58px] w-full max-w-xs border-2 border-[var(--color-accent)] bg-transparent font-['Barlow_Semi_Condensed'] text-sm font-semibold uppercase tracking-[0.14em] text-white transition-transform active:scale-[0.98]"
         >
           SKIP REST
         </button>

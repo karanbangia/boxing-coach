@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: colors.text,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 16,
     lineHeight: 20,
     letterSpacing: 1.2,
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
   },
   roundLabel: {
     color: colors.textMuted,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 14,
     lineHeight: 21,
     letterSpacing: 7,
@@ -668,14 +668,14 @@ const styles = StyleSheet.create({
   },
   comboLabel: {
     color: colors.textMuted,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 12,
     lineHeight: 16,
     letterSpacing: 5,
   },
   comboValue: {
     color: colors.text,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 44,
     lineHeight: 52,
     letterSpacing: 9,
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
   },
   comboPausedValue: {
     color: colors.text,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 44,
     lineHeight: 52,
     letterSpacing: 10,
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
   },
   comboDescription: {
     color: colors.textMuted,
-    fontFamily: 'SpaceGrotesk',
+    fontFamily: 'BarlowSemiCondensed',
     fontSize: 16,
     lineHeight: 21,
     letterSpacing: 2.6,
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
   },
   buttonPrefix: {
     color: colors.text,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 12,
     lineHeight: 15,
     letterSpacing: 0.5,
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
   },
   stopButtonText: {
     color: colors.text,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 14,
     lineHeight: 19,
     letterSpacing: 2.5,
@@ -884,7 +884,7 @@ const styles = StyleSheet.create({
   },
   stopSheetKicker: {
     color: colors.peach,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 10,
     lineHeight: 13,
     letterSpacing: 1.8,
@@ -913,7 +913,7 @@ const styles = StyleSheet.create({
   },
   keepTrainingButtonText: {
     color: '#4a1113',
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 12,
     lineHeight: 15,
     letterSpacing: 1.75,
@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
   },
   confirmStopButtonText: {
     color: colors.accentGlow,
-    fontFamily: 'SpaceGroteskBold',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 11,
     lineHeight: 14,
     letterSpacing: 1.75,

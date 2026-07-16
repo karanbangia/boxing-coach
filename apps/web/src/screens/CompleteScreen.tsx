@@ -90,28 +90,28 @@ export function CompleteScreen({ performance, onReturnToGym }: Props) {
         </header>
 
         <div className="mt-12">
-          <div className="font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
+          <div className="font-['Barlow_Semi_Condensed'] text-[9px] font-semibold uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
             Total volume
           </div>
           <div className="mt-1 font-['Anton'] text-[76px] leading-none tabular-nums text-white">
             {performance.punches}
           </div>
-          <div className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--color-accent)]">
+          <div className="font-['Barlow_Semi_Condensed'] text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-accent)]">
             Punches
           </div>
         </div>
 
         <div className="mt-8 grid w-full max-w-[300px] grid-cols-2 divide-x divide-[var(--color-border)]">
           <div className="px-3">
-            <div className="font-['Space_Grotesk'] text-[8px] font-bold uppercase tracking-[0.23em] text-[var(--color-text-muted)]">Avg heart rate</div>
+            <div className="font-['Barlow_Semi_Condensed'] text-[8px] font-semibold uppercase tracking-[0.23em] text-[var(--color-text-muted)]">Avg heart rate</div>
             <div className="mt-1 font-['Anton'] text-[40px] leading-none tabular-nums text-white">
-              {performance.averageHeartRate}<span className="ml-1 font-['Space_Grotesk'] text-[9px] font-bold text-[var(--color-peach)]">BPM</span>
+              {performance.averageHeartRate}<span className="ml-1 font-['Barlow_Semi_Condensed'] text-[9px] font-semibold text-[var(--color-peach)]">BPM</span>
             </div>
           </div>
           <div className="px-3">
-            <div className="font-['Space_Grotesk'] text-[8px] font-bold uppercase tracking-[0.23em] text-[var(--color-text-muted)]">Calories burned</div>
+            <div className="font-['Barlow_Semi_Condensed'] text-[8px] font-semibold uppercase tracking-[0.23em] text-[var(--color-text-muted)]">Calories burned</div>
             <div className="mt-1 font-['Anton'] text-[40px] leading-none tabular-nums text-white">
-              {performance.caloriesBurned}<span className="ml-1 font-['Space_Grotesk'] text-[9px] font-bold text-[var(--color-peach)]">KCAL</span>
+              {performance.caloriesBurned}<span className="ml-1 font-['Barlow_Semi_Condensed'] text-[9px] font-semibold text-[var(--color-peach)]">KCAL</span>
             </div>
           </div>
         </div>
@@ -129,7 +129,7 @@ export function CompleteScreen({ performance, onReturnToGym }: Props) {
         <button
           type="button"
           onClick={onReturnToGym}
-          className="mt-2.5 flex min-h-12 w-full items-center justify-center border border-[var(--color-border)] bg-[rgba(26,26,26,0.64)] font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--color-text-muted)] active:scale-[0.99] active:opacity-90"
+          className="mt-2.5 flex min-h-12 w-full items-center justify-center border border-[var(--color-border)] bg-[rgba(26,26,26,0.64)] font-['Barlow_Semi_Condensed'] text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)] active:scale-[0.99] active:opacity-90"
         >
           RETURN TO GYM
         </button>
