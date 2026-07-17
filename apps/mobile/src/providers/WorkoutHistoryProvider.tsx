@@ -9,7 +9,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 import {
-  loadWorkoutHistoryForScope,
+  loadVisibleWorkoutHistory,
   type WorkoutHistoryItem,
 } from '../lib/workoutHistory';
 import { useAuth } from './AuthProvider';
@@ -31,7 +31,7 @@ export function WorkoutHistoryProvider({ children }: PropsWithChildren) {
 
   const refreshHistory = useCallback(async () => {
     const requestId = ++requestIdRef.current;
-    const items = await loadWorkoutHistoryForScope(scopeId);
+    const items = await loadVisibleWorkoutHistory(scopeId);
     if (requestId !== requestIdRef.current) return;
 
     setHistory(Array.isArray(items) ? items : []);

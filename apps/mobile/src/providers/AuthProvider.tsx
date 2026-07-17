@@ -13,6 +13,7 @@ import {
 import { Platform } from 'react-native';
 import {
   deleteUser,
+  getIdTokenResult,
   GoogleAuthProvider,
   OAuthProvider,
   onAuthStateChanged,
@@ -54,11 +55,15 @@ import {
   loadWorkoutHistoryForScope,
   replaceWorkoutHistoryForScope,
   setActiveHistoryUser,
+  setLastAccountHistoryUser,
   type WorkoutHistoryItem,
 } from '../lib/workoutHistory';
 
 type AuthProviderName = 'apple' | 'google';
 type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
+
+const RECENT_AUTH_MAX_AGE_MS = 3 * 60 * 1000;
+const DELETE_BATCH_SIZE = 450;
 
 interface AuthContextValue {
   user: User | null;
@@ -161,6 +166,33 @@ function providerForUser(user: User | null): AuthProviderName | null {
   return null;
 }
 
+async function hasRecentAuthentication(user: User) {
+  const token = await getIdTokenResult(user);
+  const authenticatedAt = Date.parse(token.authTime);
+  return Number.isFinite(authenticatedAt)
+    && Date.now() - authenticatedAt < RECENT_AUTH_MAX_AGE_MS;
+}
+
+function accountDeletionError(error: unknown) {
+  const code = (error as { code?: string }).code;
+  if (code === 'auth/requires-recent-login' || code === 'auth/user-token-expired') {
+    return new Error('Your sign-in expired. Confirm your identity, then try deleting the account again.');
+  }
+  if (
+    code === 'auth/network-request-failed'
+    || code === 'unavailable'
+    || code === 'storage/retry-limit-exceeded'
+  ) {
+    return new Error('Account deletion needs an internet connection. Check your connection and try again.');
+  }
+  if (code === 'permission-denied' || code === 'storage/unauthorized') {
+    return new Error('Your account data could not be removed. Please try again or contact support.');
+  }
+  return error instanceof Error
+    ? error
+    : new Error('Your account could not be deleted. Please try again.');
+}
+
 async function mergeWorkoutHistory(userId: string) {
   const { db } = requireFirebase();
   const guestHistory = await loadWorkoutHistoryForScope(null);
@@ -199,6 +231,20 @@ async function getGoogleCredential(): Promise<AuthCredential | null> {
   if (response.type !== 'success') return null;
   if (!response.data.idToken) throw new Error('Google did not return an identity token.');
   return GoogleAuthProvider.credential(response.data.idToken);
+}
+
+async function getSilentGoogleCredential(): Promise<AuthCredential | null> {
+  if (!googleSignInConfigured) return null;
+  try {
+    if (Platform.OS === 'android') {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: false });
+    }
+    const response = await GoogleSignin.signInSilently();
+    if (response.type !== 'success' || !response.data.idToken) return null;
+    return GoogleAuthProvider.credential(response.data.idToken);
+  } catch {
+    return null;
+  }
 }
 
 async function getAppleCredential() {
@@ -265,14 +311,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const run = useCallback(async (operation: () => Promise<void>) => {
+  const run = useCallback(async (
+    operation: () => Promise<void>,
+    options?: { showCancellationError?: boolean },
+  ) => {
     setIsBusy(true);
     setErrorMessage(null);
     try {
       await operation();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong. Try again.';
-      if (!message.toLowerCase().includes('cancel')) setErrorMessage(message);
+      if (options?.showCancellationError || !message.toLowerCase().includes('cancel')) {
+        setErrorMessage(message);
+      }
       throw error;
     } finally {
       setIsBusy(false);
@@ -402,12 +453,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signOut = useCallback(async () => {
     await run(async () => {
       if (profilePreviewMode) {
+        await setLastAccountHistoryUser(user?.uid ?? null).catch(() => undefined);
         setUser(null);
         setProfile(null);
         await setActiveHistoryUser(null);
         return;
       }
       const { auth } = requireFirebase();
+      await setLastAccountHistoryUser(user?.uid ?? null).catch(() => undefined);
       if (providerForUser(user) === 'google') await GoogleSignin.signOut().catch(() => null);
       await firebaseSignOut(auth);
       await setActiveHistoryUser(null);
@@ -417,36 +470,77 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const deleteAccount = useCallback(async () => {
     await run(async () => {
-      if (!user) return;
-      if (profilePreviewMode) {
-        setUser(null);
+      let accountDeleted = false;
+      let guestHistoryBeforeDeletion: WorkoutHistoryItem[] | null = null;
+      let copiedAccountHistoryToGuest = false;
+      try {
+        if (!user) return;
+        if (profilePreviewMode) {
+          setUser(null);
+          setProfile(null);
+          await setActiveHistoryUser(null);
+          return;
+        }
+        const { db, storage } = requireFirebase();
+        const provider = providerForUser(user);
+        const accountHistory = await loadWorkoutHistoryForScope(user.uid);
+        if (!(await hasRecentAuthentication(user))) {
+          if (provider === 'google') {
+            const credential = await getSilentGoogleCredential() ?? await getGoogleCredential();
+            if (!credential) {
+              throw new Error('Google sign-in was cancelled. Your account was not deleted.');
+            }
+            await reauthenticateWithCredential(user, credential);
+          } else if (provider === 'apple') {
+            const { credential } = await getAppleCredential();
+            await reauthenticateWithCredential(user, credential);
+          } else {
+            throw new Error('Sign in again before deleting this account.');
+          }
+        }
+
+        const workouts = await getDocs(collection(db, 'users', user.uid, 'workouts'));
+        for (let offset = 0; offset < workouts.docs.length; offset += DELETE_BATCH_SIZE) {
+          const batch = writeBatch(db);
+          workouts.docs
+            .slice(offset, offset + DELETE_BATCH_SIZE)
+            .forEach(workout => batch.delete(workout.ref));
+          await batch.commit();
+        }
+        if (profilePhotoUploadsEnabled) {
+          try {
+            await deleteObject(ref(storage, `users/${user.uid}/profile/avatar.jpg`));
+          } catch (error) {
+            if ((error as { code?: string }).code !== 'storage/object-not-found') throw error;
+          }
+        }
+        await deleteDoc(doc(db, 'users', user.uid));
+
+        guestHistoryBeforeDeletion = await loadWorkoutHistoryForScope(null);
+        await replaceWorkoutHistoryForScope(
+          null,
+          [...guestHistoryBeforeDeletion, ...accountHistory],
+        );
+        copiedAccountHistoryToGuest = true;
+        await deleteUser(user);
+        accountDeleted = true;
+
+        if (provider === 'google') await GoogleSignin.signOut().catch(() => null);
+        await clearWorkoutHistoryForScope(user.uid).catch(() => undefined);
+        await setLastAccountHistoryUser(null).catch(() => undefined);
+        await setActiveHistoryUser(null).catch(() => undefined);
         setProfile(null);
-        await setActiveHistoryUser(null);
-        return;
+      } catch (error) {
+        if (
+          copiedAccountHistoryToGuest
+          && !accountDeleted
+          && guestHistoryBeforeDeletion
+        ) {
+          await replaceWorkoutHistoryForScope(null, guestHistoryBeforeDeletion).catch(() => undefined);
+        }
+        throw accountDeletionError(error);
       }
-      const { db, storage } = requireFirebase();
-      const provider = providerForUser(user);
-      if (provider === 'google') {
-        const credential = await getGoogleCredential();
-        if (!credential) throw new Error('Account deletion cancelled.');
-        await reauthenticateWithCredential(user, credential);
-      } else if (provider === 'apple') {
-        const { credential } = await getAppleCredential();
-        await reauthenticateWithCredential(user, credential);
-      } else {
-        throw new Error('Sign in again before deleting this account.');
-      }
-      const workouts = await getDocs(collection(db, 'users', user.uid, 'workouts'));
-      const batch = writeBatch(db);
-      workouts.docs.forEach(workout => batch.delete(workout.ref));
-      await batch.commit();
-      await deleteDoc(doc(db, 'users', user.uid));
-      await deleteObject(ref(storage, `users/${user.uid}/profile/avatar.jpg`)).catch(() => undefined);
-      await clearWorkoutHistoryForScope(user.uid);
-      await deleteUser(user);
-      await setActiveHistoryUser(null);
-      setProfile(null);
-    });
+    }, { showCancellationError: true });
   }, [run, user]);
 
   const syncWorkout = useCallback(async (workout: WorkoutHistoryItem) => {

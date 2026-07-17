@@ -330,7 +330,7 @@ export function App() {
               ) : activeTab === 'workout' ? (
                 <ProgressScreen />
               ) : (
-                <ProfileScreen />
+                <ProfileScreen onEnterGym={() => setActiveTab('timer')} />
               )}
             </MainTabShell>
           </Animated.View>

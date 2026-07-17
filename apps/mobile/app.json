@@ -43,7 +43,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Boxing Coach to choose your fighter profile photo."
+          "photosPermission": "Allow Boxing Coach to choose your fighter profile photo.",
+          "cameraPermission": "Allow Boxing Coach to capture your fighter profile photo."
         }
       ]
     ],

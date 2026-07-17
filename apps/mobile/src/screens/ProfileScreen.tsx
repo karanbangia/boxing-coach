@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -125,9 +126,22 @@ function PrimaryButton({
   );
 }
 
-function SecondaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+function SecondaryButton({
+  label,
+  onPress,
+  disabled = false,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   return (
-    <TactilePressable onPress={onPress} haptic="light" style={styles.secondaryButton}>
+    <TactilePressable
+      onPress={onPress}
+      disabled={disabled}
+      haptic="light"
+      style={[styles.secondaryButton, disabled && styles.buttonDisabled]}
+    >
       <Text style={styles.secondaryButtonText} allowFontScaling={false}>{label}</Text>
     </TactilePressable>
   );
@@ -211,16 +225,22 @@ function EquipmentGrid({
           >
             <View style={styles.checkRow}>
               <Text
-                style={[styles.choiceText, selected && styles.choiceTextSelected]}
+                style={[
+                  styles.choiceText,
+                  styles.equipmentChoiceText,
+                  selected && styles.choiceTextSelected,
+                ]}
                 allowFontScaling={false}
               >
                 {option.label}
               </Text>
-              <Ionicons
-                name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-                size={18}
-                color={selected ? colors.red : colors.textMuted}
-              />
+              <View style={styles.checkIconWrap}>
+                <Ionicons
+                  name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={18}
+                  color={selected ? colors.red : colors.textMuted}
+                />
+              </View>
             </View>
           </TactilePressable>
         );
@@ -336,7 +356,7 @@ function AuthScreen() {
 }
 
 function PhotoPicker({ profile, onChange }: { profile: FighterProfile; onChange: (uri: string) => void }) {
-  const choosePhoto = async () => {
+  const chooseFromLibrary = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -344,6 +364,32 @@ function PhotoPicker({ profile, onChange }: { profile: FighterProfile; onChange:
       quality: 0.82,
     });
     if (!result.canceled && result.assets[0]?.uri) onChange(result.assets[0].uri);
+  };
+
+  const capturePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        'Camera access needed',
+        'Allow camera access in Settings to capture your fighter photo.',
+      );
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.82,
+    });
+    if (!result.canceled && result.assets[0]?.uri) onChange(result.assets[0].uri);
+  };
+
+  const choosePhoto = () => {
+    Alert.alert('Fighter photo', 'Choose a photo source.', [
+      { text: 'Take Photo', onPress: () => void capturePhoto() },
+      { text: 'Choose from Library', onPress: () => void chooseFromLibrary() },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   return (
@@ -363,7 +409,7 @@ function PhotoPicker({ profile, onChange }: { profile: FighterProfile; onChange:
             : 'Photo uploads are not available yet.'}
         </Text>
         {profilePhotoUploadsEnabled ? (
-          <TactilePressable onPress={() => void choosePhoto()} style={styles.photoButton}>
+          <TactilePressable onPress={choosePhoto} style={styles.photoButton}>
             <Ionicons name="camera-outline" size={17} color={colors.peach} />
             <Text style={styles.photoButtonText}>CHOOSE PHOTO</Text>
           </TactilePressable>
@@ -537,8 +583,23 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function FighterSetup({ userName, userPhoto }: { userName: string | null; userPhoto: string | null }) {
-  const { saveProfile, isBusy, errorMessage, clearError } = useAuth();
+function FighterSetup({
+  userName,
+  userPhoto,
+  onComplete,
+}: {
+  userName: string | null;
+  userPhoto: string | null;
+  onComplete: () => void;
+}) {
+  const {
+    user,
+    connectedProvider,
+    saveProfile,
+    isBusy,
+    errorMessage,
+    clearError,
+  } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [draft, setDraft] = useState<FighterProfile>({
     ...DEFAULT_FIGHTER_PROFILE,
@@ -549,6 +610,11 @@ function FighterSetup({ userName, userPhoto }: { userName: string | null; userPh
   const next = () => {
     if (step === 1 && !draft.displayName.trim()) return;
     setStep(current => Math.min(3, current + 1) as 1 | 2 | 3);
+  };
+
+  const enterGym = async () => {
+    await saveProfile(draft);
+    onComplete();
   };
 
   return (
@@ -563,6 +629,24 @@ function FighterSetup({ userName, userPhoto }: { userName: string | null; userPh
             title={step === 1 ? 'BUILD YOUR FIGHTER' : step === 2 ? 'YOUR TRAINING' : 'YOUR ROUTINE'}
           />
           <ErrorBanner message={errorMessage} onDismiss={clearError} />
+          <View style={styles.sessionCard} accessibilityRole="text">
+            <View style={styles.sessionIcon}>
+              <Ionicons
+                name={connectedProvider === 'apple' ? 'logo-apple' : 'logo-google'}
+                size={20}
+                color={colors.text}
+              />
+            </View>
+            <View style={styles.sessionCopy}>
+              <Text style={styles.sessionLabel} allowFontScaling={false}>
+                SIGNED IN WITH {connectedProvider === 'apple' ? 'APPLE' : 'GOOGLE'}
+              </Text>
+              <Text style={styles.sessionValue} numberOfLines={1} allowFontScaling={false}>
+                {user?.email ?? userName ?? 'Private account'}
+              </Text>
+            </View>
+            <Ionicons name="checkmark-circle" size={20} color={colors.green} />
+          </View>
 
           {step === 1 ? <IdentityFields value={draft} onChange={setDraft} /> : null}
           {step === 2 ? <TrainingFields value={draft} onChange={setDraft} /> : null}
@@ -583,7 +667,7 @@ function FighterSetup({ userName, userPhoto }: { userName: string | null; userPh
             {step === 3 ? (
               <PrimaryButton
                 label="ENTER THE GYM"
-                onPress={() => void saveProfile(draft).catch(() => undefined)}
+                onPress={() => void enterGym().catch(() => undefined)}
                 loading={isBusy}
                 icon="arrow-forward"
               />
@@ -791,18 +875,34 @@ function ConfirmSheet({
   onClose,
   onConfirm,
   loading,
+  errorMessage,
+  onDismissError,
+  connectedProvider,
 }: {
   action: ConfirmAction;
   onClose: () => void;
   onConfirm: () => void;
   loading: boolean;
+  errorMessage: string | null;
+  onDismissError: () => void;
+  connectedProvider: 'apple' | 'google' | null;
 }) {
   if (!action) return null;
   const deleting = action === 'delete';
   return (
-    <Modal transparent animationType="slide" visible onRequestClose={onClose}>
+    <Modal
+      transparent
+      animationType="slide"
+      visible
+      onRequestClose={loading ? () => undefined : onClose}
+    >
       <View style={styles.modalBackdrop}>
-        <TactilePressable onPress={onClose} haptic="none" style={styles.modalDismissArea}>
+        <TactilePressable
+          onPress={onClose}
+          disabled={loading}
+          haptic="none"
+          style={styles.modalDismissArea}
+        >
           <View />
         </TactilePressable>
         <View style={styles.confirmSheet}>
@@ -817,16 +917,17 @@ function ConfirmSheet({
           <Text style={styles.sheetTitle}>{deleting ? 'DELETE ACCOUNT?' : 'SIGN OUT?'}</Text>
           <Text style={styles.sheetCopy}>
             {deleting
-              ? 'This permanently removes your fighter profile and synced workouts. This cannot be undone.'
-              : 'Your account data stays protected online. Guest mode will not show this account’s synced workouts.'}
+              ? `This permanently removes your fighter profile and synced workouts from your account. Workout history stays on this device. ${connectedProvider === 'apple' ? 'Apple may ask you to confirm your identity' : 'Google confirmation is only shown if your saved session has expired'}. This cannot be undone.`
+              : 'Your account data stays protected online, and workout history remains visible on this device.'}
           </Text>
+          <ErrorBanner message={errorMessage} onDismiss={onDismissError} />
           <PrimaryButton
             label={deleting ? 'DELETE MY ACCOUNT' : 'SIGN OUT'}
             onPress={onConfirm}
             loading={loading}
             icon={deleting ? 'trash-outline' : 'log-out-outline'}
           />
-          <SecondaryButton label="CANCEL" onPress={onClose} />
+          <SecondaryButton label="CANCEL" onPress={onClose} disabled={loading} />
         </View>
       </View>
     </Modal>
@@ -845,6 +946,17 @@ function AccountData({ onBack }: { onBack: () => void }) {
     clearError,
   } = useAuth();
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+
+  const openConfirm = (action: Exclude<ConfirmAction, null>) => {
+    clearError();
+    setConfirmAction(action);
+  };
+
+  const closeConfirm = () => {
+    if (isBusy) return;
+    clearError();
+    setConfirmAction(null);
+  };
 
   const confirm = async () => {
     if (confirmAction === 'delete') await deleteAccount();
@@ -882,12 +994,12 @@ function AccountData({ onBack }: { onBack: () => void }) {
 
         <View style={styles.accountActionsSection}>
           <SectionLabel>Account actions</SectionLabel>
-          <TactilePressable onPress={() => setConfirmAction('signout')} style={styles.accountAction}>
+          <TactilePressable onPress={() => openConfirm('signout')} style={styles.accountAction}>
             <Ionicons name="log-out-outline" size={21} color={colors.text} />
             <Text style={styles.accountActionText}>SIGN OUT</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TactilePressable>
-          <TactilePressable onPress={() => setConfirmAction('delete')} style={styles.accountAction}>
+          <TactilePressable onPress={() => openConfirm('delete')} style={styles.accountAction}>
             <Ionicons name="trash-outline" size={21} color={colors.red} />
             <Text style={[styles.accountActionText, styles.dangerText]}>DELETE ACCOUNT</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
@@ -896,9 +1008,12 @@ function AccountData({ onBack }: { onBack: () => void }) {
       </ScrollView>
       <ConfirmSheet
         action={confirmAction}
-        onClose={() => setConfirmAction(null)}
+        onClose={closeConfirm}
         onConfirm={() => void confirm().catch(() => undefined)}
         loading={isBusy}
+        errorMessage={errorMessage}
+        onDismissError={clearError}
+        connectedProvider={connectedProvider}
       />
     </ScreenShell>
   );
@@ -954,7 +1069,7 @@ function ProfileSkeleton() {
   );
 }
 
-export function ProfileScreen() {
+export function ProfileScreen({ onEnterGym }: { onEnterGym: () => void }) {
   const { user, profile, isReady } = useAuth();
   const [view, setView] = useState<ProfileView>('profile');
 
@@ -965,7 +1080,15 @@ export function ProfileScreen() {
   if (!isReady) return <ProfileSkeleton />;
 
   if (!user) return <AuthScreen />;
-  if (!profile) return <FighterSetup userName={user.displayName} userPhoto={user.photoURL} />;
+  if (!profile) {
+    return (
+      <FighterSetup
+        userName={user.displayName}
+        userPhoto={user.photoURL}
+        onComplete={onEnterGym}
+      />
+    );
+  }
   if (view === 'edit') return <EditProfile onDone={() => setView('profile')} />;
   if (view === 'account') return <AccountData onBack={() => setView('profile')} />;
   return <ProfileOverview onEdit={() => setView('edit')} onAccount={() => setView('account')} />;
@@ -982,6 +1105,42 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'space-between',
     gap: 40,
+  },
+  sessionCard: {
+    minHeight: 66,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  sessionIcon: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
+  },
+  sessionCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sessionLabel: {
+    color: colors.peach,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 10,
+    lineHeight: textLineHeight(10),
+    letterSpacing: 1,
+  },
+  sessionValue: {
+    marginTop: 2,
+    color: colors.text,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 15,
+    lineHeight: textLineHeight(15),
   },
   kicker: {
     color: colors.peach,
@@ -1151,8 +1310,10 @@ const styles = StyleSheet.create({
   choiceCardThird: { flexBasis: '30%', paddingHorizontal: 9 },
   choiceCardSelected: { borderColor: colors.red, borderWidth: 2, backgroundColor: '#211b1b' },
   choiceText: { color: colors.text, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 14, lineHeight: textLineHeight(14) },
+  equipmentChoiceText: { flex: 1, minWidth: 0 },
   choiceTextSelected: { color: colors.peach },
-  checkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  checkRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8 },
+  checkIconWrap: { width: 18, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
   dayGrid: { flexDirection: 'row', gap: 6 },
   dayButton: {
     flex: 1,

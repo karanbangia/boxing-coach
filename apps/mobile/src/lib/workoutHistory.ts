@@ -4,6 +4,8 @@ import type { Difficulty } from '@boxing-coach/core';
 const LEGACY_STORAGE_KEY = 'boxing-coach-workout-history';
 const GUEST_STORAGE_KEY = 'boxing-coach-workout-history:guest';
 const ACTIVE_USER_KEY = 'boxing-coach-workout-history:active-user';
+const LAST_ACCOUNT_USER_KEY = 'boxing-coach-workout-history:last-account-user';
+const USER_STORAGE_KEY_PREFIX = 'boxing-coach-workout-history:user:';
 const MAX_HISTORY_ITEMS = 100;
 
 export interface WorkoutHistoryItem {
@@ -18,7 +20,14 @@ export interface WorkoutHistoryItem {
 }
 
 function storageKeyForScope(userId: string | null) {
-  return userId ? `boxing-coach-workout-history:user:${userId}` : GUEST_STORAGE_KEY;
+  return userId ? `${USER_STORAGE_KEY_PREFIX}${userId}` : GUEST_STORAGE_KEY;
+}
+
+function normalizeHistory(items: WorkoutHistoryItem[]) {
+  return items
+    .filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index)
+    .sort((left, right) => Date.parse(right.completedAt) - Date.parse(left.completedAt))
+    .slice(0, MAX_HISTORY_ITEMS);
 }
 
 async function ensureLegacyGuestHistory() {
@@ -48,6 +57,40 @@ export async function setActiveHistoryUser(userId: string | null): Promise<void>
   }
 }
 
+export async function setLastAccountHistoryUser(userId: string | null): Promise<void> {
+  if (userId) {
+    await AsyncStorage.setItem(LAST_ACCOUNT_USER_KEY, userId);
+  } else {
+    await AsyncStorage.removeItem(LAST_ACCOUNT_USER_KEY);
+  }
+}
+
+export async function getLastAccountHistoryUser(): Promise<string | null> {
+  const savedUserId = await AsyncStorage.getItem(LAST_ACCOUNT_USER_KEY);
+  if (savedUserId) return savedUserId;
+
+  // Older builds did not remember which account was last signed out. Recover
+  // the most recently active account from its locally cached workout history.
+  const accountKeys = (await AsyncStorage.getAllKeys())
+    .filter(key => key.startsWith(USER_STORAGE_KEY_PREFIX));
+  let mostRecentUserId: string | null = null;
+  let mostRecentWorkoutAt = -Infinity;
+  for (const key of accountKeys) {
+    const userId = key.slice(USER_STORAGE_KEY_PREFIX.length);
+    const history = await loadWorkoutHistoryForScope(userId);
+    const newestWorkoutAt = history.reduce(
+      (newest, workout) => Math.max(newest, Date.parse(workout.completedAt) || -Infinity),
+      -Infinity,
+    );
+    if (newestWorkoutAt > mostRecentWorkoutAt) {
+      mostRecentWorkoutAt = newestWorkoutAt;
+      mostRecentUserId = userId;
+    }
+  }
+  if (mostRecentUserId) await setLastAccountHistoryUser(mostRecentUserId);
+  return mostRecentUserId;
+}
+
 export async function loadWorkoutHistoryForScope(
   userId: string | null,
 ): Promise<WorkoutHistoryItem[]> {
@@ -60,6 +103,21 @@ export async function loadWorkoutHistoryForScope(
   }
 }
 
+export async function loadVisibleWorkoutHistory(
+  userId: string | null,
+): Promise<WorkoutHistoryItem[]> {
+  if (userId) {
+    return loadWorkoutHistoryForScope(userId);
+  }
+
+  const lastAccountUserId = await getLastAccountHistoryUser();
+  const [guestHistory, accountHistory] = await Promise.all([
+    loadWorkoutHistoryForScope(null),
+    lastAccountUserId ? loadWorkoutHistoryForScope(lastAccountUserId) : Promise.resolve([]),
+  ]);
+  return normalizeHistory([...guestHistory, ...accountHistory]);
+}
+
 export async function loadWorkoutHistory(): Promise<WorkoutHistoryItem[]> {
   return loadWorkoutHistoryForScope(await getActiveHistoryUser());
 }
@@ -68,12 +126,7 @@ export async function replaceWorkoutHistoryForScope(
   userId: string | null,
   items: WorkoutHistoryItem[],
 ): Promise<void> {
-  const unique = items.filter(
-    (item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index,
-  );
-  const next = unique
-    .sort((left, right) => Date.parse(right.completedAt) - Date.parse(left.completedAt))
-    .slice(0, MAX_HISTORY_ITEMS);
+  const next = normalizeHistory(items);
   await AsyncStorage.setItem(storageKeyForScope(userId), JSON.stringify(next));
 }
 
