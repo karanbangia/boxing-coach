@@ -29,6 +29,7 @@ import { useWorkoutHistory } from './providers/WorkoutHistoryProvider';
 import { colors } from './theme';
 
 const PREP_ENTRANCE_DURATION = 260;
+const ROUND_START_BELL_LEAD_SECONDS = 3;
 
 export function App() {
   const [fontsLoaded] = useFonts({
@@ -68,11 +69,11 @@ export function App() {
   useWakeLock(isActive || inPrep);
 
   const prevPhaseRef = useRef(workout.phase);
-  const prevRoundRef = useRef(workout.currentRound);
   const prevFreestyleRef = useRef(workout.isFreestyle);
   const prevTimeRef = useRef(workout.timeRemaining);
   const lastCoachActionKeyRef = useRef(-1);
   const coachWasPausedRef = useRef(false);
+  const prepBellPlayedRef = useRef(false);
 
   useLayoutEffect(() => {
     if (!isEnteringPrep) return;
@@ -115,12 +116,13 @@ export function App() {
 
   useEffect(() => {
     const prevPhase = prevPhaseRef.current;
-    const prevRound = prevRoundRef.current;
     const prevFreestyle = prevFreestyleRef.current;
     const prevTimeRemaining = prevTimeRef.current;
 
-    if (workout.phase === 'round' && (prevPhase !== 'round' || workout.currentRound !== prevRound)) {
-      sounds.roundStart();
+    if (workout.phase === 'round' && prevPhase !== 'round') {
+      // The bell starts during prep/rest and must be fully stopped before the
+      // first coach action is allowed to play.
+      sounds.stopRoundStart();
     }
 
     if (workout.phase === 'rest' && prevPhase === 'round') {
@@ -136,22 +138,19 @@ export function App() {
     }
 
     if (
-      workout.phase === 'round' &&
+      workout.phase === 'rest' &&
       !workout.isPaused &&
-      !workout.isFreestyle &&
-      Math.ceil(prevTimeRemaining) > 10 &&
-      Math.ceil(workout.timeRemaining) <= 10
+      Math.ceil(prevTimeRemaining) > ROUND_START_BELL_LEAD_SECONDS &&
+      Math.ceil(workout.timeRemaining) <= ROUND_START_BELL_LEAD_SECONDS
     ) {
-      sounds.tenSecondWarning();
+      sounds.roundStart();
     }
 
     prevPhaseRef.current = workout.phase;
-    prevRoundRef.current = workout.currentRound;
     prevFreestyleRef.current = workout.isFreestyle;
     prevTimeRef.current = workout.timeRemaining;
   }, [
     sounds,
-    workout.currentRound,
     workout.isFreestyle,
     workout.isPaused,
     workout.phase,
@@ -221,6 +220,7 @@ export function App() {
 
   const handleStart = useCallback(
     (s: SetupSettings) => {
+      prepBellPlayedRef.current = false;
       lastCoachActionKeyRef.current = -1;
       setAudioCuesEnabled(s.audioCuesEnabled);
       const hasOverrides = Object.values(tuning).some(value => value !== undefined);
@@ -256,13 +256,44 @@ export function App() {
     return () => clearTimeout(timer);
   }, [prepSecondsLeft]);
 
+  useEffect(() => {
+    if (!config) {
+      prepBellPlayedRef.current = false;
+      return;
+    }
+    if (
+      workout.phase !== 'idle' ||
+      prepSecondsLeft === null ||
+      prepSecondsLeft <= 0 ||
+      prepSecondsLeft > ROUND_START_BELL_LEAD_SECONDS ||
+      prepBellPlayedRef.current
+    ) {
+      return;
+    }
+
+    prepBellPlayedRef.current = true;
+    sounds.roundStart();
+  }, [config, prepSecondsLeft, sounds, workout.phase]);
+
   useLayoutEffect(() => {
     if (!config || workout.phase !== 'idle') return;
     if (prepSecondsLeft === null || prepSecondsLeft > 0) return;
     workout.start();
   }, [config, workout.phase, prepSecondsLeft, workout.start]);
 
+  const handleSkipPrep = useCallback(() => {
+    sounds.stopRoundStart();
+    setPrepSecondsLeft(0);
+  }, [sounds]);
+
+  const handleSkipRest = useCallback(() => {
+    sounds.stopRoundStart();
+    workout.skipRest();
+  }, [sounds, workout.skipRest]);
+
   const handleRestart = useCallback(() => {
+    sounds.stopRoundStart();
+    prepBellPlayedRef.current = false;
     lastCoachActionKeyRef.current = -1;
     prepEntrance.stopAnimation();
     setupExit.stopAnimation();
@@ -273,9 +304,11 @@ export function App() {
     workout.stop();
     setConfig(null);
     setActiveTab('timer');
-  }, [coach, prepEntrance, setupExit, workout]);
+  }, [coach, prepEntrance, setupExit, sounds, workout]);
 
   const handleStop = useCallback(() => {
+    sounds.stopRoundStart();
+    prepBellPlayedRef.current = false;
     lastCoachActionKeyRef.current = -1;
     prepEntrance.stopAnimation();
     setupExit.stopAnimation();
@@ -286,7 +319,7 @@ export function App() {
     workout.stop();
     setConfig(null);
     setActiveTab('timer');
-  }, [coach, prepEntrance, setupExit, workout]);
+  }, [coach, prepEntrance, setupExit, sounds, workout]);
 
   if (!fontsLoaded) {
     return (
@@ -348,7 +381,7 @@ export function App() {
           <PrepScreen
             secondsLeft={prepSecondsLeft ?? 0}
             totalSeconds={resolvePrepCountdownSeconds(config.tuning)}
-            onSkip={() => setPrepSecondsLeft(0)}
+            onSkip={handleSkipPrep}
             onCancel={handleStop}
           />
         </Animated.View>
@@ -370,18 +403,20 @@ export function App() {
           totalRounds={config.totalRounds}
           timeRemaining={workout.timeRemaining}
           totalSeconds={config.restDuration}
-          onSkipRest={workout.skipRest}
+          onSkipRest={handleSkipRest}
         />
       ) : config ? (
         <WorkoutScreen
           currentRound={workout.currentRound}
           totalRounds={config.totalRounds}
+          roundDuration={config.roundDuration}
           timeRemaining={workout.timeRemaining}
           currentAction={workout.currentAction}
           intensity={workout.intensity}
           isPaused={workout.isPaused}
           isFreestyle={workout.isFreestyle}
           actionKey={workout.actionKey}
+          comboInstructionsEnabled={settings.comboInstructionsEnabled}
           muted={session.muted}
           masterVolume={session.masterVolume}
           onToggleMute={session.toggleMute}

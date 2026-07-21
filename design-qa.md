@@ -125,3 +125,46 @@ full-view comparison evidence: opened the provided screenshot and the implementa
 focused region comparison evidence: focused region was not needed because the full viewport clearly shows the horizontal bar, icons, borderless modal treatment, and stable readout.
 patches made since previous QA pass: replaced the vertical control with a horizontal bar, removed border lines, added Expo vector volume icons, removed the thumb side-line artifact, and verified `100` stays on one line.
 final result: passed
+
+# Timer-Only Countdown Ring Design QA
+
+- Source visual truth: `/var/folders/4g/hd8s523s2zzgn1g5w1mf_1qh0000gn/T/TemporaryItems/NSIRD_screencaptureui_5bqBIB/Screenshot 2026-07-21 at 6.45.36 PM.png`, plus the approved countdown-ring direction in the task.
+- Implementation screenshot: `/tmp/boxing-coach-ring-qa/implementation-round-2.png`
+- Combined comparison: `/tmp/boxing-coach-ring-qa/comparison.png`
+- Viewport: iPhone 16e simulator, 390 x 844 logical points.
+- State: Round 2, coaching instructions disabled, active workout.
+
+## Full-view comparison evidence
+
+The implementation retains the source header, round hierarchy, typography, background, and bottom controls. The formerly empty timer region now contains a 250-280 point responsive tick ring around the timer. The remaining red ticks drain clockwise from 12 o'clock, and the round block has been pulled closer to the ring without colliding with it.
+
+## Focused region comparison evidence
+
+A separate crop was not needed: the high-resolution full-view comparison makes the timer typography, ring ticks, spacing, colors, labels, and controls clearly readable.
+
+## Findings
+
+- No actionable P0, P1, or P2 differences remain.
+- Typography: existing Anton and Barlow Semi Condensed hierarchy is preserved; timer and round labels remain legible and unclipped.
+- Spacing and layout: the ring gives the center appropriate visual weight while preserving clear separation from the header and controls.
+- Colors and tokens: active, inactive, and final-ten-second tick states use existing theme colors.
+- Image quality and assets: no raster imagery or custom decorative assets are required for this functional progress indicator.
+- Copy and content: no workout labels or control copy changed.
+
+## Interaction checks
+
+- Combo Instructions off forces Audio Cues off and disables the audio switch.
+- Starting the workout renders the ring only in the timer-only state.
+- Advancing from Round 1 through rest to Round 2 keeps the ring and timer aligned.
+- The remaining-tick segment updates with the countdown.
+- The coached workout branch remains unchanged in code and continues to render its existing timer, combination panel, and equalizer.
+
+## Comparison history
+
+- Initial QA pass: passed. No post-comparison P0/P1/P2 fixes were required.
+
+## Follow-up polish
+
+- P3: confirm the brighter final-ten-second ticks during a full timed device run; the state is implemented but was not held open for the complete three-minute countdown during visual QA.
+
+final result: passed

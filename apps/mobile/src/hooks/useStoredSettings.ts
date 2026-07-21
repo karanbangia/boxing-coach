@@ -10,16 +10,21 @@ function sanitizeSettings(raw: unknown): SetupSettings {
   }
 
   const candidate = raw as Partial<SetupSettings>;
+  const comboInstructionsEnabled =
+    typeof candidate.comboInstructionsEnabled === 'boolean'
+      ? candidate.comboInstructionsEnabled
+      : DEFAULT_SETTINGS.comboInstructionsEnabled;
 
   return {
     difficulty: candidate.difficulty ?? DEFAULT_SETTINGS.difficulty,
     roundDuration: candidate.roundDuration ?? DEFAULT_SETTINGS.roundDuration,
     totalRounds: candidate.totalRounds ?? DEFAULT_SETTINGS.totalRounds,
     restDuration: candidate.restDuration ?? DEFAULT_SETTINGS.restDuration,
+    comboInstructionsEnabled,
     audioCuesEnabled:
-      typeof candidate.audioCuesEnabled === 'boolean'
+      comboInstructionsEnabled && typeof candidate.audioCuesEnabled === 'boolean'
         ? candidate.audioCuesEnabled
-        : DEFAULT_SETTINGS.audioCuesEnabled,
+        : comboInstructionsEnabled && DEFAULT_SETTINGS.audioCuesEnabled,
   };
 }
 
@@ -65,7 +70,15 @@ export function useStoredSettings() {
   }, [isReady, settings]);
 
   const updateSettings = (patch: Partial<SetupSettings>) => {
-    setSettings(prev => ({ ...prev, ...patch }));
+    setSettings(prev => {
+      const next = { ...prev, ...patch };
+
+      if (!next.comboInstructionsEnabled) {
+        next.audioCuesEnabled = false;
+      }
+
+      return next;
+    });
   };
 
   return { settings, updateSettings, isReady };

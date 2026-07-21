@@ -24,12 +24,14 @@ import { colors } from '../theme';
 interface Props {
   currentRound: number;
   totalRounds: number;
+  roundDuration: number;
   timeRemaining: number;
   currentAction: Action | null;
   intensity: 'normal' | 'building' | 'intense';
   isPaused: boolean;
   isFreestyle: boolean;
   actionKey: number;
+  comboInstructionsEnabled: boolean;
   muted: boolean;
   masterVolume: number;
   onToggleMute: () => void;
@@ -53,6 +55,7 @@ function normalizeComboLabel(action: Action | null) {
 }
 
 const equalizerBars = [26, 42, 31, 19, 44, 36, 52];
+const TIMER_RING_TICK_COUNT = 120;
 
 function PauseIcon() {
   return (
@@ -286,12 +289,14 @@ function StopWorkoutModal({
 
 export function WorkoutScreen({
   currentRound,
+  roundDuration,
   timeRemaining,
   currentAction,
   intensity,
   isPaused,
   isFreestyle,
   actionKey,
+  comboInstructionsEnabled,
   muted,
   masterVolume,
   onToggleMute,
@@ -305,6 +310,13 @@ export function WorkoutScreen({
   const actionAnim = useRef(new Animated.Value(1)).current;
   const voiceAnim = useRef(equalizerBars.map(() => new Animated.Value(0))).current;
   const reduceMotion = useReducedMotion();
+  const ringTicks = useMemo(
+    () => Array.from({ length: TIMER_RING_TICK_COUNT }, (_, index) => index),
+    [],
+  );
+  const roundProgress = Math.max(0, Math.min(1, timeRemaining / Math.max(1, roundDuration)));
+  const elapsedRoundProgress = 1 - roundProgress;
+  const animatedElapsedRoundProgress = useRef(new Animated.Value(elapsedRoundProgress)).current;
   const comboLabel = normalizeComboLabel(currentAction);
   const comboDescription = currentAction?.description ?? 'JAB - CROSS - LEAD HOOK';
   const isHot = intensity === 'intense' || isFreestyle;
@@ -318,9 +330,22 @@ export function WorkoutScreen({
   const timerBandHeight = Math.round(height * 0.072);
   const timerWrapHeight = Math.max(timerBandHeight + 20, 112);
   const timerWrapTop = timerBandTop - Math.round((timerWrapHeight - timerBandHeight) / 2);
+  const timerRingSize = Math.min(280, Math.max(250, Math.round(height * 0.315)));
+  const timerRingRadius = timerRingSize / 2 - 9;
+  const timerOnlyTop = Math.round(height * 0.3);
   const comboTop = Math.round(height * 0.418);
   const comboHeight = Math.round(height * 0.165);
   const equalizerTop = Math.round(height * 0.626);
+  const isFinalTenSeconds = Math.ceil(timeRemaining) <= 10;
+
+  useEffect(() => {
+    Animated.timing(animatedElapsedRoundProgress, {
+      toValue: elapsedRoundProgress,
+      duration: reduceMotion ? 0 : 350,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
+  }, [animatedElapsedRoundProgress, elapsedRoundProgress, reduceMotion]);
 
   useEffect(() => {
     if (reduceMotion) {
@@ -337,7 +362,7 @@ export function WorkoutScreen({
   }, [actionAnim, actionKey, isPaused, reduceMotion]);
 
   useEffect(() => {
-    if (isPaused || reduceMotion) {
+    if (!comboInstructionsEnabled || isPaused || reduceMotion) {
       const settle = Animated.parallel(
         voiceAnim.map(value =>
           Animated.timing(value, {
@@ -376,7 +401,7 @@ export function WorkoutScreen({
     return () => {
       animations.forEach(animation => animation.stop());
     };
-  }, [isPaused, reduceMotion, voiceAnim]);
+  }, [comboInstructionsEnabled, isPaused, reduceMotion, voiceAnim]);
 
   return (
     <ScreenShell>
@@ -415,7 +440,12 @@ export function WorkoutScreen({
           </TactilePressable>
         </View>
 
-        <View style={[styles.roundBlock, { top: Math.round(height * 0.12) }]}>
+        <View
+          style={[
+            styles.roundBlock,
+            { top: Math.round(height * (comboInstructionsEnabled ? 0.12 : 0.145)) },
+          ]}
+        >
           <Text style={styles.roundLabel} allowFontScaling={false}>ROUND</Text>
           <Text
             style={[
@@ -429,83 +459,151 @@ export function WorkoutScreen({
           </Text>
         </View>
 
-        <View
-          style={[
-            styles.timerWrap,
-            {
-              top: timerWrapTop,
-              height: timerWrapHeight,
-            },
-          ]}
-        >
-          <Text style={styles.timer} allowFontScaling={false}>{formatClock(timeRemaining)}</Text>
-        </View>
+        {comboInstructionsEnabled ? (
+          <View
+            style={[
+              styles.timerWrap,
+              {
+                top: timerWrapTop,
+                height: timerWrapHeight,
+              },
+            ]}
+          >
+            <Text style={styles.timer} allowFontScaling={false}>
+              {formatClock(timeRemaining)}
+            </Text>
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.timerRing,
+              {
+                top: timerOnlyTop,
+                width: timerRingSize,
+                height: timerRingSize,
+                borderRadius: timerRingSize / 2,
+                marginLeft: -timerRingSize / 2,
+              },
+            ]}
+          >
+            <View style={styles.timerRingTickLayer} pointerEvents="none" accessibilityElementsHidden>
+              {ringTicks.map((index) => {
+                const tickOpacity = animatedElapsedRoundProgress.interpolate({
+                  inputRange: [index / TIMER_RING_TICK_COUNT, (index + 1) / TIMER_RING_TICK_COUNT],
+                  outputRange: [1, 0],
+                  extrapolate: 'clamp',
+                });
 
-        <View style={[styles.comboPanel, { top: comboTop, height: comboHeight }]}>
-          {isPaused ? (
-            <View style={styles.comboTextWrap}>
-              <Text style={styles.comboLabel} allowFontScaling={false}>WORKOUT PAUSED</Text>
-              <Text
-                style={styles.comboPausedValue}
-                allowFontScaling={false}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.72}
-              >
-                {formatClock(timeRemaining)}
-              </Text>
-              <Text style={styles.comboDescription} allowFontScaling={false}>
-                TAP RESUME WHEN READY
-              </Text>
+                return (
+                  <View key={index} style={styles.timerRingTickSlot}>
+                    <View
+                      style={[
+                        styles.timerRingTick,
+                        styles.timerRingTickInactive,
+                        {
+                          transform: [
+                            { rotate: `${(index / TIMER_RING_TICK_COUNT) * 360}deg` },
+                            { translateY: -timerRingRadius },
+                          ],
+                        },
+                      ]}
+                    />
+                    <Animated.View
+                      style={[
+                        styles.timerRingTick,
+                        styles.timerRingTickActive,
+                        isFinalTenSeconds && styles.timerRingTickFinal,
+                        {
+                          opacity: tickOpacity,
+                          transform: [
+                            { rotate: `${(index / TIMER_RING_TICK_COUNT) * 360}deg` },
+                            { translateY: -timerRingRadius },
+                          ],
+                        },
+                      ]}
+                    />
+                  </View>
+                );
+              })}
             </View>
-          ) : (
-            <Animated.View
-              key={actionKey}
-              style={[styles.comboTextWrap, { transform: [{ scale: actionAnim }], opacity: actionAnim }]}
-            >
-              <Text style={styles.comboLabel} allowFontScaling={false}>
-                {actionBadge(currentAction?.type ?? 'combo', isFreestyle)}
-              </Text>
-              <Text
-                style={styles.comboValue}
-                allowFontScaling={false}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.58}
-              >
-                {comboLabel}
-              </Text>
-              <Text
-                style={styles.comboDescription}
-                allowFontScaling={false}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.7}
-              >
-                {comboDescription}
-              </Text>
-            </Animated.View>
-          )}
-        </View>
+            <Text style={[styles.timer, styles.timerOnly]} allowFontScaling={false}>
+              {formatClock(timeRemaining)}
+            </Text>
+          </View>
+        )}
 
-        <View style={[styles.equalizer, { top: equalizerTop }]} accessibilityElementsHidden>
-          {equalizerBars.map((barHeight, index) => {
-            const idleHeight = isPaused || reduceMotion
-              ? Math.max(7, Math.round(barHeight * 0.18))
-              : Math.max(18, barHeight * 0.48);
-            const animatedHeight = voiceAnim[index].interpolate({
-              inputRange: [0, 1],
-              outputRange: [idleHeight, barHeight],
-            });
-
-            return (
+        {comboInstructionsEnabled ? (
+          <View style={[styles.comboPanel, { top: comboTop, height: comboHeight }]}>
+            {isPaused ? (
+              <View style={styles.comboTextWrap}>
+                <Text style={styles.comboLabel} allowFontScaling={false}>WORKOUT PAUSED</Text>
+                <Text
+                  style={styles.comboPausedValue}
+                  allowFontScaling={false}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                >
+                  {formatClock(timeRemaining)}
+                </Text>
+                <Text style={styles.comboDescription} allowFontScaling={false}>
+                  TAP RESUME WHEN READY
+                </Text>
+              </View>
+            ) : (
               <Animated.View
-                key={`${barHeight}-${index}`}
-                style={[styles.equalizerBar, { height: animatedHeight }]}
-              />
-            );
-          })}
-        </View>
+                key={actionKey}
+                style={[
+                  styles.comboTextWrap,
+                  { transform: [{ scale: actionAnim }], opacity: actionAnim },
+                ]}
+              >
+                <Text style={styles.comboLabel} allowFontScaling={false}>
+                  {actionBadge(currentAction?.type ?? 'combo', isFreestyle)}
+                </Text>
+                <Text
+                  style={styles.comboValue}
+                  allowFontScaling={false}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.58}
+                >
+                  {comboLabel}
+                </Text>
+                <Text
+                  style={styles.comboDescription}
+                  allowFontScaling={false}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >
+                  {comboDescription}
+                </Text>
+              </Animated.View>
+            )}
+          </View>
+        ) : null}
+
+        {comboInstructionsEnabled ? (
+          <View style={[styles.equalizer, { top: equalizerTop }]} accessibilityElementsHidden>
+            {equalizerBars.map((barHeight, index) => {
+              const idleHeight = isPaused || reduceMotion
+                ? Math.max(7, Math.round(barHeight * 0.18))
+                : Math.max(18, barHeight * 0.48);
+              const animatedHeight = voiceAnim[index].interpolate({
+                inputRange: [0, 1],
+                outputRange: [idleHeight, barHeight],
+              });
+
+              return (
+                <Animated.View
+                  key={`${barHeight}-${index}`}
+                  style={[styles.equalizerBar, { height: animatedHeight }]}
+                />
+              );
+            })}
+          </View>
+        ) : null}
 
         <View style={styles.controlRow}>
           <TactilePressable
@@ -647,11 +745,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timer: {
+    width: '100%',
     color: colors.text,
     fontFamily: 'Anton',
     fontSize: 86,
     lineHeight: 108,
     fontVariant: ['tabular-nums'],
+    textAlign: 'center',
+  },
+  timerOnly: {
+    fontSize: 112,
+    lineHeight: 157,
+  },
+  timerRing: {
+    position: 'absolute',
+    left: '50%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timerRingTickLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timerRingTickSlot: {
+    position: 'absolute',
+  },
+  timerRingTick: {
+    position: 'absolute',
+    width: 2,
+    height: 12,
+    borderRadius: 1,
+  },
+  timerRingTickInactive: {
+    backgroundColor: colors.accentSoft,
+  },
+  timerRingTickActive: {
+    backgroundColor: colors.accent,
+  },
+  timerRingTickFinal: {
+    width: 3,
+    backgroundColor: colors.accentGlow,
   },
   comboPanel: {
     position: 'absolute',

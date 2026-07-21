@@ -102,6 +102,14 @@ function AudioIcon() {
   );
 }
 
+function ComboIcon() {
+  return (
+    <View style={styles.comboIcon} accessibilityElementsHidden>
+      <Text style={styles.comboIconText} allowFontScaling={false}>1-2</Text>
+    </View>
+  );
+}
+
 export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }: Props) {
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -232,39 +240,91 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
                 variant="segment"
               />
 
-              <TactilePressable
-                accessibilityRole="switch"
-                accessibilityLabel="Audio cues"
-                accessibilityHint="Plays coach instructions"
-                accessibilityState={{ checked: settings.audioCuesEnabled }}
-                onPress={() => onChange({ audioCuesEnabled: !settings.audioCuesEnabled })}
-                haptic="selection"
-                pressedScale={0.985}
-                style={styles.audioCueRow}
-              >
-                <View style={styles.audioLabelWrap}>
-                  <AudioIcon />
-                  <View style={styles.audioCueCopy}>
-                    <Text style={styles.audioCueLabel} allowFontScaling={false}>Audio Cues</Text>
-                    <Text style={styles.audioCueHint} allowFontScaling={false}>
-                      Coach instructions
-                    </Text>
-                  </View>
-                </View>
-                <View
-                  style={[
-                    styles.toggleTrack,
-                    settings.audioCuesEnabled && styles.toggleTrackOn,
-                  ]}
+              <View style={styles.instructionSettings}>
+                <TactilePressable
+                  accessibilityRole="switch"
+                  accessibilityLabel="Combo instructions"
+                  accessibilityHint="Shows combinations during workouts"
+                  accessibilityState={{ checked: settings.comboInstructionsEnabled }}
+                  onPress={() =>
+                    onChange({
+                      comboInstructionsEnabled: !settings.comboInstructionsEnabled,
+                      ...(settings.comboInstructionsEnabled
+                        ? { audioCuesEnabled: false }
+                        : {}),
+                    })
+                  }
+                  haptic="selection"
+                  pressedScale={0.985}
+                  style={styles.audioCueRow}
                 >
+                  <View style={styles.audioLabelWrap}>
+                    <ComboIcon />
+                    <View style={styles.audioCueCopy}>
+                      <Text style={styles.audioCueLabel} allowFontScaling={false}>
+                        Combo Instructions
+                      </Text>
+                      <Text style={styles.audioCueHint} allowFontScaling={false}>
+                        Show combinations
+                      </Text>
+                    </View>
+                  </View>
                   <View
                     style={[
-                      styles.toggleThumb,
-                      settings.audioCuesEnabled && styles.toggleThumbOn,
+                      styles.toggleTrack,
+                      settings.comboInstructionsEnabled && styles.toggleTrackOn,
                     ]}
-                  />
-                </View>
-              </TactilePressable>
+                  >
+                    <View
+                      style={[
+                        styles.toggleThumb,
+                        settings.comboInstructionsEnabled && styles.toggleThumbOn,
+                      ]}
+                    />
+                  </View>
+                </TactilePressable>
+
+                <TactilePressable
+                  accessibilityRole="switch"
+                  accessibilityLabel="Audio cues"
+                  accessibilityHint="Plays coach instructions"
+                  accessibilityState={{
+                    checked: settings.audioCuesEnabled,
+                    disabled: !settings.comboInstructionsEnabled,
+                  }}
+                  disabled={!settings.comboInstructionsEnabled}
+                  onPress={() => onChange({ audioCuesEnabled: !settings.audioCuesEnabled })}
+                  haptic="selection"
+                  pressedScale={0.985}
+                  style={[
+                    styles.audioCueRow,
+                    !settings.comboInstructionsEnabled && styles.instructionSettingDisabled,
+                  ]}
+                >
+                  <View style={styles.audioLabelWrap}>
+                    <AudioIcon />
+                    <View style={styles.audioCueCopy}>
+                      <Text style={styles.audioCueLabel} allowFontScaling={false}>Audio Cues</Text>
+                      <Text style={styles.audioCueHint} allowFontScaling={false}>
+                        Coach instructions
+                      </Text>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.toggleTrack,
+                      settings.audioCuesEnabled && styles.toggleTrackOn,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.toggleThumb,
+                        settings.audioCuesEnabled && styles.toggleThumbOn,
+                      ]}
+                    />
+                  </View>
+                </TactilePressable>
+              </View>
             </>
           )}
         </ScrollView>
@@ -455,6 +515,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  instructionSettings: {
+    gap: 8,
+  },
+  instructionSettingDisabled: {
+    opacity: 0.45,
+  },
   audioLabelWrap: {
     flex: 1,
     flexDirection: 'row',
@@ -483,6 +549,19 @@ const styles = StyleSheet.create({
   audioIcon: {
     width: 22,
     height: 20,
+  },
+  comboIcon: {
+    width: 22,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  comboIconText: {
+    color: colors.accent,
+    fontFamily: labelFont,
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: -0.4,
   },
   audioHead: {
     position: 'absolute',
