@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   PanResponder,
   Pressable,
   ScrollView,
@@ -11,12 +12,14 @@ import {
 } from 'react-native';
 import type { TuningOverrides } from '@boxing-coach/core';
 import { ScreenShell } from '../components/ScreenShell';
+import { sendTestTrainingReminder } from '../lib/trainingReminders';
 import { colors, shadow } from '../theme';
 
 interface Props {
   tuning: TuningOverrides;
   onChange: (tuning: TuningOverrides) => void;
   onBack: () => void;
+  onResetAsyncStorage: () => Promise<void>;
 }
 
 interface SliderRowProps {
@@ -190,11 +193,69 @@ function ToggleRow({
   );
 }
 
-export function DevScreen({ tuning, onChange, onBack }: Props) {
+export function DevScreen({
+  tuning,
+  onChange,
+  onBack,
+  onResetAsyncStorage,
+}: Props) {
   const [isDraggingSlider, setIsDraggingSlider] = useState(false);
+  const [notificationTestStatus, setNotificationTestStatus] = useState(
+    'Sends a random training reminder after 2 seconds.',
+  );
+  const [notificationTestBusy, setNotificationTestBusy] = useState(false);
+  const [storageResetBusy, setStorageResetBusy] = useState(false);
+  const [storageResetError, setStorageResetError] = useState<string | null>(null);
 
   const set = (key: keyof TuningOverrides) => (value: number | boolean | undefined) => {
     onChange({ ...tuning, [key]: value });
+  };
+
+  const sendNotificationTest = async () => {
+    setNotificationTestBusy(true);
+    setNotificationTestStatus('Preparing notification…');
+    try {
+      const result = await sendTestTrainingReminder();
+      if (result.permission === 'granted' && result.message) {
+        setNotificationTestStatus(
+          `Scheduled: “${result.message.title}” Leave this screen open or background the app.`,
+        );
+      } else if (result.permission === 'denied') {
+        setNotificationTestStatus('Notifications are disabled. Enable them in device Settings.');
+      } else {
+        setNotificationTestStatus('Notifications are unavailable in this build.');
+      }
+    } catch {
+      setNotificationTestStatus('Could not schedule the test notification.');
+    } finally {
+      setNotificationTestBusy(false);
+    }
+  };
+
+  const resetAsyncStorage = async () => {
+    setStorageResetBusy(true);
+    setStorageResetError(null);
+    try {
+      await onResetAsyncStorage();
+    } catch {
+      setStorageResetError('Could not reset local app data. Try again.');
+      setStorageResetBusy(false);
+    }
+  };
+
+  const confirmAsyncStorageReset = () => {
+    Alert.alert(
+      'Reset AsyncStorage data?',
+      'This signs out, clears all Boxing Coach data stored on this device, and returns to the onboarding welcome page.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset data',
+          style: 'destructive',
+          onPress: () => void resetAsyncStorage(),
+        },
+      ],
+    );
   };
 
   return (
@@ -216,6 +277,53 @@ export function DevScreen({ tuning, onChange, onBack }: Props) {
             Changes are saved locally and apply the next time you start a workout.
           </Text>
         </View>
+
+        {__DEV__ ? (
+          <>
+            <View style={styles.notificationTestCard}>
+              <Text style={styles.notificationTestKicker}>APP DATA</Text>
+              <Text style={styles.notificationTestTitle}>RESET ASYNC STORAGE</Text>
+              <Text style={styles.notificationTestHint}>
+                Clear local app data and return to the “Let&apos;s get started” page.
+              </Text>
+              {storageResetError ? (
+                <Text style={styles.storageResetError}>{storageResetError}</Text>
+              ) : null}
+              <Pressable
+                disabled={storageResetBusy}
+                onPress={confirmAsyncStorageReset}
+                style={({ pressed }) => [
+                  styles.storageResetButton,
+                  pressed && styles.buttonPressed,
+                  storageResetBusy && styles.notificationTestButtonDisabled,
+                ]}
+              >
+                <Text style={styles.notificationTestButtonText}>
+                  {storageResetBusy ? 'RESETTING…' : 'RESET ASYNC STORAGE DATA'}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.notificationTestCard}>
+              <Text style={styles.notificationTestKicker}>NOTIFICATIONS</Text>
+              <Text style={styles.notificationTestTitle}>LOCAL REMINDER TEST</Text>
+              <Text style={styles.notificationTestHint}>{notificationTestStatus}</Text>
+              <Pressable
+                disabled={notificationTestBusy}
+                onPress={() => void sendNotificationTest()}
+                style={({ pressed }) => [
+                  styles.notificationTestButton,
+                  pressed && styles.buttonPressed,
+                  notificationTestBusy && styles.notificationTestButtonDisabled,
+                ]}
+              >
+                <Text style={styles.notificationTestButtonText}>
+                  {notificationTestBusy ? 'SCHEDULING…' : 'SEND TEST NOTIFICATION'}
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
 
         <SliderRow
           label="Recovery Gap Base"
@@ -401,6 +509,62 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  notificationTestCard: {
+    padding: 18,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  notificationTestKicker: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  notificationTestTitle: {
+    marginTop: 6,
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  notificationTestHint: {
+    marginTop: 8,
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  notificationTestButton: {
+    minHeight: 50,
+    marginTop: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: colors.accent,
+  },
+  storageResetButton: {
+    minHeight: 50,
+    marginTop: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: colors.red,
+  },
+  storageResetError: {
+    marginTop: 8,
+    color: colors.red,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  notificationTestButtonDisabled: {
+    opacity: 0.55,
+  },
+  notificationTestButtonText: {
+    color: colors.background,
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 1.2,
   },
   rowHeader: {
     flexDirection: 'row',

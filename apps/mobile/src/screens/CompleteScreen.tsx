@@ -61,7 +61,7 @@ export function CompleteScreen({ performance, onReturnToGym }: Props) {
   };
 
   return (
-    <ScreenShell backgroundColor="#000000">
+    <ScreenShell>
       <View style={styles.container}>
         {!reduceMotion ? (
           <View style={styles.confettiLayer} pointerEvents="none" accessibilityElementsHidden>
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingBottom: 24,
     overflow: 'hidden',
-    backgroundColor: '#000000',
+    backgroundColor: 'transparent',
   },
   confettiLayer: {
     ...StyleSheet.absoluteFillObject,

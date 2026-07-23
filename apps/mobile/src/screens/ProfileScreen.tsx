@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,6 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenShell } from '../components/ScreenShell';
 import { SkeletonBlock } from '../components/SkeletonBlock';
 import { TactilePressable } from '../components/TactilePressable';
@@ -24,19 +27,57 @@ import {
   GOAL_OPTIONS,
   SESSION_DURATIONS,
   STANCE_OPTIONS,
+  TRAINING_DAYS,
   optionLabel,
   type Equipment,
   type FighterProfile,
+  type GenderIdentity,
+  type HeightUnit,
+  type TrainingDay,
+  type WeightUnit,
 } from '../features/profile/types';
+import {
+  MAX_HEIGHT_CM,
+  MAX_HEIGHT_INCHES,
+  MIN_HEIGHT_CM,
+  MIN_HEIGHT_INCHES,
+  clampHeightCm,
+  clampHeightInches,
+  centimetresToRoundedInches,
+  formatFeetAndInches,
+  inchesToCentimetres,
+  splitFeetAndInches,
+} from '../features/profile/height';
 import { profilePhotoUploadsEnabled } from '../lib/firebase';
 import type { WorkoutHistoryItem } from '../lib/workoutHistory';
 import { useAuth } from '../providers/AuthProvider';
 import { useWorkoutHistory } from '../providers/WorkoutHistoryProvider';
 import { colors, textLineHeight } from '../theme';
 
-type ProfileView = 'profile' | 'edit' | 'account';
+type ProfileView = 'profile' | 'edit' | 'account' | 'signup';
 type ConfirmAction = 'signout' | 'delete' | null;
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
+
+const GENDER_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+] as const;
+const WEIGHT_UNIT_OPTIONS = [
+  { value: 'kg', label: 'KG' },
+  { value: 'lb', label: 'LB' },
+] as const;
+const HEIGHT_UNIT_OPTIONS = [
+  { value: 'cm', label: 'CM' },
+  { value: 'in', label: 'FT + IN' },
+] as const;
+const DAY_LABELS: Record<TrainingDay, string> = {
+  monday: 'MON',
+  tuesday: 'TUE',
+  wednesday: 'WED',
+  thursday: 'THU',
+  friday: 'FRI',
+  saturday: 'SAT',
+};
 
 function initials(name: string) {
   const value = name.trim();
@@ -78,6 +119,18 @@ function formatTrainingTime(seconds: number) {
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return remainder ? `${hours}H ${remainder}M` : `${hours}H`;
+}
+
+function formatWeight(profile: FighterProfile) {
+  const value = profile.weightUnit === 'kg'
+    ? profile.weightKg
+    : profile.weightKg * 2.2046226218;
+  return `${Math.round(value)} ${profile.weightUnit.toUpperCase()}`;
+}
+
+function formatHeight(profile: FighterProfile) {
+  if (profile.heightUnit === 'cm') return `${Math.round(profile.heightCm)} CM`;
+  return formatFeetAndInches(centimetresToRoundedInches(profile.heightCm));
 }
 
 function ScreenTitle({ first, accent }: { first: string; accent: string }) {
@@ -262,7 +315,13 @@ function ErrorBanner({ message, onDismiss }: { message: string | null; onDismiss
   );
 }
 
-function AuthScreen() {
+function AuthScreen({
+  onBack,
+  onSignedIn,
+}: {
+  onBack?: () => void;
+  onSignedIn?: () => Promise<void>;
+}) {
   const {
     signInWithApple,
     signInWithGoogle,
@@ -272,86 +331,124 @@ function AuthScreen() {
     appleSignInEnabled,
   } = useAuth();
   const [activeProvider, setActiveProvider] = useState<'apple' | 'google' | null>(null);
+  const [backgroundLoaded, setBackgroundLoaded] = useState(false);
+  const insets = useSafeAreaInsets();
   const authenticationBusy = isBusy || activeProvider !== null;
 
   const authenticate = async (provider: 'apple' | 'google') => {
     if (authenticationBusy) return;
     setActiveProvider(provider);
     try {
-      if (provider === 'apple') await signInWithApple();
-      else await signInWithGoogle();
+      const signedIn = provider === 'apple'
+        ? await signInWithApple()
+        : await signInWithGoogle();
+      if (signedIn) await onSignedIn?.();
     } finally {
       setActiveProvider(null);
     }
   };
 
   return (
-    <ScreenShell>
-      <ScrollView
-        contentContainerStyle={[styles.pageContent, styles.authContent]}
-        showsVerticalScrollIndicator={false}
+    <ImageBackground
+      source={require('../../assets/onboarding/save-training-glove.jpg')}
+      resizeMode="cover"
+      style={styles.authBackground}
+      accessible={false}
+      onLoad={() => setBackgroundLoaded(true)}
+    >
+      <LinearGradient
+        colors={['rgba(5,0,0,0.52)', 'rgba(5,0,0,0.72)', 'rgba(5,0,0,0.96)']}
+        locations={[0, 0.45, 1]}
+        style={[styles.authOverlay, !backgroundLoaded && styles.backgroundContentHidden]}
       >
-        <View>
-          <Text style={styles.kicker} allowFontScaling={false}>YOUR CORNER. EVERYWHERE.</Text>
-          <ScreenTitle first="SAVE YOUR" accent="TRAINING" />
-          <Text style={styles.leadCopy}>
-            Protect your workout history, sync your progress, and get ready for premium coaching.
-          </Text>
-        </View>
-
-        <View style={styles.authActions}>
-          <ErrorBanner message={errorMessage} onDismiss={clearError} />
-          {Platform.OS === 'ios' ? (
-            <TactilePressable
-              onPress={() => void authenticate('apple')}
-              disabled={authenticationBusy || !appleSignInEnabled}
-              haptic="medium"
-              accessibilityState={{ disabled: authenticationBusy || !appleSignInEnabled }}
-              style={[
-                styles.providerButton,
-                (authenticationBusy || !appleSignInEnabled) && styles.buttonDisabled,
-              ]}
-            >
-              {activeProvider === 'apple' ? (
-                <ActivityIndicator color={colors.background} />
-              ) : (
-                <>
-                  <Ionicons name="logo-apple" size={22} color={colors.background} />
-                  <Text style={styles.providerButtonText}>
-                    {appleSignInEnabled ? 'Continue with Apple' : 'Apple Sign-In unavailable'}
-                  </Text>
-                </>
-              )}
-            </TactilePressable>
-          ) : null}
-          {Platform.OS === 'ios' && !appleSignInEnabled ? (
-            <Text style={styles.providerUnavailableCopy}>
-              Requires an Apple Developer Program build. Google Sign-In remains available for testing.
-            </Text>
-          ) : null}
-          <TactilePressable
-            onPress={() => void authenticate('google')}
-            disabled={authenticationBusy}
-            haptic="medium"
-            style={[styles.providerButton, styles.providerButtonDark, authenticationBusy && styles.buttonDisabled]}
+        <View
+          style={[
+            styles.authSafeArea,
+            {
+              paddingTop: insets.top,
+              paddingRight: insets.right,
+              paddingBottom: insets.bottom,
+              paddingLeft: insets.left,
+            },
+          ]}
+        >
+          <ScrollView
+            contentContainerStyle={[styles.pageContent, styles.authContent]}
+            showsVerticalScrollIndicator={false}
           >
-            {activeProvider === 'google' ? (
-              <ActivityIndicator color={colors.text} />
-            ) : (
-              <>
-                <Ionicons name="logo-google" size={21} color={colors.text} />
-                <Text style={[styles.providerButtonText, styles.providerButtonTextDark]}>
-                  Continue with Google
+            <View>
+              {onBack ? (
+                <TactilePressable
+                  onPress={onBack}
+                  haptic="light"
+                  style={styles.backIconButton}
+                  accessibilityLabel="Back to fighter profile"
+                >
+                  <Ionicons name="chevron-back" size={23} color={colors.text} />
+                </TactilePressable>
+              ) : null}
+              <Text style={styles.kicker} allowFontScaling={false}>YOUR CORNER. EVERYWHERE.</Text>
+              <ScreenTitle first="SAVE YOUR" accent="TRAINING" />
+              <Text style={styles.leadCopy}>
+                Protect your workout history, sync your progress, and get ready for premium coaching.
+              </Text>
+            </View>
+
+            <View style={styles.authActions}>
+              <ErrorBanner message={errorMessage} onDismiss={clearError} />
+              {Platform.OS === 'ios' ? (
+                <TactilePressable
+                  onPress={() => void authenticate('apple')}
+                  disabled={authenticationBusy || !appleSignInEnabled}
+                  haptic="medium"
+                  accessibilityState={{ disabled: authenticationBusy || !appleSignInEnabled }}
+                  style={[
+                    styles.providerButton,
+                    (authenticationBusy || !appleSignInEnabled) && styles.buttonDisabled,
+                  ]}
+                >
+                  {activeProvider === 'apple' ? (
+                    <ActivityIndicator color={colors.background} />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-apple" size={22} color={colors.background} />
+                      <Text style={styles.providerButtonText}>
+                        {appleSignInEnabled ? 'Continue with Apple' : 'Apple Sign-In unavailable'}
+                      </Text>
+                    </>
+                  )}
+                </TactilePressable>
+              ) : null}
+              {Platform.OS === 'ios' && !appleSignInEnabled ? (
+                <Text style={styles.providerUnavailableCopy}>
+                  Requires an Apple Developer Program build. Google Sign-In remains available for testing.
                 </Text>
-              </>
-            )}
-          </TactilePressable>
-          <Text style={styles.legalCopy}>
-            By continuing, you agree to the Terms of Service and acknowledge the Privacy Policy.
-          </Text>
+              ) : null}
+              <TactilePressable
+                onPress={() => void authenticate('google')}
+                disabled={authenticationBusy}
+                haptic="medium"
+                style={[styles.providerButton, styles.providerButtonDark, authenticationBusy && styles.buttonDisabled]}
+              >
+                {activeProvider === 'google' ? (
+                  <ActivityIndicator color={colors.text} />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={21} color={colors.text} />
+                    <Text style={[styles.providerButtonText, styles.providerButtonTextDark]}>
+                      Continue with Google
+                    </Text>
+                  </>
+                )}
+              </TactilePressable>
+              <Text style={styles.legalCopy}>
+                By continuing, you agree to the Terms of Service and acknowledge the Privacy Policy.
+              </Text>
+            </View>
+          </ScrollView>
         </View>
-      </ScrollView>
-    </ScreenShell>
+      </LinearGradient>
+    </ImageBackground>
   );
 }
 
@@ -460,6 +557,14 @@ function IdentityFields({
         />
       </View>
       <View style={styles.fieldGroup}>
+        <SectionLabel>Gender</SectionLabel>
+        <ChoiceGrid<GenderIdentity>
+          options={GENDER_OPTIONS}
+          value={value.gender}
+          onChange={gender => onChange({ ...value, gender })}
+        />
+      </View>
+      <View style={styles.fieldGroup}>
         <SectionLabel>Experience</SectionLabel>
         <ChoiceGrid
           options={EXPERIENCE_OPTIONS}
@@ -509,6 +614,174 @@ function TrainingFields({
   );
 }
 
+function MeasurementField({
+  label,
+  value,
+  unit,
+  units,
+  onUnitChange,
+  onValueChange,
+}: {
+  label: string;
+  value: number;
+  unit: WeightUnit | HeightUnit;
+  units: typeof WEIGHT_UNIT_OPTIONS | typeof HEIGHT_UNIT_OPTIONS;
+  onUnitChange: (unit: WeightUnit | HeightUnit) => void;
+  onValueChange: (value: number) => void;
+}) {
+  const [inputValue, setInputValue] = useState(() => String(Math.round(value)));
+
+  useEffect(() => {
+    setInputValue(String(Math.round(value)));
+  }, [unit, value]);
+
+  const commitValue = () => {
+    const nextValue = Number(inputValue);
+    if (Number.isFinite(nextValue) && nextValue > 0) {
+      onValueChange(nextValue);
+      return;
+    }
+    setInputValue(String(Math.round(value)));
+  };
+
+  return (
+    <View style={styles.fieldGroup}>
+      <SectionLabel>{label}</SectionLabel>
+      <ChoiceGrid
+        options={units}
+        value={unit}
+        onChange={onUnitChange}
+      />
+      <TextInput
+        value={inputValue}
+        onChangeText={text => {
+          const numericText = text
+            .replace(/[^0-9.]/g, '')
+            .replace(/(\..*)\./g, '$1');
+          setInputValue(numericText);
+        }}
+        onEndEditing={commitValue}
+        keyboardType="decimal-pad"
+        inputMode="decimal"
+        selectTextOnFocus
+        style={styles.textInput}
+        accessibilityLabel={`${label} in ${unit}`}
+      />
+    </View>
+  );
+}
+
+function HeightMeasurementField({
+  valueCm,
+  unit,
+  onUnitChange,
+  onValueChange,
+}: {
+  valueCm: number;
+  unit: HeightUnit;
+  onUnitChange: (unit: HeightUnit) => void;
+  onValueChange: (valueCm: number) => void;
+}) {
+  const roundedInches = centimetresToRoundedInches(valueCm);
+  const splitHeight = splitFeetAndInches(roundedInches);
+  const [cmInput, setCmInput] = useState(() => String(Math.round(valueCm)));
+  const [feetInput, setFeetInput] = useState(() => String(splitHeight.feet));
+  const [inchesInput, setInchesInput] = useState(() => String(splitHeight.inches));
+
+  useEffect(() => {
+    const nextHeight = splitFeetAndInches(centimetresToRoundedInches(valueCm));
+    setCmInput(String(Math.round(valueCm)));
+    setFeetInput(String(nextHeight.feet));
+    setInchesInput(String(nextHeight.inches));
+  }, [unit, valueCm]);
+
+  const commitCentimetres = () => {
+    const nextValue = Number(cmInput);
+    if (!Number.isFinite(nextValue)) {
+      setCmInput(String(Math.round(valueCm)));
+      return;
+    }
+    const clampedValue = clampHeightCm(nextValue);
+    setCmInput(String(clampedValue));
+    onValueChange(clampedValue);
+  };
+
+  const commitFeetAndInches = () => {
+    const feet = Number(feetInput);
+    const inches = Number(inchesInput);
+    if (!Number.isFinite(feet) || !Number.isFinite(inches)) {
+      const currentHeight = splitFeetAndInches(
+        centimetresToRoundedInches(valueCm),
+      );
+      setFeetInput(String(currentHeight.feet));
+      setInchesInput(String(currentHeight.inches));
+      return;
+    }
+    const totalInches = clampHeightInches(feet * 12 + inches);
+    const nextHeight = splitFeetAndInches(totalInches);
+    setFeetInput(String(nextHeight.feet));
+    setInchesInput(String(nextHeight.inches));
+    onValueChange(inchesToCentimetres(totalInches));
+  };
+
+  return (
+    <View style={styles.fieldGroup}>
+      <SectionLabel>Height</SectionLabel>
+      <ChoiceGrid
+        options={HEIGHT_UNIT_OPTIONS}
+        value={unit}
+        onChange={onUnitChange}
+      />
+      {unit === 'cm' ? (
+        <TextInput
+          value={cmInput}
+          onChangeText={text => setCmInput(text.replace(/[^0-9]/g, ''))}
+          onEndEditing={commitCentimetres}
+          keyboardType="number-pad"
+          inputMode="numeric"
+          selectTextOnFocus
+          style={styles.textInput}
+          accessibilityLabel="Height in centimetres"
+        />
+      ) : (
+        <View style={styles.heightInputRow}>
+          <View style={styles.heightInputGroup}>
+            <TextInput
+              value={feetInput}
+              onChangeText={text => setFeetInput(text.replace(/[^0-9]/g, ''))}
+              onEndEditing={commitFeetAndInches}
+              keyboardType="number-pad"
+              inputMode="numeric"
+              selectTextOnFocus
+              style={[styles.textInput, styles.heightTextInput]}
+              accessibilityLabel="Height in feet"
+            />
+            <Text style={styles.heightInputUnit}>FT</Text>
+          </View>
+          <View style={styles.heightInputGroup}>
+            <TextInput
+              value={inchesInput}
+              onChangeText={text => setInchesInput(text.replace(/[^0-9]/g, ''))}
+              onEndEditing={commitFeetAndInches}
+              keyboardType="number-pad"
+              inputMode="numeric"
+              selectTextOnFocus
+              style={[styles.textInput, styles.heightTextInput]}
+              accessibilityLabel="Remaining height in inches"
+            />
+            <Text style={styles.heightInputUnit}>IN</Text>
+          </View>
+        </View>
+      )}
+      <Text style={styles.fieldHint}>
+        {unit === 'cm'
+          ? `Allowed range: ${MIN_HEIGHT_CM}–${MAX_HEIGHT_CM} cm.`
+          : `Allowed range: ${formatFeetAndInches(MIN_HEIGHT_INCHES)}–${formatFeetAndInches(MAX_HEIGHT_INCHES)}.`}
+      </Text>
+    </View>
+  );
+}
+
 function RoutineFields({
   value,
   onChange,
@@ -519,18 +792,39 @@ function RoutineFields({
   return (
     <>
       <View style={styles.fieldGroup}>
-        <SectionLabel>Training days per week</SectionLabel>
+        <SectionLabel>Training days</SectionLabel>
         <View style={styles.dayGrid}>
-          {Array.from({ length: 7 }, (_, index) => index + 1).map(day => {
-            const selected = day === value.targetDaysPerWeek;
+          {TRAINING_DAYS.map(day => {
+            const selected = value.trainingDays.includes(day);
             return (
               <TactilePressable
                 key={day}
-                onPress={() => onChange({ ...value, targetDaysPerWeek: day })}
+                onPress={() => {
+                  const trainingDays = selected
+                    ? value.trainingDays.filter(item => item !== day)
+                    : TRAINING_DAYS.filter(
+                      item => item === day || value.trainingDays.includes(item),
+                    );
+                  onChange({
+                    ...value,
+                    trainingDays,
+                    targetDaysPerWeek: trainingDays.length,
+                  });
+                }}
                 haptic="selection"
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: selected }}
                 style={[styles.dayButton, selected && styles.dayButtonSelected]}
               >
-                <Text style={[styles.dayButtonText, selected && styles.dayButtonTextSelected]}>{day}</Text>
+                <Text
+                  style={[
+                    styles.dayButtonText,
+                    styles.exactDayButtonText,
+                    selected && styles.dayButtonTextSelected,
+                  ]}
+                >
+                  {DAY_LABELS[day]}
+                </Text>
               </TactilePressable>
             );
           })}
@@ -555,6 +849,26 @@ function RoutineFields({
           })}
         </View>
       </View>
+      <MeasurementField
+        label="Weight"
+        value={value.weightUnit === 'kg' ? value.weightKg : value.weightKg * 2.2046226218}
+        unit={value.weightUnit}
+        units={WEIGHT_UNIT_OPTIONS}
+        onUnitChange={unit => onChange({ ...value, weightUnit: unit as WeightUnit })}
+        onValueChange={weight => onChange({
+          ...value,
+          weightKg: value.weightUnit === 'kg' ? weight : weight / 2.2046226218,
+        })}
+      />
+      <HeightMeasurementField
+        valueCm={value.heightCm}
+        unit={value.heightUnit}
+        onUnitChange={heightUnit => onChange({ ...value, heightUnit })}
+        onValueChange={heightCm => onChange({
+          ...value,
+          heightCm,
+        })}
+      />
     </>
   );
 }
@@ -723,8 +1037,20 @@ function DetailRow({ icon, label, value }: { icon: IoniconName; label: string; v
   );
 }
 
-function ProfileOverview({ onEdit, onAccount }: { onEdit: () => void; onAccount: () => void }) {
-  const { profile, syncStatus } = useAuth();
+function ProfileOverview({
+  profile,
+  isGuest,
+  cloudSyncPending,
+  onEdit,
+  onAccount,
+}: {
+  profile: FighterProfile;
+  isGuest: boolean;
+  cloudSyncPending: boolean;
+  onEdit: () => void;
+  onAccount: () => void;
+}) {
+  const { syncStatus } = useAuth();
   const { history } = useWorkoutHistory();
 
   const metrics = useMemo(() => {
@@ -741,10 +1067,13 @@ function ProfileOverview({ onEdit, onAccount }: { onEdit: () => void; onAccount:
     };
   }, [history]);
 
-  if (!profile) return null;
   const equipment = profile.equipment.length
     ? profile.equipment.map(item => optionLabel(EQUIPMENT_OPTIONS, item)).join(', ')
     : 'No equipment selected';
+  const trainingDays = profile.trainingDays.length
+    ? profile.trainingDays.map(day => DAY_LABELS[day]).join(' · ')
+    : 'No reminder days';
+  const displayName = profile.displayName.trim() || 'Guest Boxer';
 
   return (
     <ScreenShell>
@@ -754,12 +1083,12 @@ function ProfileOverview({ onEdit, onAccount }: { onEdit: () => void; onAccount:
             {profile.photoUrl ? (
               <Image source={{ uri: profile.photoUrl }} style={styles.avatarImage} />
             ) : (
-              <Text style={styles.profileAvatarText}>{initials(profile.displayName)}</Text>
+              <Text style={styles.profileAvatarText}>{initials(displayName)}</Text>
             )}
           </View>
           <View style={styles.profileHeaderCopy}>
             <Text style={styles.kicker}>FIGHTER PROFILE</Text>
-            <Text style={styles.profileName} numberOfLines={1}>{profile.displayName}</Text>
+            <Text style={styles.profileName} numberOfLines={1}>{displayName}</Text>
             <Text style={styles.profileMeta}>
               {optionLabel(EXPERIENCE_OPTIONS, profile.experience).toUpperCase()} · {optionLabel(STANCE_OPTIONS, profile.stance).toUpperCase()}
             </Text>
@@ -770,17 +1099,23 @@ function ProfileOverview({ onEdit, onAccount }: { onEdit: () => void; onAccount:
         </View>
 
         <View style={styles.syncPill}>
-          {syncStatus === 'syncing' ? (
+          {!isGuest && (syncStatus === 'syncing' || cloudSyncPending) ? (
             <ActivityIndicator size="small" color={colors.peach} />
           ) : (
             <Ionicons
-              name={syncStatus === 'error' ? 'cloud-offline-outline' : 'cloud-done-outline'}
+              name={isGuest
+                ? 'phone-portrait-outline'
+                : syncStatus === 'error'
+                  ? 'cloud-offline-outline'
+                  : 'cloud-done-outline'}
               size={17}
               color={syncStatus === 'error' ? colors.red : colors.peach}
             />
           )}
           <Text style={styles.syncPillText}>
-            {syncStatus === 'syncing'
+            {isGuest
+              ? 'SAVED ON THIS DEVICE'
+              : syncStatus === 'syncing' || cloudSyncPending
               ? 'SAVING PROGRESS'
               : syncStatus === 'error'
                 ? 'SYNC NEEDS ATTENTION'
@@ -805,8 +1140,22 @@ function ProfileOverview({ onEdit, onAccount }: { onEdit: () => void; onAccount:
           <View style={styles.detailCard}>
             <DetailRow icon="flag-outline" label="PRIMARY GOAL" value={optionLabel(GOAL_OPTIONS, profile.goal)} />
             <DetailRow icon="barbell-outline" label="EQUIPMENT" value={equipment} />
-            <DetailRow icon="calendar-outline" label="WEEKLY TARGET" value={`${profile.targetDaysPerWeek} training days`} />
+            <DetailRow icon="calendar-outline" label="TRAINING DAYS" value={trainingDays} />
             <DetailRow icon="timer-outline" label="SESSION LENGTH" value={`${profile.preferredSessionMinutes} minutes`} />
+          </View>
+        </View>
+
+        <View style={styles.profileSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.profileSectionTitle}>FIGHTER DETAILS</Text>
+            <TactilePressable onPress={onEdit} haptic="none" style={styles.textAction}>
+              <Text style={styles.textActionLabel}>EDIT</Text>
+            </TactilePressable>
+          </View>
+          <View style={styles.detailCard}>
+            <DetailRow icon="person-outline" label="GENDER" value={optionLabel(GENDER_OPTIONS, profile.gender)} />
+            <DetailRow icon="fitness-outline" label="WEIGHT" value={formatWeight(profile)} />
+            <DetailRow icon="resize-outline" label="HEIGHT" value={formatHeight(profile)} />
           </View>
         </View>
 
@@ -815,8 +1164,14 @@ function ProfileOverview({ onEdit, onAccount }: { onEdit: () => void; onAccount:
             <Ionicons name="person-circle-outline" size={25} color={colors.peach} />
           </View>
           <View style={styles.accountRowCopy}>
-            <Text style={styles.accountRowTitle}>ACCOUNT & DATA</Text>
-            <Text style={styles.accountRowSubtitle}>Sign-in, sync, membership and privacy</Text>
+            <Text style={styles.accountRowTitle}>
+              {isGuest ? 'SAVE & SYNC PROFILE' : 'ACCOUNT & DATA'}
+            </Text>
+            <Text style={styles.accountRowSubtitle}>
+              {isGuest
+                ? 'Sign up to protect this fighter profile'
+                : 'Sign-in, sync, membership and privacy'}
+            </Text>
           </View>
           <Ionicons name="chevron-forward" size={21} color={colors.textMuted} />
         </TactilePressable>
@@ -825,23 +1180,37 @@ function ProfileOverview({ onEdit, onAccount }: { onEdit: () => void; onAccount:
   );
 }
 
-function EditProfile({ onDone }: { onDone: () => void }) {
-  const { profile, saveProfile, isBusy, errorMessage, clearError } = useAuth();
-  const [draft, setDraft] = useState<FighterProfile>(profile ?? DEFAULT_FIGHTER_PROFILE);
+function EditProfile({
+  profile,
+  onSave,
+  onDone,
+}: {
+  profile: FighterProfile;
+  onSave: (profile: FighterProfile) => Promise<void>;
+  onDone: () => void;
+}) {
+  const { isBusy, errorMessage, clearError } = useAuth();
+  const [draft, setDraft] = useState<FighterProfile>(profile);
 
   useEffect(() => {
-    if (profile) setDraft(profile);
+    setDraft(profile);
   }, [profile]);
 
+  const hasChanges = JSON.stringify(draft) !== JSON.stringify(profile);
+
   const save = async () => {
-    await saveProfile(draft);
+    await onSave(draft);
     onDone();
   };
 
   return (
     <ScreenShell>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.formContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={[styles.formContent, styles.editFormContent]}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.editHeader}>
             <TactilePressable onPress={onDone} haptic="light" style={styles.backIconButton}>
               <Ionicons name="chevron-back" size={23} color={colors.text} />
@@ -855,16 +1224,28 @@ function EditProfile({ onDone }: { onDone: () => void }) {
           <IdentityFields value={draft} onChange={setDraft} />
           <TrainingFields value={draft} onChange={setDraft} />
           <RoutineFields value={draft} onChange={setDraft} />
-          <View style={styles.formActions}>
-            <PrimaryButton
-              label="SAVE CHANGES"
-              onPress={() => void save().catch(() => undefined)}
-              loading={isBusy}
-              icon="checkmark"
-            />
-            <SecondaryButton label="CANCEL" onPress={onDone} />
-          </View>
         </ScrollView>
+        <View style={styles.floatingSaveCta}>
+          <TactilePressable
+            accessibilityRole="button"
+            accessibilityLabel="Save profile changes"
+            accessibilityState={{ disabled: !hasChanges || isBusy, busy: isBusy }}
+            onPress={() => void save().catch(() => undefined)}
+            disabled={!hasChanges || isBusy}
+            haptic="medium"
+            pressedScale={0.98}
+            style={styles.saveChangesButton}
+          >
+            {isBusy ? (
+              <ActivityIndicator color={colors.text} />
+            ) : (
+              <>
+                <Ionicons name="checkmark" size={27} color={colors.text} />
+                <Text style={styles.saveChangesButtonText} allowFontScaling={false}>SAVE CHANGES</Text>
+              </>
+            )}
+          </TactilePressable>
+        </View>
       </KeyboardAvoidingView>
     </ScreenShell>
   );
@@ -917,8 +1298,8 @@ function ConfirmSheet({
           <Text style={styles.sheetTitle}>{deleting ? 'DELETE ACCOUNT?' : 'SIGN OUT?'}</Text>
           <Text style={styles.sheetCopy}>
             {deleting
-              ? `This permanently removes your fighter profile and synced workouts from your account. Workout history stays on this device. ${connectedProvider === 'apple' ? 'Apple may ask you to confirm your identity' : 'Google confirmation is only shown if your saved session has expired'}. This cannot be undone.`
-              : 'Your account data stays protected online, and workout history remains visible on this device.'}
+              ? `This permanently removes your fighter profile and synced workouts from your account, then clears all Boxing Coach data from this device. ${connectedProvider === 'apple' ? 'Apple may ask you to confirm your identity' : 'Google confirmation is only shown if your saved session has expired'}. This cannot be undone.`
+              : 'This clears your fighter profile, workout history, onboarding progress, and preferences from this device. Synced account data stays protected online.'}
           </Text>
           <ErrorBanner message={errorMessage} onDismiss={onDismissError} />
           <PrimaryButton
@@ -1069,18 +1450,40 @@ function ProfileSkeleton() {
   );
 }
 
-export function ProfileScreen({ onEnterGym }: { onEnterGym: () => void }) {
-  const { user, profile, isReady } = useAuth();
+export function ProfileScreen({
+  onEnterGym,
+  fighterProfile,
+  cloudSyncPending,
+  onSaveFighterProfile,
+  onPromoteGuestProfile,
+}: {
+  onEnterGym: () => void;
+  fighterProfile: FighterProfile | null;
+  cloudSyncPending: boolean;
+  onSaveFighterProfile: (profile: FighterProfile) => Promise<void>;
+  onPromoteGuestProfile: () => Promise<void>;
+}) {
+  const { user, isReady } = useAuth();
   const [view, setView] = useState<ProfileView>('profile');
 
   useEffect(() => {
-    if (!user) setView('profile');
-  }, [user]);
+    if (user && view === 'signup') setView('profile');
+  }, [user, view]);
 
   if (!isReady) return <ProfileSkeleton />;
 
-  if (!user) return <AuthScreen />;
-  if (!profile) {
+  if (view === 'signup' && !user) {
+    return (
+      <AuthScreen
+        onBack={() => setView('profile')}
+        onSignedIn={async () => {
+          await onPromoteGuestProfile();
+          setView('profile');
+        }}
+      />
+    );
+  }
+  if (!fighterProfile && user) {
     return (
       <FighterSetup
         userName={user.displayName}
@@ -1089,9 +1492,28 @@ export function ProfileScreen({ onEnterGym }: { onEnterGym: () => void }) {
       />
     );
   }
-  if (view === 'edit') return <EditProfile onDone={() => setView('profile')} />;
-  if (view === 'account') return <AccountData onBack={() => setView('profile')} />;
-  return <ProfileOverview onEdit={() => setView('edit')} onAccount={() => setView('account')} />;
+  if (!fighterProfile) return <ProfileSkeleton />;
+  if (view === 'edit') {
+    return (
+      <EditProfile
+        profile={fighterProfile}
+        onSave={onSaveFighterProfile}
+        onDone={() => setView('profile')}
+      />
+    );
+  }
+  if (view === 'account' && user) {
+    return <AccountData onBack={() => setView('profile')} />;
+  }
+  return (
+    <ProfileOverview
+      profile={fighterProfile}
+      isGuest={!user}
+      cloudSyncPending={cloudSyncPending}
+      onEdit={() => setView('edit')}
+      onAccount={() => setView(user ? 'account' : 'signup')}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
@@ -1106,6 +1528,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 40,
   },
+  authBackground: { flex: 1, backgroundColor: colors.background },
+  authOverlay: { flex: 1 },
+  backgroundContentHidden: { opacity: 0 },
+  authSafeArea: { flex: 1 },
   sessionCard: {
     minHeight: 66,
     paddingHorizontal: 14,
@@ -1231,6 +1657,7 @@ const styles = StyleSheet.create({
     paddingBottom: 44,
     gap: 24,
   },
+  editFormContent: { paddingBottom: 137 },
   stepTopline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   stepCount: {
     color: colors.textMuted,
@@ -1295,6 +1722,18 @@ const styles = StyleSheet.create({
     fontSize: 19,
     lineHeight: textLineHeight(19),
   },
+  heightInputRow: { flexDirection: 'row', gap: 8 },
+  heightInputGroup: { flex: 1, position: 'relative', justifyContent: 'center' },
+  heightTextInput: { paddingRight: 48 },
+  heightInputUnit: {
+    position: 'absolute',
+    right: 16,
+    color: colors.peach,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 13,
+    lineHeight: textLineHeight(13),
+    letterSpacing: 1,
+  },
   choiceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   choiceCard: {
     flexBasis: '47%',
@@ -1326,6 +1765,7 @@ const styles = StyleSheet.create({
   },
   dayButtonSelected: { backgroundColor: colors.red, borderColor: colors.red },
   dayButtonText: { color: colors.textMuted, fontFamily: 'Anton', fontSize: 19, lineHeight: textLineHeight(19) },
+  exactDayButtonText: { fontSize: 13, lineHeight: textLineHeight(13) },
   dayButtonTextSelected: { color: colors.text },
   durationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   durationButton: {
@@ -1352,6 +1792,19 @@ const styles = StyleSheet.create({
   syncNote: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: '#221e1d' },
   syncNoteText: { flex: 1, color: colors.textMuted, fontFamily: 'ArchivoNarrow', fontSize: 15, lineHeight: textLineHeight(15) },
   formActions: { gap: 10, marginTop: 2 },
+  floatingSaveCta: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 117,
+    paddingHorizontal: 16,
+    paddingTop: 17,
+    paddingBottom: 16,
+    backgroundColor: 'transparent',
+  },
+  saveChangesButton: { minHeight: 84, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.accent, shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
+  saveChangesButtonText: { color: colors.text, fontFamily: 'Anton', fontSize: 30, lineHeight: textLineHeight(30), letterSpacing: 0, textTransform: 'uppercase' },
   primaryButton: { height: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: colors.red },
   primaryButtonText: { color: colors.text, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 15, lineHeight: textLineHeight(15), letterSpacing: 1.2 },
   secondaryButton: { height: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },

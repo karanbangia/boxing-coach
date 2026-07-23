@@ -24,6 +24,13 @@ export const colors = {
   overlay: 'rgba(10, 10, 10, 0.58)',
 };
 
+export const premiumBackgroundGradient = {
+  colors: ['#310508', '#1b0406', '#0b0708', '#030303'] as const,
+  locations: [0, 0.32, 0.7, 1] as const,
+  start: { x: 0, y: 0 },
+  end: { x: 1, y: 1 },
+};
+
 export const TEXT_LINE_HEIGHT_MULTIPLIER = 1.4;
 
 export function textLineHeight(fontSize: number) {

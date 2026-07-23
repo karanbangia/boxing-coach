@@ -666,7 +666,7 @@ export function WorkoutScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
     overflow: 'hidden',
   },
   redPanel: {
@@ -674,13 +674,13 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   timerBand: {
     position: 'absolute',
     left: 0,
     right: 0,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   header: {
     position: 'absolute',

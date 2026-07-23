@@ -28,7 +28,7 @@ interface Props {
   settings: SetupSettings;
   isReady: boolean;
   onChange: (patch: Partial<SetupSettings>) => void;
-  onStart: (settings: SetupSettings) => void;
+  onStart: (settings: SetupSettings, origin: { x: number; y: number }) => void;
   onOpenDev: () => void;
 }
 
@@ -334,7 +334,10 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
             <TactilePressable
               accessibilityRole="button"
               accessibilityLabel="Start workout"
-              onPress={() => onStart(settings)}
+              onPress={event => onStart(settings, {
+                x: event.nativeEvent.pageX,
+                y: event.nativeEvent.pageY,
+              })}
               haptic="medium"
               pressedScale={0.98}
               style={styles.startButton}

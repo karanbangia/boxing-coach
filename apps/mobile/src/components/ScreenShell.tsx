@@ -1,17 +1,22 @@
 import type { PropsWithChildren } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme';
+import { premiumBackgroundGradient } from '../theme';
 
-interface Props extends PropsWithChildren {
-  backgroundColor?: string;
-}
+type Props = PropsWithChildren;
 
-export function ScreenShell({ children, backgroundColor = colors.background }: Props) {
+export function ScreenShell({ children }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.root, { backgroundColor }]}>
+    <LinearGradient
+      colors={premiumBackgroundGradient.colors}
+      locations={premiumBackgroundGradient.locations}
+      start={premiumBackgroundGradient.start}
+      end={premiumBackgroundGradient.end}
+      style={styles.root}
+    >
       <View
         style={[
           styles.safeArea,
@@ -25,14 +30,13 @@ export function ScreenShell({ children, backgroundColor = colors.background }: P
       >
         {children}
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,

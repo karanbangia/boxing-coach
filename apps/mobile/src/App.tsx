@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Image, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { EngineConfig } from '@boxing-coach/core';
 import { calculateWorkoutPerformance, resolvePrepCountdownSeconds } from '@boxing-coach/core';
 import type { SetupSettings } from './config';
 import { MainTabShell } from './components/MainTabShell';
 import type { AppTab } from './components/BottomTabBar';
+import { ScreenShell } from './components/ScreenShell';
 import { useStoredSettings } from './hooks/useStoredSettings';
 import { useSounds } from './hooks/useSounds';
 import { useCoachVoice } from './hooks/useCoachVoice';
@@ -15,6 +16,9 @@ import { useStoredTuning } from './hooks/useStoredTuning';
 import { useWakeLock } from './hooks/useWakeLock';
 import { useWorkout } from './hooks/useWorkout';
 import { useReducedMotion } from './hooks/useReducedMotion';
+import { useOnboardingLifecycle } from './hooks/useOnboardingLifecycle';
+import { useProgressSeedDeepLink } from './hooks/useProgressSeedDeepLink';
+import { clearLocalAppData } from './lib/appData';
 import { saveWorkoutToHistory } from './lib/workoutHistory';
 import { CompleteScreen } from './screens/CompleteScreen';
 import { DevScreen } from './screens/DevScreen';
@@ -24,14 +28,22 @@ import { SetupScreen } from './screens/SetupScreen';
 import { WorkoutScreen } from './screens/WorkoutScreen';
 import { ProgressScreen } from './screens/ProgressScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { OnboardingScreen } from './screens/OnboardingScreen';
 import { useAuth } from './providers/AuthProvider';
 import { useWorkoutHistory } from './providers/WorkoutHistoryProvider';
 import { colors } from './theme';
 
 const PREP_ENTRANCE_DURATION = 260;
+const START_REVEAL_DIAMETER = 96;
+const START_REVEAL_DURATION = 440;
+const START_REVEAL_FADE_DURATION = 180;
 const ROUND_START_BELL_LEAD_SECONDS = 3;
+const SAVE_TRAINING_BACKGROUND = require('../assets/onboarding/save-training-glove.jpg');
+
+type StartRevealOrigin = { x: number; y: number };
 
 export function App() {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [fontsLoaded] = useFonts({
     Anton: require('../assets/fonts/Anton-Regular.ttf'),
     ArchivoNarrow: require('../assets/fonts/ArchivoNarrow-Regular.ttf'),
@@ -47,19 +59,30 @@ export function App() {
   const [showDevScreen, setShowDevScreen] = useState(false);
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(settings.audioCuesEnabled);
   const [isEnteringPrep, setIsEnteringPrep] = useState(false);
-  const { syncWorkout } = useAuth();
+  const [startRevealOrigin, setStartRevealOrigin] = useState<StartRevealOrigin | null>(null);
+  const { signOut, syncWorkout, user } = useAuth();
+  const onboarding = useOnboardingLifecycle();
   const { refreshHistory } = useWorkoutHistory();
+  useProgressSeedDeepLink(user?.uid ?? null, refreshHistory);
   const workout = useWorkout(config);
   const workoutIdRef = useRef('');
   const savedWorkoutIdRef = useRef('');
   const prepEntrance = useRef(new Animated.Value(0)).current;
   const setupExit = useRef(new Animated.Value(1)).current;
+  const startReveal = useRef(new Animated.Value(0)).current;
+  const startRevealOpacity = useRef(new Animated.Value(1)).current;
+  const pendingStartRef = useRef<SetupSettings | null>(null);
 
   const session = useSessionAudio();
   const reduceMotion = useReducedMotion();
 
   const sounds = useSounds(session.effectiveVolume);
   const coach = useCoachVoice(session.effectiveVolume, audioCuesEnabled);
+
+  useEffect(() => {
+    const uri = Image.resolveAssetSource(SAVE_TRAINING_BACKGROUND)?.uri;
+    if (uri) void Image.prefetch(uri).catch(() => undefined);
+  }, []);
 
   const isReady = settingsReady && tuningReady && session.ready && fontsLoaded;
 
@@ -73,6 +96,7 @@ export function App() {
   const prevTimeRef = useRef(workout.timeRemaining);
   const lastCoachActionKeyRef = useRef(-1);
   const coachWasPausedRef = useRef(false);
+  const lastPrepTickSecondRef = useRef<number | null>(null);
   const prepBellPlayedRef = useRef(false);
 
   useLayoutEffect(() => {
@@ -122,6 +146,7 @@ export function App() {
     if (workout.phase === 'round' && prevPhase !== 'round') {
       // The bell starts during prep/rest and must be fully stopped before the
       // first coach action is allowed to play.
+      sounds.stopPrepTick();
       sounds.stopRoundStart();
     }
 
@@ -218,8 +243,9 @@ export function App() {
     workout.totalRounds,
   ]);
 
-  const handleStart = useCallback(
+  const beginPrep = useCallback(
     (s: SetupSettings) => {
+      lastPrepTickSecondRef.current = null;
       prepBellPlayedRef.current = false;
       lastCoachActionKeyRef.current = -1;
       setAudioCuesEnabled(s.audioCuesEnabled);
@@ -244,6 +270,56 @@ export function App() {
     [prepEntrance, setupExit, tuning],
   );
 
+  const handleStart = useCallback(
+    (s: SetupSettings, origin: StartRevealOrigin) => {
+      if (pendingStartRef.current) return;
+
+      if (reduceMotion) {
+        beginPrep(s);
+        return;
+      }
+
+      pendingStartRef.current = s;
+      startReveal.stopAnimation();
+      startRevealOpacity.stopAnimation();
+      startReveal.setValue(0);
+      startRevealOpacity.setValue(1);
+      setStartRevealOrigin(origin);
+    },
+    [beginPrep, reduceMotion, startReveal, startRevealOpacity],
+  );
+
+  useLayoutEffect(() => {
+    if (!startRevealOrigin) return;
+
+    const revealAnimation = Animated.timing(startReveal, {
+      toValue: 1,
+      duration: START_REVEAL_DURATION,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    });
+
+    revealAnimation.start(({ finished }) => {
+      const pendingStart = pendingStartRef.current;
+      if (!finished || !pendingStart) return;
+
+      beginPrep(pendingStart);
+      Animated.timing(startRevealOpacity, {
+        toValue: 0,
+        duration: START_REVEAL_FADE_DURATION,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => {
+        pendingStartRef.current = null;
+        setStartRevealOrigin(null);
+        startReveal.setValue(0);
+        startRevealOpacity.setValue(1);
+      });
+    });
+
+    return () => revealAnimation.stop();
+  }, [beginPrep, startReveal, startRevealOpacity, startRevealOrigin]);
+
   useEffect(() => {
     if (!config) setPrepSecondsLeft(null);
   }, [config]);
@@ -257,7 +333,24 @@ export function App() {
   }, [prepSecondsLeft]);
 
   useEffect(() => {
+    if (
+      !config ||
+      workout.phase !== 'idle' ||
+      prepSecondsLeft === null ||
+      prepSecondsLeft <= ROUND_START_BELL_LEAD_SECONDS ||
+      lastPrepTickSecondRef.current === prepSecondsLeft
+    ) {
+      return;
+    }
+
+    lastPrepTickSecondRef.current = prepSecondsLeft;
+    sounds.prepTick();
+  }, [config, prepSecondsLeft, sounds, workout.phase]);
+
+  useEffect(() => {
     if (!config) {
+      sounds.stopPrepTick();
+      lastPrepTickSecondRef.current = null;
       prepBellPlayedRef.current = false;
       return;
     }
@@ -272,6 +365,7 @@ export function App() {
     }
 
     prepBellPlayedRef.current = true;
+    sounds.stopPrepTick();
     sounds.roundStart();
   }, [config, prepSecondsLeft, sounds, workout.phase]);
 
@@ -282,6 +376,7 @@ export function App() {
   }, [config, workout.phase, prepSecondsLeft, workout.start]);
 
   const handleSkipPrep = useCallback(() => {
+    sounds.stopPrepTick();
     sounds.stopRoundStart();
     setPrepSecondsLeft(0);
   }, [sounds]);
@@ -292,7 +387,9 @@ export function App() {
   }, [sounds, workout.skipRest]);
 
   const handleRestart = useCallback(() => {
+    sounds.stopPrepTick();
     sounds.stopRoundStart();
+    lastPrepTickSecondRef.current = null;
     prepBellPlayedRef.current = false;
     lastCoachActionKeyRef.current = -1;
     prepEntrance.stopAnimation();
@@ -307,7 +404,9 @@ export function App() {
   }, [coach, prepEntrance, setupExit, sounds, workout]);
 
   const handleStop = useCallback(() => {
+    sounds.stopPrepTick();
     sounds.stopRoundStart();
+    lastPrepTickSecondRef.current = null;
     prepBellPlayedRef.current = false;
     lastCoachActionKeyRef.current = -1;
     prepEntrance.stopAnimation();
@@ -321,10 +420,33 @@ export function App() {
     setActiveTab('timer');
   }, [coach, prepEntrance, setupExit, sounds, workout]);
 
-  if (!fontsLoaded) {
+  const handleResetAsyncStorage = useCallback(async () => {
+    if (user) {
+      await signOut();
+    } else {
+      await clearLocalAppData();
+    }
+    setShowDevScreen(false);
+    setActiveTab('timer');
+  }, [signOut, user]);
+
+  if (!fontsLoaded || !onboarding.isReady) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#131313' }}>
+      <ScreenShell>
         <StatusBar style="light" />
+      </ScreenShell>
+    );
+  }
+
+  if (onboarding.shouldShow) {
+    return (
+      <View style={styles.app}>
+        <StatusBar style="light" />
+        <OnboardingScreen
+          initialRecord={onboarding.initialRecord}
+          onProgress={onboarding.saveProgress}
+          onComplete={onboarding.complete}
+        />
       </View>
     );
   }
@@ -342,6 +464,7 @@ export function App() {
             tuning={tuning}
             onChange={setTuning}
             onBack={() => setShowDevScreen(false)}
+            onResetAsyncStorage={handleResetAsyncStorage}
           />
         ) : (
           <Animated.View
@@ -363,7 +486,13 @@ export function App() {
               ) : activeTab === 'workout' ? (
                 <ProgressScreen />
               ) : (
-                <ProfileScreen onEnterGym={() => setActiveTab('timer')} />
+                <ProfileScreen
+                  onEnterGym={() => setActiveTab('timer')}
+                  fighterProfile={onboarding.fighterProfile}
+                  cloudSyncPending={onboarding.cloudSyncPending}
+                  onSaveFighterProfile={onboarding.saveFighterProfile}
+                  onPromoteGuestProfile={onboarding.promoteGuestProfile}
+                />
               )}
             </MainTabShell>
           </Animated.View>
@@ -386,7 +515,7 @@ export function App() {
           />
         </Animated.View>
       ) : config && workout.phase === 'idle' ? (
-        <View style={{ flex: 1, backgroundColor: '#0a0a0a' }} />
+        <ScreenShell />
       ) : config && workout.phase === 'complete' ? (
         <CompleteScreen
           performance={calculateWorkoutPerformance({
@@ -427,6 +556,38 @@ export function App() {
           onStop={handleStop}
         />
       ) : null}
+
+      {startRevealOrigin ? (
+        <Animated.View
+          pointerEvents="auto"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.startReveal,
+            {
+              left: startRevealOrigin.x - START_REVEAL_DIAMETER / 2,
+              top: startRevealOrigin.y - START_REVEAL_DIAMETER / 2,
+              opacity: startRevealOpacity,
+              transform: [
+                {
+                  scale: startReveal.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.08, Math.max(
+                      Math.hypot(startRevealOrigin.x, startRevealOrigin.y),
+                      Math.hypot(windowWidth - startRevealOrigin.x, startRevealOrigin.y),
+                      Math.hypot(startRevealOrigin.x, windowHeight - startRevealOrigin.y),
+                      Math.hypot(
+                        windowWidth - startRevealOrigin.x,
+                        windowHeight - startRevealOrigin.y,
+                      ),
+                    ) * 2 / START_REVEAL_DIAMETER],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      ) : null}
     </View>
   );
 }
@@ -438,5 +599,13 @@ const styles = StyleSheet.create({
   },
   fullScreenLayer: {
     ...StyleSheet.absoluteFillObject,
+  },
+  startReveal: {
+    position: 'absolute',
+    width: START_REVEAL_DIAMETER,
+    height: START_REVEAL_DIAMETER,
+    borderRadius: START_REVEAL_DIAMETER / 2,
+    backgroundColor: colors.accent,
+    zIndex: 100,
   },
 });

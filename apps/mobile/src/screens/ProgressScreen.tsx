@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DIFFICULTIES } from '@boxing-coach/core';
 import { BlurView } from 'expo-blur';
 import { type ComponentProps, useEffect, useMemo, useState } from 'react';
@@ -28,6 +28,9 @@ function lineHeight(fontSize: number) {
 
 type WorkoutIntensity = 0 | 1 | 2 | 3 | 4;
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
+type SummaryPeriod = 'week' | 'month' | 'year';
+
+const SUMMARY_PERIODS: SummaryPeriod[] = ['week', 'month', 'year'];
 
 interface CalendarDay {
   key: string;
@@ -38,6 +41,12 @@ interface CalendarDay {
 interface PunchTrendPoint {
   key: string;
   punches: number;
+}
+
+interface WorkoutHistoryGroup {
+  key: string;
+  label: string;
+  workouts: WorkoutHistoryItem[];
 }
 
 const workoutPresentation: Record<
@@ -150,6 +159,60 @@ function formatMonth(month: Date) {
   return month.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }).toUpperCase();
 }
 
+function getSummaryPeriodStart(period: SummaryPeriod, date: Date) {
+  if (period === 'week') {
+    const mondayOffset = (date.getDay() + 6) % 7;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() - mondayOffset);
+  }
+
+  if (period === 'month') return new Date(date.getFullYear(), date.getMonth(), 1);
+  return new Date(date.getFullYear(), 0, 1);
+}
+
+function getNextSummaryPeriodStart(period: SummaryPeriod, start: Date) {
+  if (period === 'week') {
+    return new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+  }
+
+  if (period === 'month') return new Date(start.getFullYear(), start.getMonth() + 1, 1);
+  return new Date(start.getFullYear() + 1, 0, 1);
+}
+
+function shiftSummaryPeriod(period: SummaryPeriod, date: Date, direction: -1 | 1) {
+  const start = getSummaryPeriodStart(period, date);
+  if (period === 'week') {
+    return new Date(start.getFullYear(), start.getMonth(), start.getDate() + direction * 7);
+  }
+
+  if (period === 'month') return new Date(start.getFullYear(), start.getMonth() + direction, 1);
+  return new Date(start.getFullYear() + direction, 0, 1);
+}
+
+function getSummaryPeriodLabel(period: SummaryPeriod, date: Date, now = new Date()) {
+  const start = getSummaryPeriodStart(period, date);
+
+  if (period === 'month') {
+    return start
+      .toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+      .toUpperCase();
+  }
+
+  if (period === 'year') return String(start.getFullYear());
+
+  const currentWeek = getSummaryPeriodStart('week', now);
+  const currentWeekUtc = Date.UTC(
+    currentWeek.getFullYear(),
+    currentWeek.getMonth(),
+    currentWeek.getDate(),
+  );
+  const selectedWeekUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const weeksAgo = Math.round((currentWeekUtc - selectedWeekUtc) / (7 * 24 * 60 * 60 * 1000));
+
+  if (weeksAgo === 0) return 'THIS WEEK';
+  if (weeksAgo === 1) return 'LAST WEEK';
+  return `${weeksAgo} WEEKS AGO`;
+}
+
 function dateFromKey(dateKey: string) {
   return new Date(`${dateKey}T12:00:00`);
 }
@@ -221,6 +284,29 @@ function sortNewestFirst(history: WorkoutHistoryItem[]) {
   });
 }
 
+function groupWorkoutHistory(history: WorkoutHistoryItem[]): WorkoutHistoryGroup[] {
+  const groups: WorkoutHistoryGroup[] = [];
+
+  for (const workout of sortNewestFirst(history)) {
+    const dateKey = getHistoryDateKey(workout);
+    const key = dateKey ?? `recent-${workout.id}`;
+    const existing = groups.find(group => group.key === key);
+
+    if (existing) {
+      existing.workouts.push(workout);
+      continue;
+    }
+
+    groups.push({
+      key,
+      label: formatHistoryDate(workout.completedAt),
+      workouts: [workout],
+    });
+  }
+
+  return groups;
+}
+
 function buildPunchTrend(history: WorkoutHistoryItem[]): PunchTrendPoint[] {
   const punchesByDay = new Map<string, number>();
 
@@ -280,6 +366,8 @@ function ProgressSkeletonBody() {
 export function ProgressScreen() {
   const { history, isReady } = useWorkoutHistory();
   const [contentReady, setContentReady] = useState(false);
+  const [summaryPeriod, setSummaryPeriod] = useState<SummaryPeriod>('week');
+  const [summaryPeriodDate, setSummaryPeriodDate] = useState(() => new Date());
   const [displayedMonth, setDisplayedMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -306,7 +394,26 @@ export function ProgressScreen() {
 
   const isLoading = !isReady || !contentReady;
 
-  const orderedHistory = useMemo(() => sortNewestFirst(history), [history]);
+  const visibleHistory = history;
+  const orderedHistory = useMemo(() => sortNewestFirst(visibleHistory), [visibleHistory]);
+  const groupedHistory = useMemo(() => groupWorkoutHistory(visibleHistory), [visibleHistory]);
+  const summaryPeriodStart = useMemo(
+    () => getSummaryPeriodStart(summaryPeriod, summaryPeriodDate),
+    [summaryPeriod, summaryPeriodDate],
+  );
+  const summaryPeriodEnd = useMemo(
+    () => getNextSummaryPeriodStart(summaryPeriod, summaryPeriodStart),
+    [summaryPeriod, summaryPeriodStart],
+  );
+  const summaryHistory = useMemo(
+    () => orderedHistory.filter(workout => {
+      const completedAt = new Date(workout.completedAt).getTime();
+      return !Number.isNaN(completedAt)
+        && completedAt >= summaryPeriodStart.getTime()
+        && completedAt < summaryPeriodEnd.getTime();
+    }),
+    [orderedHistory, summaryPeriodEnd, summaryPeriodStart],
+  );
 
   const historyByDay = useMemo(() => {
     const sessions = new Map<string, WorkoutHistoryItem[]>();
@@ -319,20 +426,20 @@ export function ProgressScreen() {
   }, [orderedHistory]);
 
   const summary = useMemo(() => {
-    const totalRounds = orderedHistory.reduce((total, workout) => total + workout.totalRounds, 0);
-    const totalSeconds = orderedHistory.reduce(
+    const totalRounds = summaryHistory.reduce((total, workout) => total + workout.totalRounds, 0);
+    const totalSeconds = summaryHistory.reduce(
       (total, workout) => total + workout.totalRounds * workout.roundDuration,
       0,
     );
-    const totalPunches = orderedHistory.reduce((total, workout) => total + workout.punches, 0);
+    const totalPunches = summaryHistory.reduce((total, workout) => total + workout.punches, 0);
 
     return {
       totalRounds,
       totalSeconds,
       totalPunches,
-      totalSessions: orderedHistory.length,
+      totalSessions: summaryHistory.length,
     };
-  }, [orderedHistory]);
+  }, [summaryHistory]);
 
   const punchTrend = useMemo(() => buildPunchTrend(orderedHistory), [orderedHistory]);
   const calendarDays = useMemo(() => buildCalendarDays(displayedMonth), [displayedMonth]);
@@ -341,6 +448,18 @@ export function ProgressScreen() {
     ? orderedHistory.find(workout => workout.id === selectedWorkoutId) ?? null
     : null;
   const todayKey = toDateKey(new Date());
+  const summaryPeriodLabel = getSummaryPeriodLabel(summaryPeriod, summaryPeriodDate);
+  const isCurrentSummaryPeriod = summaryPeriodStart.getTime()
+    === getSummaryPeriodStart(summaryPeriod, new Date()).getTime();
+
+  const selectSummaryPeriod = (period: SummaryPeriod) => {
+    setSummaryPeriod(period);
+    setSummaryPeriodDate(new Date());
+  };
+
+  const changeSummaryPeriod = (direction: -1 | 1) => {
+    setSummaryPeriodDate(current => shiftSummaryPeriod(summaryPeriod, current, direction));
+  };
 
   const changeMonth = (direction: -1 | 1) => {
     setDisplayedMonth(current => new Date(current.getFullYear(), current.getMonth() + direction, 1));
@@ -377,6 +496,63 @@ export function ProgressScreen() {
             >
               OVERVIEW
             </Text>
+          </View>
+
+          <View style={styles.summaryTabs}>
+            {SUMMARY_PERIODS.map(period => {
+              const selected = summaryPeriod === period;
+              return (
+                <TactilePressable
+                  key={period}
+                  accessibilityRole="tab"
+                  accessibilityLabel={`${period} summary`}
+                  accessibilityState={{ selected }}
+                  onPress={() => selectSummaryPeriod(period)}
+                  haptic="selection"
+                  pressedScale={0.96}
+                  style={styles.summaryTab}
+                >
+                  <Text
+                    style={[styles.summaryTabText, selected && styles.summaryTabTextActive]}
+                    allowFontScaling={false}
+                  >
+                    {period.toUpperCase()}
+                  </Text>
+                  {selected ? <View style={styles.summaryTabIndicator} /> : null}
+                </TactilePressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.summaryPeriodControls}>
+            <TactilePressable
+              accessibilityRole="button"
+              accessibilityLabel={`Previous ${summaryPeriod}`}
+              onPress={() => changeSummaryPeriod(-1)}
+              haptic="selection"
+              pressedScale={0.9}
+              style={styles.summaryPeriodButton}
+            >
+              <Ionicons name="chevron-back" size={18} color={colors.peach} />
+            </TactilePressable>
+            <Text style={styles.summaryPeriodLabel} allowFontScaling={false}>
+              {summaryPeriodLabel}
+            </Text>
+            <TactilePressable
+              accessibilityRole="button"
+              accessibilityLabel={`Next ${summaryPeriod}`}
+              accessibilityState={{ disabled: isCurrentSummaryPeriod }}
+              disabled={isCurrentSummaryPeriod}
+              onPress={() => changeSummaryPeriod(1)}
+              haptic="selection"
+              pressedScale={0.9}
+              style={[
+                styles.summaryPeriodButton,
+                isCurrentSummaryPeriod && styles.summaryPeriodButtonDisabled,
+              ]}
+            >
+              <Ionicons name="chevron-forward" size={18} color={colors.peach} />
+            </TactilePressable>
           </View>
 
           {isLoading ? (
@@ -513,13 +689,13 @@ export function ProgressScreen() {
 
                 {orderedHistory.length > 0 ? (
                   <View style={styles.historyList}>
-                    {orderedHistory.map((workout, index) => (
-                      <HistoryCard
-                        key={workout.id}
-                        workout={workout}
-                        isLatest={index === 0}
-                        isLast={index === orderedHistory.length - 1}
-                        onPress={() => {
+                    {groupedHistory.map((group, groupIndex) => (
+                      <HistoryGroup
+                        key={group.key}
+                        group={group}
+                        isLatest={groupIndex === 0}
+                        isLast={groupIndex === groupedHistory.length - 1}
+                        onWorkoutPress={workout => {
                           setSelectedDateKey(null);
                           setSelectedWorkoutId(workout.id);
                         }}
@@ -528,7 +704,7 @@ export function ProgressScreen() {
                   </View>
                 ) : (
                   <View style={styles.emptyState}>
-                    <Text style={styles.emptyTitle} allowFontScaling={false}>NO HISTORY YET.</Text>
+                    {/*<Text style={styles.emptyTitle} allowFontScaling={false}>NO HISTORY YET.</Text>*/}
                     <Text style={styles.emptyCopy} allowFontScaling={false}>
                       Complete a workout to start your progress timeline.
                     </Text>
@@ -618,10 +794,66 @@ function PunchTrend({ points, isLoading }: { points: PunchTrendPoint[]; isLoadin
           </View>
         </View>
       ) : (
-        <Text style={styles.statusCopy} allowFontScaling={false}>
-          COMPLETE A WORKOUT TO START THE GRAPH.
-        </Text>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyCopy} allowFontScaling={false}>
+              Complete a workout to start your progress timeline.
+            </Text>
+          </View>
       )}
+    </View>
+  );
+}
+
+function HistoryGroup({
+  group,
+  isLatest,
+  isLast,
+  onWorkoutPress,
+}: {
+  group: WorkoutHistoryGroup;
+  isLatest: boolean;
+  isLast: boolean;
+  onWorkoutPress: (workout: WorkoutHistoryItem) => void;
+}) {
+  return (
+    <View style={[styles.historyGroup, isLast && styles.historyGroupLast]}>
+      <View style={styles.historyRail} pointerEvents="none">
+        {!isLast ? <View style={styles.historyLine} /> : null}
+        <View style={[styles.historyMarker, isLatest && styles.historyMarkerActive]}>
+          <MaterialCommunityIcons
+            name="boxing-glove"
+            size={16}
+            color={isLatest ? colors.accentGlow : colors.peach}
+          />
+        </View>
+      </View>
+
+      <View style={styles.historyGroupContent}>
+        <View style={styles.historyGroupHeader}>
+          <Text
+            style={[styles.historyGroupDate, isLatest && styles.historyGroupDateActive]}
+            allowFontScaling={false}
+          >
+            {group.label}
+          </Text>
+          {isLatest ? (
+            <View style={styles.latestBadge}>
+              <Text style={styles.latestBadgeText} allowFontScaling={false}>LATEST</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.historyGroupCards}>
+          {group.workouts.map((workout, index) => (
+            <HistoryCard
+              key={workout.id}
+              workout={workout}
+              isLatest={isLatest && index === 0}
+              onPress={() => onWorkoutPress(workout)}
+            />
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
@@ -629,64 +861,45 @@ function PunchTrend({ points, isLoading }: { points: PunchTrendPoint[]; isLoadin
 function HistoryCard({
   workout,
   isLatest,
-  isLast,
   onPress,
 }: {
   workout: WorkoutHistoryItem;
   isLatest: boolean;
-  isLast: boolean;
   onPress: () => void;
 }) {
-  const presentation = workoutPresentation[workout.difficulty];
   const difficultyName = getDifficultyName(workout.difficulty);
+  const time = formatTimelineTime(workout.completedAt);
+  const duration = formatTotalTime(workout.totalRounds * workout.roundDuration);
 
   return (
-    <View style={styles.historyRow}>
-      <View style={styles.historyRail} pointerEvents="none">
-        {!isLast ? <View style={styles.historyLine} /> : null}
-        <View style={[styles.historyMarker, isLatest && styles.historyMarkerActive]}>
-          <Ionicons
-            name={presentation.icon}
-            size={15}
-            color={isLatest ? colors.accentGlow : colors.peach}
-          />
-        </View>
-      </View>
-
-      <TactilePressable
-        accessibilityRole="button"
-        accessibilityLabel={`${difficultyName}, ${formatHistoryDate(workout.completedAt)}, ${workout.totalRounds} ${workout.totalRounds === 1 ? 'round' : 'rounds'}, ${workout.punches} punches`}
-        accessibilityHint="Opens this workout summary"
-        onPress={onPress}
-        haptic="light"
-        pressedScale={0.985}
-        style={styles.historyCard}
-      >
-        <View style={styles.historyIconTile}>
-          <Ionicons name={presentation.icon} size={22} color={colors.peach} />
-        </View>
-        <View style={styles.historyCopy}>
+    <TactilePressable
+      accessibilityRole="button"
+      accessibilityLabel={`${isLatest ? 'Latest workout, ' : ''}${difficultyName}, ${formatHistoryDate(workout.completedAt)} at ${time}, ${workout.totalRounds} ${workout.totalRounds === 1 ? 'round' : 'rounds'}, ${duration}, ${workout.punches} punches`}
+      accessibilityHint="Opens this workout summary"
+      onPress={onPress}
+      haptic="light"
+      pressedScale={0.985}
+      style={[styles.historyCard, isLatest && styles.historyCardLatest]}
+    >
+      <View style={styles.historyCopy}>
+        <View style={styles.historyCardHeader}>
           <Text
             style={styles.historyTitle}
             numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={0.78}
+            minimumFontScale={0.84}
             allowFontScaling={false}
           >
             {difficultyName}
           </Text>
-          <Text style={styles.historyMeta} numberOfLines={2} allowFontScaling={false}>
-            {formatRounds(workout.totalRounds)} • {presentation.intensity}
-          </Text>
+          <Text style={styles.historyTime} allowFontScaling={false}>{time}</Text>
         </View>
-        <Text
-          style={[styles.historyDate, isLatest && styles.historyDateActive]}
-          allowFontScaling={false}
-        >
-          {formatHistoryDate(workout.completedAt)}
+        <Text style={styles.historyMeta} numberOfLines={1} allowFontScaling={false}>
+          {formatRounds(workout.totalRounds)} • {duration} • {formatPunches(workout.punches)} {workout.punches === 1 ? 'PUNCH' : 'PUNCHES'}
         </Text>
-      </TactilePressable>
-    </View>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    </TactilePressable>
   );
 }
 
@@ -888,11 +1101,68 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginTop: 58 - lineHeight(58),
   },
+  summaryTabs: {
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginTop: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  summaryTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  summaryTabText: {
+    color: colors.peach,
+    fontFamily: 'Anton',
+    fontSize: 20,
+    lineHeight: lineHeight(20),
+    letterSpacing: 0.5,
+  },
+  summaryTabTextActive: {
+    color: colors.accentGlow,
+  },
+  summaryTabIndicator: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: -1,
+    height: 2,
+    backgroundColor: colors.accentGlow,
+  },
+  summaryPeriodControls: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  summaryPeriodButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryPeriodButtonDisabled: {
+    opacity: 0.28,
+  },
+  summaryPeriodLabel: {
+    minWidth: 132,
+    color: colors.accentGlow,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 12,
+    lineHeight: lineHeight(12),
+    letterSpacing: 1.2,
+    textAlign: 'center',
+  },
   metricGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 4,
-    marginTop: 24,
+    marginTop: 12,
   },
   metricCard: {
     flexGrow: 1,
@@ -973,7 +1243,7 @@ const styles = StyleSheet.create({
     minWidth: 88,
     color: colors.accentGlow,
     fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: lineHeight(11),
     letterSpacing: 1.1,
     textAlign: 'center',
@@ -1139,87 +1409,129 @@ const styles = StyleSheet.create({
   historyList: {
     paddingTop: 16,
   },
-  historyRow: {
-    minHeight: 102,
+  historyGroup: {
     flexDirection: 'row',
+    paddingBottom: 22,
+  },
+  historyGroupLast: {
+    paddingBottom: 0,
   },
   historyRail: {
-    width: 48,
+    width: 32,
     alignItems: 'center',
   },
   historyMarker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.background,
     zIndex: 2,
   },
   historyMarkerActive: {
+    borderWidth: 2,
     borderColor: colors.accentGlow,
+    backgroundColor: colors.accentSoft,
     shadowColor: colors.accentGlow,
-    shadowOpacity: 0.35,
-    shadowRadius: 7,
+    shadowOpacity: 0.28,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
   },
   historyLine: {
     position: 'absolute',
-    top: 40,
-    bottom: 0,
-    width: 2,
+    top: 32,
+    bottom: -22,
+    width: 1,
     backgroundColor: colors.border,
   },
-  historyCard: {
+  historyGroupContent: {
     flex: 1,
-    minHeight: 88,
+    minWidth: 0,
+    marginLeft: 12,
+  },
+  historyGroupHeader: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 8,
+  },
+  historyGroupDate: {
+    color: colors.peach,
+    fontFamily: 'Anton',
+    fontSize: 18,
+    lineHeight: lineHeight(18),
+    letterSpacing: 0.3,
+  },
+  historyGroupDateActive: {
+    color: colors.accentGlow,
+  },
+  latestBadge: {
+    minHeight: 20,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.accentGlow,
+    backgroundColor: colors.accentSoft,
+  },
+  latestBadgeText: {
+    color: colors.accentGlow,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 9,
+    lineHeight: lineHeight(9),
+    letterSpacing: 1.1,
+  },
+  historyGroupCards: {
+    gap: 8,
+  },
+  historyCard: {
+    width: '100%',
+    minHeight: 72,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     padding: 14,
-    marginLeft: 10,
-    marginBottom: 14,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surfaceMuted,
   },
-  historyIconTile: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 4,
-    backgroundColor: colors.border,
+  historyCardLatest: {
+    borderColor: colors.accentSoft,
   },
   historyCopy: {
     flex: 1,
     minWidth: 0,
   },
+  historyCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   historyTitle: {
     color: colors.text,
     fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 12,
-    lineHeight: lineHeight(12),
+    fontSize: 14,
+    lineHeight: lineHeight(14),
     letterSpacing: 1,
   },
+  historyTime: {
+    color: colors.peach,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 11,
+    lineHeight: lineHeight(11),
+    letterSpacing: 0.7,
+  },
   historyMeta: {
-    color: colors.peach,
+    color: colors.textMuted,
     fontFamily: 'ArchivoNarrow',
-    fontSize: 13,
-    lineHeight: lineHeight(13),
-    marginTop: 2,
-  },
-  historyDate: {
-    color: colors.peach,
-    fontFamily: 'Anton',
-    fontSize: 17,
-    lineHeight: lineHeight(17),
-    textAlign: 'right',
-  },
-  historyDateActive: {
-    color: colors.accentGlow,
+    fontSize: 14,
+    lineHeight: lineHeight(14),
+    marginTop: 3,
   },
   statusCopy: {
     color: colors.textMuted,
@@ -1230,6 +1542,11 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   emptyState: {
+    minHeight: 120,
+    paddingVertical: 22,
+    borderBottomWidth: 1,
+  },
+  empty1State: {
     minHeight: 120,
     paddingVertical: 22,
     borderBottomWidth: 1,

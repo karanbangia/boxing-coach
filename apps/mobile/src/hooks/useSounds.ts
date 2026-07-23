@@ -14,6 +14,10 @@ function playFromStart(player: AudioPlayer, volume: number) {
 }
 
 export function useSounds(masterVolume: number) {
+  const prepTickPlayer = useAudioPlayer(
+    require('../../assets/audio/prep-tick.wav'),
+    { keepAudioSessionActive: true },
+  );
   const roundStartPlayer = useAudioPlayer(
     require('../../assets/audio/round-start.wav'),
     { keepAudioSessionActive: true },
@@ -27,11 +31,13 @@ export function useSounds(masterVolume: number) {
     { keepAudioSessionActive: true },
   );
   const masterVolumeRef = useRef(masterVolume);
+  const prepTickPlayTokenRef = useRef(0);
   const roundStartPlayTokenRef = useRef(0);
 
   masterVolumeRef.current = masterVolume;
 
   useEffect(() => {
+    prepTickPlayer.volume = 0.55 * masterVolume;
     roundStartPlayer.volume = 0.85 * masterVolume;
     roundEndPlayer.volume = 0.9 * masterVolume;
     freestylePlayer.volume = 0.65 * masterVolume;
@@ -45,7 +51,32 @@ export function useSounds(masterVolume: number) {
     }).catch(() => {
       // Silent-mode playback is best-effort.
     });
-  }, [freestylePlayer, masterVolume, roundEndPlayer, roundStartPlayer]);
+  }, [freestylePlayer, masterVolume, prepTickPlayer, roundEndPlayer, roundStartPlayer]);
+
+  const prepTick = useCallback(() => {
+    const mul = masterVolumeRef.current;
+    if (mul <= 0) return;
+    const playToken = ++prepTickPlayTokenRef.current;
+    prepTickPlayer.volume = 0.55 * mul;
+    void prepTickPlayer
+      .seekTo(0)
+      .catch(() => {})
+      .finally(() => {
+        if (playToken === prepTickPlayTokenRef.current) {
+          prepTickPlayer.play();
+        }
+      });
+  }, [prepTickPlayer]);
+
+  const stopPrepTick = useCallback(() => {
+    prepTickPlayTokenRef.current++;
+    try {
+      prepTickPlayer.pause();
+      void prepTickPlayer.seekTo(0).catch(() => {});
+    } catch {
+      /* ignore */
+    }
+  }, [prepTickPlayer]);
 
   const roundStart = useCallback(() => {
     const mul = masterVolumeRef.current;
@@ -85,7 +116,7 @@ export function useSounds(masterVolume: number) {
   }, [freestylePlayer]);
 
   return useMemo(
-    () => ({ roundStart, stopRoundStart, roundEnd, freestyleStart }),
-    [freestyleStart, roundEnd, roundStart, stopRoundStart],
+    () => ({ prepTick, stopPrepTick, roundStart, stopRoundStart, roundEnd, freestyleStart }),
+    [freestyleStart, prepTick, roundEnd, roundStart, stopPrepTick, stopRoundStart],
   );
 }

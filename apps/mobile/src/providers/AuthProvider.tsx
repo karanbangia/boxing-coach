@@ -37,12 +37,17 @@ import {
 import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import {
   DEFAULT_FIGHTER_PROFILE,
+  TRAINING_DAYS,
   type Equipment,
   type Experience,
   type FighterProfile,
+  type GenderIdentity,
+  type HeightUnit,
   type SessionDuration,
   type Stance,
+  type TrainingDay,
   type TrainingGoal,
+  type WeightUnit,
 } from '../features/profile/types';
 import {
   firebaseConfigured,
@@ -55,9 +60,9 @@ import {
   loadWorkoutHistoryForScope,
   replaceWorkoutHistoryForScope,
   setActiveHistoryUser,
-  setLastAccountHistoryUser,
   type WorkoutHistoryItem,
 } from '../lib/workoutHistory';
+import { clearLocalAppData } from '../lib/appData';
 
 type AuthProviderName = 'apple' | 'google';
 type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
@@ -74,8 +79,8 @@ interface AuthContextValue {
   errorMessage: string | null;
   connectedProvider: AuthProviderName | null;
   appleSignInEnabled: boolean;
-  signInWithApple: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<boolean>;
+  signInWithGoogle: () => Promise<boolean>;
   saveProfile: (profile: FighterProfile) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -97,12 +102,18 @@ const previewUser = {
 const previewProfile: FighterProfile = {
   displayName: 'Jordan “Switch” Lee',
   photoUrl: null,
+  gender: 'female',
   experience: 'intermediate',
   stance: 'southpaw',
   goal: 'fitness',
   equipment: ['heavy_bag', 'gloves', 'wraps'],
+  trainingDays: ['monday', 'tuesday', 'thursday', 'saturday'],
   targetDaysPerWeek: 4,
   preferredSessionMinutes: 30,
+  weightKg: 64,
+  weightUnit: 'kg',
+  heightCm: 170,
+  heightUnit: 'cm',
 };
 
 function isString(value: unknown): value is string {
@@ -115,16 +126,23 @@ function parseProfile(data: Record<string, unknown> | undefined): FighterProfile
   const equipment = Array.isArray(data.equipment)
     ? data.equipment.filter(isString) as Equipment[]
     : DEFAULT_FIGHTER_PROFILE.equipment;
+  const trainingDays = Array.isArray(data.trainingDays)
+    ? data.trainingDays.filter(
+      (value): value is TrainingDay => isString(value) && TRAINING_DAYS.includes(value as TrainingDay),
+    )
+    : DEFAULT_FIGHTER_PROFILE.trainingDays;
 
   return {
     displayName: data.displayName,
     photoUrl: isString(data.photoUrl) ? data.photoUrl : null,
+    gender: (isString(data.gender) ? data.gender : DEFAULT_FIGHTER_PROFILE.gender) as GenderIdentity,
     experience: (isString(data.experience)
       ? data.experience
       : DEFAULT_FIGHTER_PROFILE.experience) as Experience,
     stance: (isString(data.stance) ? data.stance : DEFAULT_FIGHTER_PROFILE.stance) as Stance,
     goal: (isString(data.goal) ? data.goal : DEFAULT_FIGHTER_PROFILE.goal) as TrainingGoal,
     equipment: equipment.length ? equipment : DEFAULT_FIGHTER_PROFILE.equipment,
+    trainingDays,
     targetDaysPerWeek:
       typeof data.targetDaysPerWeek === 'number'
         ? data.targetDaysPerWeek
@@ -133,6 +151,14 @@ function parseProfile(data: Record<string, unknown> | undefined): FighterProfile
       typeof data.preferredSessionMinutes === 'number'
         ? data.preferredSessionMinutes as SessionDuration
         : DEFAULT_FIGHTER_PROFILE.preferredSessionMinutes,
+    weightKg: typeof data.weightKg === 'number' ? data.weightKg : DEFAULT_FIGHTER_PROFILE.weightKg,
+    weightUnit: (isString(data.weightUnit)
+      ? data.weightUnit
+      : DEFAULT_FIGHTER_PROFILE.weightUnit) as WeightUnit,
+    heightCm: typeof data.heightCm === 'number' ? data.heightCm : DEFAULT_FIGHTER_PROFILE.heightCm,
+    heightUnit: (isString(data.heightUnit)
+      ? data.heightUnit
+      : DEFAULT_FIGHTER_PROFILE.heightUnit) as HeightUnit,
   };
 }
 
@@ -391,23 +417,29 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
+    let signedIn = false;
     await run(async () => {
       const { auth } = requireFirebase();
       const credential = await getGoogleCredential();
       if (!credential) return;
       await signInWithCredential(auth, credential);
+      signedIn = true;
     }).catch(() => undefined);
+    return signedIn;
   }, [run]);
 
   const signInWithApple = useCallback(async () => {
+    let signedIn = false;
     await run(async () => {
       const { auth } = requireFirebase();
       const { credential, displayName } = await getAppleCredential();
       const result = await signInWithCredential(auth, credential);
+      signedIn = true;
       if (displayName && !result.user.displayName) {
         await updateFirebaseProfile(result.user, { displayName });
       }
     }).catch(() => undefined);
+    return signedIn;
   }, [run]);
 
   const saveProfile = useCallback(async (nextProfile: FighterProfile) => {
@@ -453,37 +485,34 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signOut = useCallback(async () => {
     await run(async () => {
       if (profilePreviewMode) {
-        await setLastAccountHistoryUser(user?.uid ?? null).catch(() => undefined);
         setUser(null);
         setProfile(null);
-        await setActiveHistoryUser(null);
+        await clearLocalAppData();
         return;
       }
       const { auth } = requireFirebase();
-      await setLastAccountHistoryUser(user?.uid ?? null).catch(() => undefined);
       if (providerForUser(user) === 'google') await GoogleSignin.signOut().catch(() => null);
       await firebaseSignOut(auth);
-      await setActiveHistoryUser(null);
       setProfile(null);
+      await clearLocalAppData();
     });
   }, [run, user]);
 
   const deleteAccount = useCallback(async () => {
     await run(async () => {
-      let accountDeleted = false;
-      let guestHistoryBeforeDeletion: WorkoutHistoryItem[] | null = null;
-      let copiedAccountHistoryToGuest = false;
       try {
-        if (!user) return;
+        if (!user) {
+          await clearLocalAppData();
+          return;
+        }
         if (profilePreviewMode) {
           setUser(null);
           setProfile(null);
-          await setActiveHistoryUser(null);
+          await clearLocalAppData();
           return;
         }
         const { db, storage } = requireFirebase();
         const provider = providerForUser(user);
-        const accountHistory = await loadWorkoutHistoryForScope(user.uid);
         if (!(await hasRecentAuthentication(user))) {
           if (provider === 'google') {
             const credential = await getSilentGoogleCredential() ?? await getGoogleCredential();
@@ -515,29 +544,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }
         }
         await deleteDoc(doc(db, 'users', user.uid));
-
-        guestHistoryBeforeDeletion = await loadWorkoutHistoryForScope(null);
-        await replaceWorkoutHistoryForScope(
-          null,
-          [...guestHistoryBeforeDeletion, ...accountHistory],
-        );
-        copiedAccountHistoryToGuest = true;
         await deleteUser(user);
-        accountDeleted = true;
 
         if (provider === 'google') await GoogleSignin.signOut().catch(() => null);
-        await clearWorkoutHistoryForScope(user.uid).catch(() => undefined);
-        await setLastAccountHistoryUser(null).catch(() => undefined);
-        await setActiveHistoryUser(null).catch(() => undefined);
         setProfile(null);
+        await clearLocalAppData();
       } catch (error) {
-        if (
-          copiedAccountHistoryToGuest
-          && !accountDeleted
-          && guestHistoryBeforeDeletion
-        ) {
-          await replaceWorkoutHistoryForScope(null, guestHistoryBeforeDeletion).catch(() => undefined);
-        }
         throw accountDeletionError(error);
       }
     }, { showCancellationError: true });

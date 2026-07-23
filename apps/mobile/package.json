@@ -5,6 +5,8 @@
   "scripts": {
     "build:core": "pnpm --filter @boxing-coach/core build",
     "generate:coach-registry": "node scripts/generate-coach-registry.mjs",
+    "seed:progress": "node scripts/progress-fixture.mjs seed",
+    "clear:progress": "node scripts/progress-fixture.mjs clear",
     "start": "pnpm run build:core && expo start",
     "android": "pnpm run build:core && expo run:android",
     "ios": "pnpm run build:core && expo run:ios",
@@ -36,8 +38,10 @@
     "expo-image-picker": "~17.0.11",
     "expo-keep-awake": "~15.0.8",
     "expo-linear-gradient": "~15.0.8",
+    "expo-notifications": "~0.32.17",
     "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.9",
+    "expo-video": "~3.0.16",
     "firebase": "^12.16.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -45,6 +49,7 @@
     "react-native-fast-confetti": "2.0.1",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.2",
+    "react-native-svg": "15.12.1",
     "react-native-view-shot": "4.0.3",
     "react-native-web": "^0.21.2",
     "react-native-worklets": "0.8.3"

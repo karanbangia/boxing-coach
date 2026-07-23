@@ -38,8 +38,10 @@
     },
     "plugins": [
       "expo-audio",
+      "expo-video",
       "expo-font",
       "expo-apple-authentication",
+      "expo-notifications",
       [
         "expo-image-picker",
         {
