@@ -260,6 +260,8 @@ function MainApp() {
     return (
       <CompleteScreen
         performance={performance}
+        totalRounds={config.totalRounds}
+        roundDuration={config.roundDuration}
         onReturnToGym={handleRestart}
       />
     );

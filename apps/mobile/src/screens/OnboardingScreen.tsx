@@ -1,15 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
-  Image,
   ImageBackground,
   KeyboardAvoidingView,
-  PanResponder,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,45 +15,39 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { recommendFirstWorkout } from '@boxing-coach/core';
 import { ScreenShell } from '../components/ScreenShell';
 import { TactilePressable } from '../components/TactilePressable';
+import { AccountSignInActions } from '../components/AccountSignInActions';
 import {
   EXPERIENCE_OPTIONS,
   GOAL_OPTIONS,
   SESSION_DURATIONS,
   STANCE_OPTIONS,
   TRAINING_DAYS,
+  equipmentForTrainingMode,
+  trainingModeFromEquipment,
   type FighterProfile,
-  type HeightUnit,
   type SessionDuration,
   type TrainingDay,
-  type WeightUnit,
+  type TrainingMode,
 } from '../features/profile/types';
-import {
-  MAX_HEIGHT_CM,
-  MAX_HEIGHT_INCHES,
-  MIN_HEIGHT_CM,
-  MIN_HEIGHT_INCHES,
-  centimetresToRoundedInches,
-  formatFeetAndInches,
-  formatFeetAndInchesAccessible,
-  inchesToCentimetres,
-} from '../features/profile/height';
-import type { OnboardingRecord, ReminderPermission } from '../lib/onboarding';
-import {
-  cancelTrainingReminders,
-  requestTrainingReminderPermission,
-  scheduleTrainingReminders,
-} from '../lib/trainingReminders';
+import { EXTERNAL_LINKS, openExternalLink } from '../lib/externalLinks';
+import type { OnboardingRecord } from '../lib/onboarding';
+import { trackEvent } from '../lib/observability';
 import { useAuth } from '../providers/AuthProvider';
 import { colors, textLineHeight } from '../theme';
 
-const DATA_STEP_COUNT = 8;
-const LAST_STEP = 8;
-const MALE_BOXER_SOURCE = require('../../assets/onboarding/male-boxer.png');
-const FEMALE_BOXER_SOURCE = require('../../assets/onboarding/female-boxer.png');
-const GENDER_ART_SOURCES = [MALE_BOXER_SOURCE, FEMALE_BOXER_SOURCE];
-type OnboardingView = 'welcome' | 'form' | 'account';
+const DATA_STEP_COUNT = 5;
+const LAST_STEP = 5;
+const ONBOARDING_STEP_KEYS = [
+  'nickname',
+  'experience',
+  'goal',
+  'training_mode',
+  'routine',
+] as const;
+type OnboardingView = 'welcome' | 'form' | 'recommendation' | 'signup' | 'signin';
 const DAY_LABELS: Record<TrainingDay, string> = {
   monday: 'MON',
   tuesday: 'TUE',
@@ -67,14 +58,11 @@ const DAY_LABELS: Record<TrainingDay, string> = {
 };
 
 const TITLES = [
-  "WHAT'S YOUR GENDER?",
   'WHAT SHOULD WE CALL YOU?',
   "WHAT'S YOUR FITNESS LEVEL?",
   "WHAT'S YOUR TRAINING GOAL?",
-  "WHAT'S YOUR BOXING STANCE?",
+  'HOW WILL YOU TRAIN?',
   "WHAT'S YOUR ROUTINE",
-  "WHAT'S YOUR WEIGHT?",
-  "WHAT'S YOUR HEIGHT?",
 ] as const;
 
 interface Props {
@@ -219,209 +207,6 @@ function ChoiceCard({
   );
 }
 
-function GenderCard({
-  label,
-  female,
-  selected,
-  onPress,
-}: {
-  label: string;
-  female: boolean;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TactilePressable
-      onPress={onPress}
-      haptic="selection"
-      pressedScale={0.98}
-      style={[styles.genderCard, selected && styles.genderCardSelected]}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      accessibilityLabel={label}
-    >
-      {selected ? (
-        <View style={styles.genderCheck}>
-          <Ionicons name="checkmark" size={13} color={colors.text} />
-        </View>
-      ) : null}
-      <View style={styles.genderArt}>
-        <Image
-          source={female ? FEMALE_BOXER_SOURCE : MALE_BOXER_SOURCE}
-          resizeMode="contain"
-          style={styles.genderImage}
-          accessibilityIgnoresInvertColors
-        />
-      </View>
-      <Text style={[styles.genderLabel, selected && styles.choiceTitleSelected]} allowFontScaling={false}>
-        {label}
-      </Text>
-    </TactilePressable>
-  );
-}
-
-function InfoNote({ label, children, accent = false }: {
-  label: string;
-  children: string;
-  accent?: boolean;
-}) {
-  return (
-    <View style={[styles.infoNote, accent && styles.infoNoteAccent]}>
-      <Text style={styles.infoNoteLabel} allowFontScaling={false}>{label}</Text>
-      <Text style={styles.infoNoteText}>{children}</Text>
-    </View>
-  );
-}
-
-function UnitToggle<T extends string>({
-  left,
-  right,
-  value,
-  onChange,
-}: {
-  left: { label: string; value: T };
-  right: { label: string; value: T };
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <View style={styles.unitToggle}>
-      {[left, right].map(option => {
-        const selected = value === option.value;
-        return (
-          <TactilePressable
-            key={option.value}
-            onPress={() => onChange(option.value)}
-            haptic="selection"
-            style={[styles.unitOption, selected && styles.unitOptionSelected]}
-          >
-            <Text style={[styles.unitOptionText, selected && styles.unitOptionTextSelected]} allowFontScaling={false}>
-              {option.label}
-            </Text>
-          </TactilePressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function Ruler({
-  value,
-  unit,
-  min,
-  max,
-  onChange,
-  onDragStateChange,
-  formatValue = nextValue => String(nextValue),
-  formatAccessibilityValue,
-}: {
-  value: number;
-  unit: string;
-  min: number;
-  max: number;
-  onChange: (value: number) => void;
-  onDragStateChange: (dragging: boolean) => void;
-  formatValue?: (value: number) => string;
-  formatAccessibilityValue?: (value: number) => string;
-}) {
-  const valueRef = useRef(value);
-  const minRef = useRef(min);
-  const maxRef = useRef(max);
-  const onChangeRef = useRef(onChange);
-  const onDragStateChangeRef = useRef(onDragStateChange);
-  const startValue = useRef(value);
-  const lastDragValue = useRef(value);
-  valueRef.current = value;
-  minRef.current = min;
-  maxRef.current = max;
-  onChangeRef.current = onChange;
-  onDragStateChangeRef.current = onDragStateChange;
-
-  const responder = useMemo(
-    () => PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gesture) => (
-        Math.abs(gesture.dx) > 2 && Math.abs(gesture.dx) > Math.abs(gesture.dy)
-      ),
-      onMoveShouldSetPanResponderCapture: (_, gesture) => (
-        Math.abs(gesture.dx) > 2 && Math.abs(gesture.dx) > Math.abs(gesture.dy)
-      ),
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: () => {
-        startValue.current = valueRef.current;
-        lastDragValue.current = valueRef.current;
-        onDragStateChangeRef.current(true);
-      },
-      onPanResponderMove: (_, gesture) => {
-        const nextValue = Math.max(
-          minRef.current,
-          Math.min(
-            maxRef.current,
-            Math.round(startValue.current - gesture.dx / 6),
-          ),
-        );
-        if (nextValue === lastDragValue.current) return;
-        lastDragValue.current = nextValue;
-        void Haptics.selectionAsync();
-        onChangeRef.current(nextValue);
-      },
-      onPanResponderRelease: () => onDragStateChangeRef.current(false),
-      onPanResponderTerminate: () => onDragStateChangeRef.current(false),
-    }),
-    [],
-  );
-  const labels = Array.from({ length: 7 }, (_, index) => (
-    Math.max(min, Math.min(max, value + (index - 3) * 5))
-  ));
-
-  return (
-    <View
-      style={styles.ruler}
-      {...responder.panHandlers}
-      accessible
-      accessibilityRole="adjustable"
-      accessibilityValue={{
-        min,
-        max,
-        now: value,
-        text: formatAccessibilityValue?.(value) ?? `${formatValue(value)} ${unit}`,
-      }}
-      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-      onAccessibilityAction={event => {
-        const amount = event.nativeEvent.actionName === 'increment' ? 1 : -1;
-        onChange(Math.max(min, Math.min(max, value + amount)));
-      }}
-    >
-      <Text style={styles.rulerValue} allowFontScaling={false}>{formatValue(value)}</Text>
-      <Text style={styles.rulerUnit} allowFontScaling={false}>{unit}</Text>
-      <View style={styles.rulerLabels}>
-        {labels.map((label, index) => (
-          <Text key={`${label}-${index}`} style={styles.rulerLabel} allowFontScaling={false}>
-            {formatValue(label)}
-          </Text>
-        ))}
-      </View>
-      <View style={styles.tickRow}>
-        {Array.from({ length: 31 }, (_, index) => {
-          const center = index === 15;
-          const major = index % 5 === 0;
-          return (
-            <View
-              key={index}
-              style={[
-                styles.tick,
-                major && styles.tickMajor,
-                center && styles.tickCenter,
-              ]}
-            />
-          );
-        })}
-      </View>
-      <Text style={styles.dragHint} allowFontScaling={false}>DRAG THE SCALE TO ADJUST</Text>
-    </View>
-  );
-}
-
 function WelcomeScreen({
   onGetStarted,
   onExistingAccount,
@@ -441,14 +226,6 @@ function WelcomeScreen({
       videoPlayer.play();
     },
   );
-
-  useEffect(() => {
-    void Promise.all(
-      GENDER_ART_SOURCES.map(source => (
-        Image.prefetch(Image.resolveAssetSource(source).uri)
-      )),
-    ).catch(() => undefined);
-  }, []);
 
   return (
     <View style={styles.welcomeBackground}>
@@ -535,33 +312,8 @@ function SignupStep({
   existingAccount?: boolean;
   onContinueAsGuest?: () => void;
 }) {
-  const {
-    signInWithApple,
-    signInWithGoogle,
-    appleSignInEnabled,
-    isBusy,
-    errorMessage,
-    clearError,
-  } = useAuth();
-  const [activeProvider, setActiveProvider] = useState<'apple' | 'google' | null>(null);
-  const [backgroundLoaded, setBackgroundLoaded] = useState(false);
+  const { isBusy } = useAuth();
   const insets = useSafeAreaInsets();
-
-  const signIn = async (provider: 'apple' | 'google') => {
-    if (activeProvider || isBusy) return;
-    clearError();
-    setActiveProvider(provider);
-    try {
-      const signedIn = provider === 'apple'
-        ? await signInWithApple()
-        : await signInWithGoogle();
-      if (signedIn && !existingAccount) {
-        await onComplete(record, { cloudSyncPending: true });
-      }
-    } finally {
-      setActiveProvider(null);
-    }
-  };
 
   const content = (
     <ScrollView contentContainerStyle={styles.signupContent} showsVerticalScrollIndicator={false}>
@@ -582,66 +334,49 @@ function SignupStep({
           </Text>
           <Text style={styles.leadCopy}>
             {existingAccount
-              ? 'Pick the provider connected to your account to recover your profile and training.'
-              : 'Protect your profile, sync your progress, and recover everything after reinstalling.'}
+              ? 'Pick the provider connected to your account to recover your fighter profile.'
+              : 'Protect your fighter profile and recover it after reinstalling.'}
           </Text>
         </View>
 
         <View style={styles.signupActions}>
-          {errorMessage ? (
-            <View style={styles.errorBanner} accessibilityRole="alert">
-              <Ionicons name="alert-circle-outline" size={20} color={colors.peach} />
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
-          {Platform.OS === 'ios' ? (
-            <TactilePressable
-              onPress={() => void signIn('apple')}
-              disabled={isBusy || Boolean(activeProvider) || !appleSignInEnabled}
-              haptic="medium"
-              style={[styles.providerButton, (!appleSignInEnabled || isBusy) && styles.disabled]}
-            >
-              {activeProvider === 'apple' ? (
-                <ActivityIndicator color={colors.background} />
-              ) : (
-                <>
-                  <Ionicons name="logo-apple" size={22} color={colors.background} />
-                  <Text style={styles.providerButtonText} allowFontScaling={false}>CONTINUE WITH APPLE</Text>
-                </>
-              )}
-            </TactilePressable>
-          ) : null}
-          <TactilePressable
-            onPress={() => void signIn('google')}
-            disabled={isBusy || Boolean(activeProvider)}
-            haptic="medium"
-            style={[styles.providerButton, styles.providerButtonDark, isBusy && styles.disabled]}
-          >
-            {activeProvider === 'google' ? (
-              <ActivityIndicator color={colors.text} />
-            ) : (
-              <>
-                <Ionicons name="logo-google" size={21} color={colors.text} />
-                <Text style={[styles.providerButtonText, styles.providerButtonTextDark]} allowFontScaling={false}>
-                  CONTINUE WITH GOOGLE
-                </Text>
-              </>
-            )}
-          </TactilePressable>
+          <AccountSignInActions
+            onSignedIn={async () => {
+              if (!existingAccount) {
+                await onComplete(record, { cloudSyncPending: true });
+              }
+            }}
+          />
           <SecondaryButton
             label="CONTINUE AS GUEST"
             onPress={() => {
               if (existingAccount) onContinueAsGuest?.();
               else void onComplete(record);
             }}
-            disabled={isBusy || Boolean(activeProvider)}
+            disabled={isBusy}
           />
           <Text style={styles.signupFootnote}>
             {existingAccount
               ? 'Use the same provider you chose when creating your account.'
-              : `Sign in to sync across devices.\nContinue as guest to keep answers on this device.`}
+              : `Sign in to protect your fighter profile and any future Premium purchase.\nFree training never requires an account.`}
           </Text>
-          <Text style={styles.legalText} allowFontScaling={false}>TERMS OF SERVICE  ·  PRIVACY POLICY</Text>
+          <View style={styles.legalLinks}>
+            <Text
+              style={styles.legalText}
+              onPress={() => void openExternalLink(EXTERNAL_LINKS.terms, 'Terms of Use')}
+              accessibilityRole="link"
+            >
+              TERMS OF USE
+            </Text>
+            <Text style={styles.legalDivider} accessibilityElementsHidden>·</Text>
+            <Text
+              style={styles.legalText}
+              onPress={() => void openExternalLink(EXTERNAL_LINKS.privacy, 'Privacy Policy')}
+              accessibilityRole="link"
+            >
+              PRIVACY POLICY
+            </Text>
+          </View>
         </View>
     </ScrollView>
   );
@@ -654,12 +389,11 @@ function SignupStep({
       resizeMode="cover"
       style={styles.signupBackground}
       accessible={false}
-      onLoad={() => setBackgroundLoaded(true)}
     >
       <LinearGradient
         colors={['rgba(5,0,0,0.38)', 'rgba(5,0,0,0.67)', 'rgba(5,0,0,0.96)']}
         locations={[0, 0.43, 1]}
-        style={[styles.signupOverlay, !backgroundLoaded && styles.backgroundContentHidden]}
+        style={styles.signupOverlay}
       >
         <View
           style={[
@@ -679,24 +413,180 @@ function SignupStep({
   );
 }
 
+function RecommendationScreen({
+  record,
+  onBack,
+  onUseWorkout,
+  onSaveFirst,
+}: {
+  record: OnboardingRecord;
+  onBack: () => void;
+  onUseWorkout: () => void;
+  onSaveFirst: () => void;
+}) {
+  const recommendation = recommendFirstWorkout(record.profile);
+  const trainingMode = trainingModeFromEquipment(record.profile.equipment);
+  const difficultyLabel = {
+    beginner: 'BASIC',
+    intermediate: 'MEDIUM',
+    advanced: 'ADVANCED',
+    pro: 'PRO',
+  }[recommendation.difficulty];
+  const sessionMinutes = Math.round(
+    (
+      recommendation.totalRounds * recommendation.roundDuration
+      + (recommendation.totalRounds - 1) * recommendation.restDuration
+    ) / 60,
+  );
+
+  return (
+    <ScreenShell>
+      <ScrollView
+        contentContainerStyle={styles.recommendationContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View>
+          <View style={styles.recommendationHeader}>
+            <TactilePressable
+              onPress={onBack}
+              haptic="light"
+              style={styles.backButton}
+              accessibilityLabel="Back to routine"
+            >
+              <Ionicons name="chevron-back" size={22} color={colors.text} />
+            </TactilePressable>
+            <Text style={styles.kicker} allowFontScaling={false}>BUILT FROM YOUR ANSWERS</Text>
+          </View>
+          <Text style={styles.recommendationTitle} allowFontScaling={false}>
+            YOUR FIRST{`\n`}WORKOUT
+          </Text>
+          <Text style={styles.recommendationLead}>
+            Start with a session you can finish strong. You can adjust every setting before the bell.
+          </Text>
+        </View>
+
+        <View style={styles.recommendationCard}>
+          <View style={styles.recommendationCardTop}>
+            <View style={styles.recommendationModeIcon}>
+              <Ionicons
+                name={trainingMode === 'heavy_bag' ? 'fitness-outline' : 'body-outline'}
+                size={25}
+                color={colors.peach}
+              />
+            </View>
+            <View style={styles.recommendationCardCopy}>
+              <Text style={styles.recommendationEyebrow} allowFontScaling={false}>
+                {trainingMode === 'heavy_bag' ? 'HEAVY BAG' : 'SHADOWBOXING'}
+              </Text>
+              <Text style={styles.recommendationCardTitle} allowFontScaling={false}>
+                {difficultyLabel} STARTER
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.recommendationMetrics}>
+            <View style={styles.recommendationMetric}>
+              <Text style={styles.recommendationMetricValue} allowFontScaling={false}>
+                {recommendation.totalRounds}
+              </Text>
+              <Text style={styles.recommendationMetricLabel} allowFontScaling={false}>ROUNDS</Text>
+            </View>
+            <View style={styles.recommendationMetric}>
+              <Text style={styles.recommendationMetricValue} allowFontScaling={false}>
+                {recommendation.roundDuration / 60}M
+              </Text>
+              <Text style={styles.recommendationMetricLabel} allowFontScaling={false}>EACH</Text>
+            </View>
+            <View style={styles.recommendationMetric}>
+              <Text style={styles.recommendationMetricValue} allowFontScaling={false}>
+                {recommendation.restDuration}S
+              </Text>
+              <Text style={styles.recommendationMetricLabel} allowFontScaling={false}>REST</Text>
+            </View>
+          </View>
+
+          <View style={styles.recommendationSummary}>
+            <Ionicons name="time-outline" size={18} color={colors.textMuted} />
+            <Text style={styles.recommendationSummaryText}>
+              About {sessionMinutes} minutes · Coach audio and visual combos included
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.recommendationActions}>
+          <PrimaryButton label="USE THIS WORKOUT" onPress={onUseWorkout} />
+          <SecondaryButton label="SAVE & SYNC FIRST" onPress={onSaveFirst} />
+          <Text style={styles.recommendationFootnote}>
+            No account is required to train. Saving lets you recover your fighter profile;
+            workout history stays on this device.
+          </Text>
+        </View>
+      </ScrollView>
+    </ScreenShell>
+  );
+}
+
 export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Props) {
   const [record, setRecord] = useState(initialRecord);
   const [view, setView] = useState<OnboardingView>(
     initialRecord.step === 0 ? 'welcome' : 'form',
   );
-  const [permissionBusy, setPermissionBusy] = useState(false);
   const [nicknameFocused, setNicknameFocused] = useState(false);
-  const [rulerDragging, setRulerDragging] = useState(false);
+  const onboardingStartedTrackedRef = useRef(false);
+  const recommendationShownTrackedRef = useRef(false);
   const step = record.step;
   const profile = record.profile;
+  const trainingMode = trainingModeFromEquipment(profile.equipment);
+  const recommendation = recommendFirstWorkout(profile);
+
+  const trackOnboardingStarted = (entry: 'new' | 'resumed') => {
+    if (onboardingStartedTrackedRef.current) return;
+    onboardingStartedTrackedRef.current = true;
+    trackEvent('onboarding_started', { entry });
+  };
+
+  useEffect(() => {
+    if (initialRecord.step > 0) {
+      trackOnboardingStarted('resumed');
+    }
+  }, [initialRecord.step]);
+
+  useEffect(() => {
+    if (
+      recommendationShownTrackedRef.current
+      || (view !== 'recommendation' && step !== LAST_STEP)
+    ) {
+      return;
+    }
+
+    recommendationShownTrackedRef.current = true;
+    trackEvent('recommended_workout_shown', {
+      difficulty: recommendation.difficulty,
+      training_mode: trainingMode,
+      total_rounds: recommendation.totalRounds,
+      round_duration_seconds: recommendation.roundDuration,
+      rest_duration_seconds: recommendation.restDuration,
+    });
+  }, [recommendation, step, trainingMode, view]);
 
   const updateProfile = (changes: Partial<FighterProfile>) => {
     setRecord(current => copyRecord(current, { profile: { ...current.profile, ...changes } }));
   };
 
   const goBack = () => {
-    if (view === 'account' || step <= 0) {
+    if (view === 'signin' || step <= 0) {
       setView('welcome');
+      return;
+    }
+    if (view === 'signup') {
+      setView('recommendation');
+      return;
+    }
+    if (view === 'recommendation' || step === LAST_STEP) {
+      const previous = copyRecord(record, { step: LAST_STEP - 1 });
+      setRecord(previous);
+      setView('form');
+      void onProgress(previous).catch(() => undefined);
       return;
     }
     const previous = copyRecord(record, { step: step - 1 });
@@ -713,31 +603,16 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
   });
 
   const next = async () => {
-    let nextRecord = record;
-    if (step === 5) {
-      setPermissionBusy(true);
-      try {
-        let reminderPermission = record.reminderPermission;
-        if (profile.trainingDays.length && reminderPermission === 'not_requested') {
-          reminderPermission = await requestTrainingReminderPermission();
-          nextRecord = copyRecord(nextRecord, { reminderPermission });
-        }
-        if (profile.trainingDays.length && reminderPermission === 'granted') {
-          await scheduleTrainingReminders(
-            profile.trainingDays,
-            profile.preferredSessionMinutes,
-          ).catch(() => undefined);
-        } else if (!profile.trainingDays.length) {
-          await cancelTrainingReminders().catch(() => undefined);
-        }
-      } finally {
-        setPermissionBusy(false);
-      }
-    }
-
-    nextRecord = copyRecord(nextRecord, { step: Math.min(LAST_STEP, step + 1) });
+    const nextRecord = copyRecord(record, { step: Math.min(LAST_STEP, step + 1) });
     setRecord(nextRecord);
     await onProgress(nextRecord);
+    const stepKey = ONBOARDING_STEP_KEYS[step];
+    if (stepKey) {
+      trackEvent('onboarding_step_completed', {
+        step: (step + 1) as 1 | 2 | 3 | 4 | 5,
+        step_key: stepKey,
+      });
+    }
   };
 
   const toggleDay = (day: TrainingDay) => {
@@ -748,41 +623,60 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
     updateProfile({ trainingDays, targetDaysPerWeek: trainingDays.length });
   };
 
+  const selectTrainingMode = (nextTrainingMode: TrainingMode) => {
+    updateProfile({
+      equipment: equipmentForTrainingMode(nextTrainingMode, profile.equipment),
+    });
+  };
+
   if (view === 'welcome') {
     return (
       <WelcomeScreen
-        onGetStarted={() => setView('form')}
-        onExistingAccount={() => setView('account')}
+        onGetStarted={() => {
+          trackOnboardingStarted('new');
+          setView('form');
+        }}
+        onExistingAccount={() => setView('signin')}
         onEnterGym={() => void onComplete(record, { skipped: true })}
       />
     );
   }
 
-  if (view === 'account') {
+  if (view === 'signin') {
     return (
       <SignupStep
         record={record}
         onBack={goBack}
         onComplete={onComplete}
         existingAccount
-        onContinueAsGuest={() => setView('form')}
+        onContinueAsGuest={() => {
+          trackOnboardingStarted('new');
+          setView('form');
+        }}
       />
     );
   }
 
-  if (step === LAST_STEP) {
-    return <SignupStep record={record} onBack={goBack} onComplete={onComplete} />;
+  if (view === 'signup') {
+    return (
+      <SignupStep
+        record={record}
+        onBack={goBack}
+        onComplete={onComplete}
+      />
+    );
   }
 
-  const weightValue = profile.weightUnit === 'kg'
-    ? Math.round(profile.weightKg)
-    : Math.round(profile.weightKg * 2.2046226218);
-  const heightValue = profile.heightUnit === 'cm'
-    ? Math.round(profile.heightCm)
-    : centimetresToRoundedInches(profile.heightCm);
-  const routineSummary = profile.trainingDays.length
-    ? `${profile.trainingDays.map(day => DAY_LABELS[day]).join(' · ')}  /  ${profile.preferredSessionMinutes} MIN`
-    : `NO REMINDER DAYS  /  ${profile.preferredSessionMinutes} MIN`;
+  if (view === 'recommendation' || step === LAST_STEP) {
+    return (
+      <RecommendationScreen
+        record={record}
+        onBack={goBack}
+        onUseWorkout={() => void onComplete(record)}
+        onSaveFirst={() => setView('signup')}
+      />
+    );
+  }
 
   return (
     <ScreenShell>
@@ -791,7 +685,6 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
           contentContainerStyle={styles.screenContent}
           directionalLockEnabled
           keyboardShouldPersistTaps="handled"
-          scrollEnabled={!rulerDragging}
           showsVerticalScrollIndicator={false}
         >
           <Header
@@ -801,26 +694,6 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
 
           <View style={styles.stepBody}>
             {step === 0 ? (
-              <>
-                <SectionLabel>SELECT ONE</SectionLabel>
-                <View style={styles.genderGrid}>
-                  <GenderCard
-                    label="MALE"
-                    female={false}
-                    selected={profile.gender === 'male'}
-                    onPress={() => updateProfile({ gender: 'male' })}
-                  />
-                  <GenderCard
-                    label="FEMALE"
-                    female
-                    selected={profile.gender === 'female'}
-                    onPress={() => updateProfile({ gender: 'female' })}
-                  />
-                </View>
-              </>
-            ) : null}
-
-            {step === 1 ? (
               <>
                 <SectionLabel>NICKNAME</SectionLabel>
                 <TextInput
@@ -851,7 +724,7 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
               </>
             ) : null}
 
-            {step === 2 ? (
+            {step === 1 ? (
               <>
                 <Text style={styles.leadCopy}>Choose the level that best matches your current activity.</Text>
                 <SectionLabel>FITNESS LEVEL</SectionLabel>
@@ -875,7 +748,7 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
               </>
             ) : null}
 
-            {step === 3 ? (
+            {step === 2 ? (
               <>
                 <Text style={styles.leadCopy}>Pick the result you want coaching to prioritize.</Text>
                 <SectionLabel>PRIMARY GOAL</SectionLabel>
@@ -903,10 +776,29 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
               </>
             ) : null}
 
-            {step === 4 ? (
+            {step === 3 ? (
               <>
-                {/*<SectionLabel>STANCE</SectionLabel>*/}
-                <Text style={styles.leadCopy}>We will tailor stance cues and footwork to you. Choose Not Sure if you are still learning.</Text>
+                <Text style={styles.leadCopy}>
+                  Choose where you will train and the stance that best matches you.
+                </Text>
+                <SectionLabel>TRAINING MODE</SectionLabel>
+                <View style={styles.twoColumnGrid}>
+                  <ChoiceCard
+                    title="SHADOWBOXING"
+                    subtitle="No bag needed"
+                    selected={trainingMode === 'shadowboxing'}
+                    onPress={() => selectTrainingMode('shadowboxing')}
+                    compact
+                  />
+                  <ChoiceCard
+                    title="HEAVY BAG"
+                    subtitle="Bag-focused rounds"
+                    selected={trainingMode === 'heavy_bag'}
+                    onPress={() => selectTrainingMode('heavy_bag')}
+                    compact
+                  />
+                </View>
+                <SectionLabel>STANCE</SectionLabel>
                 <View style={styles.threeColumnGrid}>
                   {STANCE_OPTIONS.map(option => (
                     <ChoiceCard
@@ -921,7 +813,7 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
               </>
             ) : null}
 
-            {step === 5 ? (
+            {step === 4 ? (
               <>
                 <Text style={styles.leadCopy}>
                   Choose the days you want to train. We will use them for workout reminders.
@@ -972,71 +864,13 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
               </>
             ) : null}
 
-            {step === 6 ? (
-              <>
-                <Text style={styles.leadCopy}>
-                  Choose kilograms or pounds, then drag the ruler. This can be changed any time in your profile.
-                </Text>
-                <SectionLabel>UNIT</SectionLabel>
-                <UnitToggle<WeightUnit>
-                  left={{ label: 'KG', value: 'kg' }}
-                  right={{ label: 'LBS', value: 'lb' }}
-                  value={profile.weightUnit}
-                  onChange={weightUnit => updateProfile({ weightUnit })}
-                />
-                <Ruler
-                  value={weightValue}
-                  unit={profile.weightUnit.toUpperCase()}
-                  min={profile.weightUnit === 'kg' ? 35 : 77}
-                  max={profile.weightUnit === 'kg' ? 200 : 440}
-                  onChange={value => updateProfile({
-                    weightKg: profile.weightUnit === 'kg' ? value : value / 2.2046226218,
-                  })}
-                  onDragStateChange={setRulerDragging}
-                />
-              </>
-            ) : null}
-
-            {step === 7 ? (
-              <>
-                <Text style={styles.leadCopy}>
-                  Choose centimetres or feet and inches, then drag the ruler. This can be changed any time in your profile.
-                </Text>
-                <SectionLabel>UNIT</SectionLabel>
-                <UnitToggle<HeightUnit>
-                  left={{ label: 'CM', value: 'cm' }}
-                  right={{ label: 'FT + IN', value: 'in' }}
-                  value={profile.heightUnit}
-                  onChange={heightUnit => updateProfile({ heightUnit })}
-                />
-                <Ruler
-                  value={heightValue}
-                  unit={profile.heightUnit === 'cm' ? 'CM' : 'FT + IN'}
-                  min={profile.heightUnit === 'cm' ? MIN_HEIGHT_CM : MIN_HEIGHT_INCHES}
-                  max={profile.heightUnit === 'cm' ? MAX_HEIGHT_CM : MAX_HEIGHT_INCHES}
-                  formatValue={profile.heightUnit === 'cm' ? undefined : formatFeetAndInches}
-                  formatAccessibilityValue={
-                    profile.heightUnit === 'cm'
-                      ? undefined
-                      : formatFeetAndInchesAccessible
-                  }
-                  onChange={value => updateProfile({
-                    heightCm: profile.heightUnit === 'cm'
-                      ? value
-                      : inchesToCentimetres(value),
-                  })}
-                  onDragStateChange={setRulerDragging}
-                />
-              </>
-            ) : null}
           </View>
 
           <View style={styles.bottomAction}>
             <PrimaryButton
-              label={step === 7 ? 'SAVE & CONTINUE' : 'NEXT'}
+              label={step === 4 ? 'SAVE & CONTINUE' : 'NEXT'}
               onPress={() => void next().catch(() => undefined)}
-              loading={permissionBusy}
-              disabled={step === 1 && !profile.displayName.trim()}
+              disabled={step === 0 && !profile.displayName.trim()}
             />
           </View>
         </ScrollView>
@@ -1226,74 +1060,6 @@ const styles = StyleSheet.create({
     lineHeight: textLineHeight(13),
     letterSpacing: 1.3,
   },
-  genderGrid: { flexDirection: 'row', gap: 8 },
-  genderCard: {
-    flex: 1,
-    minWidth: 0,
-    height: 232,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'transparent',
-    paddingHorizontal: 8,
-  },
-  genderCardSelected: {
-    borderWidth: 2,
-    borderColor: colors.red,
-    backgroundColor: colors.transparent,
-  },
-  genderCheck: {
-    position: 'absolute',
-    zIndex: 2,
-    top: 12,
-    right: 12,
-    width: 19,
-    height: 19,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.red,
-  },
-  genderArt: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    paddingTop: 10,
-  },
-  genderImage: { width: '100%', height: '100%' },
-  genderLabel: {
-    paddingVertical: 10,
-    color: colors.text,
-    textAlign: 'center',
-    fontFamily: 'Anton',
-    fontSize: 23,
-    lineHeight: textLineHeight(23),
-    letterSpacing: 0.5,
-  },
-  infoNote: {
-    minHeight: 72,
-    paddingHorizontal: 17,
-    paddingVertical: 12,
-    justifyContent: 'center',
-    backgroundColor: '#221e1d',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  infoNoteAccent: { backgroundColor: '#211b1b', borderColor: colors.red },
-  infoNoteLabel: {
-    color: colors.peach,
-    fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 11,
-    lineHeight: textLineHeight(11),
-    letterSpacing: 1,
-  },
-  infoNoteText: {
-    marginTop: 4,
-    color: colors.textMuted,
-    fontFamily: 'ArchivoNarrow',
-    fontSize: 14,
-    lineHeight: textLineHeight(14),
-  },
   twoColumnGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   threeColumnGrid: { flexDirection: 'row', gap: 8 },
   choiceCard: {
@@ -1375,70 +1141,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   durationUnitSelected: { color: colors.peach },
-  unitToggle: {
-    height: 56,
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  unitOption: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  unitOptionSelected: { backgroundColor: colors.red },
-  unitOptionText: {
-    color: colors.textMuted,
-    fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 17,
-    lineHeight: textLineHeight(17),
-    letterSpacing: 1.1,
-  },
-  unitOptionTextSelected: { color: colors.text },
-  ruler: {
-    minHeight: 250,
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  rulerValue: {
-    color: colors.red,
-    fontFamily: 'Anton',
-    fontSize: 68,
-    lineHeight: textLineHeight(68),
-  },
-  rulerUnit: {
-    marginTop: -7,
-    color: colors.peach,
-    fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 12,
-    lineHeight: textLineHeight(12),
-    letterSpacing: 1.2,
-  },
-  rulerLabels: { width: '100%', marginTop: 18, flexDirection: 'row', justifyContent: 'space-between' },
-  rulerLabel: { color: colors.textMuted, fontFamily: 'ArchivoNarrow', fontSize: 13 },
-  tickRow: {
-    width: '100%',
-    height: 40,
-    marginTop: 8,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  tick: { width: 1, height: 13, backgroundColor: '#696666' },
-  tickMajor: { height: 25, backgroundColor: colors.text },
-  tickCenter: { width: 3, height: 38, backgroundColor: colors.red },
-  dragHint: {
-    marginTop: 2,
-    color: colors.textMuted,
-    fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 10,
-    lineHeight: textLineHeight(10),
-    letterSpacing: 1.1,
-  },
   bottomAction: { flex: 1, minHeight: 82, justifyContent: 'flex-end', paddingTop: 24 },
   primaryButton: {
     minHeight: 58,
@@ -1478,10 +1180,128 @@ const styles = StyleSheet.create({
     lineHeight: textLineHeight(14),
     letterSpacing: 1,
   },
+  recommendationContent: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 430,
+    alignSelf: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
+    gap: 28,
+  },
+  recommendationHeader: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  recommendationTitle: {
+    marginTop: 24,
+    color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 54,
+    lineHeight: textLineHeight(54),
+    letterSpacing: 0.2,
+  },
+  recommendationLead: {
+    maxWidth: 360,
+    marginTop: 10,
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 17,
+    lineHeight: textLineHeight(17),
+  },
+  recommendationCard: {
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.red,
+    backgroundColor: '#211b1b',
+  },
+  recommendationCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
+  recommendationModeIcon: {
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.red,
+  },
+  recommendationCardCopy: { flex: 1 },
+  recommendationEyebrow: {
+    color: colors.peach,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 11,
+    lineHeight: textLineHeight(11),
+    letterSpacing: 1.4,
+  },
+  recommendationCardTitle: {
+    marginTop: 3,
+    color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 28,
+    lineHeight: textLineHeight(28),
+    letterSpacing: 0.4,
+  },
+  recommendationMetrics: {
+    marginTop: 20,
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  },
+  recommendationMetric: {
+    flex: 1,
+    minHeight: 86,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
+  },
+  recommendationMetricValue: {
+    color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 31,
+    lineHeight: textLineHeight(31),
+  },
+  recommendationMetricLabel: {
+    marginTop: 3,
+    color: colors.textMuted,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 9,
+    lineHeight: textLineHeight(9),
+    letterSpacing: 1.2,
+  },
+  recommendationSummary: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recommendationSummaryText: {
+    flex: 1,
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 14,
+    lineHeight: textLineHeight(14),
+  },
+  recommendationActions: { gap: 10 },
+  recommendationFootnote: {
+    marginTop: 2,
+    paddingHorizontal: 12,
+    color: colors.textMuted,
+    textAlign: 'center',
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 13,
+    lineHeight: textLineHeight(13),
+  },
   disabled: { opacity: 0.48 },
   signupBackground: { flex: 1, backgroundColor: colors.background },
   signupOverlay: { flex: 1 },
-  backgroundContentHidden: { opacity: 0 },
   signupSafeArea: { flex: 1 },
   signupContent: {
     flexGrow: 1,
@@ -1527,14 +1347,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: textLineHeight(13),
   },
-  legalText: {
+  legalLinks: {
     marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+  },
+  legalText: {
     color: '#8b8989',
     textAlign: 'center',
     fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 10,
     lineHeight: textLineHeight(10),
     letterSpacing: 0.7,
+    textDecorationLine: 'underline',
+  },
+  legalDivider: {
+    color: '#8b8989',
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 10,
+    lineHeight: textLineHeight(10),
   },
   errorBanner: {
     minHeight: 56,

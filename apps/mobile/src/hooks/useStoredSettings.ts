@@ -14,8 +14,13 @@ function sanitizeSettings(raw: unknown): SetupSettings {
     typeof candidate.comboInstructionsEnabled === 'boolean'
       ? candidate.comboInstructionsEnabled
       : DEFAULT_SETTINGS.comboInstructionsEnabled;
+  const trainingMode =
+    candidate.trainingMode === 'heavy_bag' || candidate.trainingMode === 'shadowboxing'
+      ? candidate.trainingMode
+      : DEFAULT_SETTINGS.trainingMode;
 
   return {
+    trainingMode,
     difficulty: candidate.difficulty ?? DEFAULT_SETTINGS.difficulty,
     roundDuration: candidate.roundDuration ?? DEFAULT_SETTINGS.roundDuration,
     totalRounds: candidate.totalRounds ?? DEFAULT_SETTINGS.totalRounds,

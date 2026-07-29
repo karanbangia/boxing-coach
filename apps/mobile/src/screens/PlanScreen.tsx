@@ -1,145 +1,355 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ScreenShell } from '../components/ScreenShell';
 import { TactilePressable } from '../components/TactilePressable';
-import type { SetupSettings } from '../config';
-import { colors } from '../theme';
+import {
+  BOXING_PROGRAMS,
+  type BoxingProgram,
+  type ProgramId,
+  type ProgramSession,
+} from '../features/programs/programs';
+import { trackEvent } from '../lib/observability';
+import { useWorkoutHistory } from '../providers/WorkoutHistoryProvider';
+import { colors, textLineHeight } from '../theme';
 
-type PlanPreset = Pick<SetupSettings, 'roundDuration' | 'totalRounds' | 'restDuration'>;
+function analyticsProgramId(programId: ProgramId) {
+  return programId.replaceAll('-', '_') as
+    | 'beginner_fundamentals'
+    | 'heavy_bag_conditioning'
+    | 'fight_camp';
+}
 
-const plannedWorkouts = [
-  {
-    day: 'MON',
-    title: 'FOUNDATION',
-    focus: 'Jab mechanics · footwork',
-    detail: '3 ROUNDS  ·  2 MIN',
-    preset: { totalRounds: 3, roundDuration: 120, restDuration: 60 },
-  },
-  {
-    day: 'WED',
-    title: 'DEFENSE',
-    focus: 'Slips · rolls · counters',
-    detail: '4 ROUNDS  ·  2 MIN',
-    preset: { totalRounds: 4, roundDuration: 120, restDuration: 60 },
-  },
-  {
-    day: 'FRI',
-    title: 'POWER',
-    focus: 'Pressure combinations',
-    detail: '6 ROUNDS  ·  3 MIN',
-    preset: { totalRounds: 6, roundDuration: 180, restDuration: 60 },
-  },
-];
+function sessionDurationLabel(session: ProgramSession) {
+  const minutes = session.settings.roundDuration / 60;
+  return `${session.settings.totalRounds} × ${minutes} MIN · ${session.settings.difficulty.toUpperCase()}`;
+}
 
-function SessionMapRow({
-  workout,
-  index,
-  onBuildWorkout,
+function ProgramCard({
+  program,
+  selected,
+  completed,
+  isPremium,
+  onPress,
 }: {
-  workout: (typeof plannedWorkouts)[number];
-  index: number;
-  onBuildWorkout: (preset: PlanPreset) => void;
+  program: BoxingProgram;
+  selected: boolean;
+  completed: number;
+  isPremium: boolean;
+  onPress: () => void;
 }) {
-  const isNext = index === 0;
-  const content = (
-    <>
-      <View style={[styles.dayRail, isNext && styles.dayRailNext]}>
-        <Text style={[styles.dayNumber, isNext && styles.dayNumberNext]} allowFontScaling={false}>
-          0{index + 1}
-        </Text>
-        <Text style={[styles.dayText, isNext && styles.dayTextNext]} allowFontScaling={false}>
-          {workout.day}
-        </Text>
-      </View>
-      <View style={styles.planCopy}>
-        {isNext ? <Text style={styles.nextLabel} allowFontScaling={false}>UP NEXT</Text> : null}
-        <Text style={styles.planTitle} allowFontScaling={false}>{workout.title}</Text>
-        <Text style={styles.planFocus} allowFontScaling={false}>{workout.focus}</Text>
-        <Text style={styles.planMeta} allowFontScaling={false}>{workout.detail}</Text>
-      </View>
-    </>
+  const total = program.sessions.length;
+  return (
+    <TactilePressable
+      onPress={onPress}
+      haptic="selection"
+      pressedScale={0.985}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${program.title}, ${program.weeks} weeks, ${completed} of ${total} sessions completed`}
+      style={[styles.programCard, selected && styles.programCardSelected]}
+    >
+      <LinearGradient
+        colors={program.accent}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.programCardGradient}
+      >
+        <View style={styles.programCardTop}>
+          <Text style={styles.programCardKicker}>{program.kicker}</Text>
+          {!isPremium ? (
+            <View style={styles.lockBadge}>
+              <Ionicons name="lock-closed" size={11} color={colors.background} />
+              <Text style={styles.lockBadgeText}>PREMIUM</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={styles.programCardTitle}>{program.title}</Text>
+        <Text style={styles.programCardAudience}>{program.audience}</Text>
+        <View style={styles.programCardFooter}>
+          <Text style={styles.programCardMeta}>
+            {program.weeks} WEEKS · {program.sessionsPerWeek}× / WEEK
+          </Text>
+          {completed > 0 ? (
+            <Text style={styles.programCardProgress}>{completed}/{total}</Text>
+          ) : (
+            <Ionicons name="arrow-forward" size={18} color={colors.text} />
+          )}
+        </View>
+      </LinearGradient>
+    </TactilePressable>
   );
+}
 
-  if (!isNext) {
-    return <View style={styles.planRow}>{content}</View>;
-  }
+function SessionRow({
+  session,
+  completed,
+  isNext,
+  locked,
+  isPremium,
+  onOpenPremium,
+  onLoadSession,
+}: {
+  session: ProgramSession;
+  completed: boolean;
+  isNext: boolean;
+  locked: boolean;
+  isPremium: boolean;
+  onOpenPremium: () => void;
+  onLoadSession: (session: ProgramSession) => void;
+}) {
+  const canOpen = completed || isNext;
+  const handlePress = () => {
+    if (!isPremium) {
+      onOpenPremium();
+      return;
+    }
+    if (canOpen) onLoadSession(session);
+  };
 
   return (
     <TactilePressable
+      onPress={handlePress}
+      disabled={isPremium && locked}
+      haptic={canOpen || !isPremium ? 'light' : 'none'}
+      pressedScale={0.99}
       accessibilityRole="button"
-      accessibilityLabel={`Build ${workout.title.toLowerCase()} workout`}
-      accessibilityHint="Opens the workout builder"
-      onPress={() => onBuildWorkout(workout.preset)}
-      haptic="light"
-      pressedScale={0.985}
-      style={[styles.planRow, styles.planRowNext]}
+      accessibilityState={{ disabled: isPremium && locked }}
+      accessibilityLabel={`${session.title}, ${sessionDurationLabel(session)}, ${
+        completed ? 'completed' : isNext ? 'up next' : 'locked'
+      }`}
+      style={[
+        styles.sessionRow,
+        isNext && styles.sessionRowNext,
+        locked && styles.sessionRowLocked,
+      ]}
     >
-      {content}
+      <View style={[
+        styles.sessionStatus,
+        completed && styles.sessionStatusComplete,
+        isNext && styles.sessionStatusNext,
+      ]}>
+        {completed ? (
+          <Ionicons name="checkmark" size={19} color={colors.background} />
+        ) : locked ? (
+          <Ionicons name="lock-closed-outline" size={17} color={colors.textMuted} />
+        ) : (
+          <Text style={styles.sessionNumber}>{String(session.sequence).padStart(2, '0')}</Text>
+        )}
+      </View>
+      <View style={styles.sessionCopy}>
+        {isNext ? <Text style={styles.nextLabel}>UP NEXT</Text> : null}
+        <Text style={styles.sessionTitle}>{session.title}</Text>
+        <Text style={styles.sessionFocus}>{session.focus}</Text>
+        <Text style={styles.sessionMeta}>{sessionDurationLabel(session)}</Text>
+      </View>
+      {canOpen || !isPremium ? (
+        <Ionicons name="chevron-forward" size={20} color={isNext ? colors.peach : colors.textMuted} />
+      ) : null}
     </TactilePressable>
   );
 }
 
 export function PlanScreen({
-  onBuildWorkout,
+  isPremium,
+  onOpenPremium,
+  onLoadSession,
 }: {
-  onBuildWorkout: (preset: PlanPreset) => void;
+  isPremium: boolean;
+  onOpenPremium: () => void;
+  onLoadSession: (session: ProgramSession) => void;
 }) {
+  const { history } = useWorkoutHistory();
+  const [selectedProgramId, setSelectedProgramId] = useState<ProgramId>('beginner-fundamentals');
+  const selectedProgram = BOXING_PROGRAMS.find(
+    program => program.id === selectedProgramId,
+  ) ?? BOXING_PROGRAMS[0];
+  const completedIds = useMemo(
+    () => new Set(history.flatMap(workout => workout.programSessionId
+      ? [workout.programSessionId]
+      : [])),
+    [history],
+  );
+  const nextSession = selectedProgram.sessions.find(session => !completedIds.has(session.id)) ?? null;
+  const completedCount = selectedProgram.sessions.filter(session => completedIds.has(session.id)).length;
+  const [selectedWeek, setSelectedWeek] = useState(nextSession?.week ?? 1);
+
+  useEffect(() => {
+    setSelectedWeek(nextSession?.week ?? selectedProgram.weeks);
+    trackEvent('program_viewed', {
+      program: analyticsProgramId(selectedProgram.id),
+    });
+  }, [nextSession?.week, selectedProgram.id, selectedProgram.weeks]);
+
+  const weekSessions = selectedProgram.sessions.filter(session => session.week === selectedWeek);
+  const progress = selectedProgram.sessions.length
+    ? completedCount / selectedProgram.sessions.length
+    : 0;
+
+  const handlePrimaryAction = () => {
+    if (!isPremium) {
+      onOpenPremium();
+      return;
+    }
+    if (nextSession) onLoadSession(nextSession);
+  };
+
   return (
     <ScreenShell>
-      <ScrollView contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.eyebrow} allowFontScaling={false}>The blueprint</Text>
-        <Text style={styles.pageTitle} allowFontScaling={false}>FIGHT CAMP</Text>
-
-        <TactilePressable
-          accessibilityRole="button"
-          accessibilityLabel="Build your next workout"
-          accessibilityHint="Opens the workout builder"
-          onPress={() => onBuildWorkout(plannedWorkouts[0].preset)}
-          haptic="medium"
-          pressedScale={0.98}
-          style={styles.campCardButton}
-        >
-          <LinearGradient
-            colors={['#f32a24', '#be0d13', '#77080d']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.campCard}
-          >
-            <View style={styles.campRingOuter} pointerEvents="none" />
-            <View style={styles.campRingInner} pointerEvents="none" />
-            <Text style={styles.campKicker} allowFontScaling={false}>YOUR NEXT THREE</Text>
-            <Text style={styles.campTitle} allowFontScaling={false}>BUILD THE{`\n`}ROUND.</Text>
-            <View style={styles.campFooter}>
-              <Text style={styles.campCount} allowFontScaling={false}>03</Text>
-              <Text style={styles.campMeta} allowFontScaling={false}>SESSIONS{`\n`}THIS WEEK</Text>
-              <View style={styles.campActionWrap}>
-                <Text style={styles.campDays} allowFontScaling={false}>M · W · F</Text>
-                <Text style={styles.campAction} allowFontScaling={false}>TAP TO BUILD</Text>
-              </View>
-            </View>
-          </LinearGradient>
-        </TactilePressable>
-
-        <View style={styles.sectionHeading}>
-          <Text style={styles.sectionTitle} allowFontScaling={false}>SESSION MAP</Text>
-          <Text style={styles.sectionMeta} allowFontScaling={false}>WEEK 01</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.pageContent}
+      >
+        <View style={styles.pageHeader}>
+          <View>
+            <Text style={styles.eyebrow}>STRUCTURED TRAINING</Text>
+            <Text style={styles.pageTitle}>PROGRAMS</Text>
+          </View>
+          <View style={styles.programCount}>
+            <Text style={styles.programCountValue}>03</Text>
+            <Text style={styles.programCountLabel}>PROGRAMS</Text>
+          </View>
         </View>
 
-        <View style={styles.list}>
-          {plannedWorkouts.map((workout, index) => (
-            <SessionMapRow
-              key={workout.day}
-              workout={workout}
-              index={index}
-              onBuildWorkout={onBuildWorkout}
+        <Text style={styles.intro}>
+          Progress session by session. Every plan changes real round length, pace, movement, and defense frequency.
+        </Text>
+
+        <View style={styles.catalog}>
+          {BOXING_PROGRAMS.map(program => (
+            <ProgramCard
+              key={program.id}
+              program={program}
+              selected={program.id === selectedProgram.id}
+              completed={program.sessions.filter(session => completedIds.has(session.id)).length}
+              isPremium={isPremium}
+              onPress={() => setSelectedProgramId(program.id)}
             />
           ))}
         </View>
 
-        <View style={styles.focusPanel}>
-          <Text style={styles.focusLabel} allowFontScaling={false}>CAMP FOCUS</Text>
-          <Text style={styles.focusCopy} allowFontScaling={false}>
-            Clean repetition first. Speed and power follow a stable base.
+        <View style={styles.detailHeader}>
+          <Text style={styles.detailKicker}>{selectedProgram.kicker}</Text>
+          <Text style={styles.detailTitle}>{selectedProgram.title}</Text>
+          <Text style={styles.detailSummary}>{selectedProgram.summary}</Text>
+        </View>
+
+        <View style={styles.progressCard}>
+          <View style={styles.progressTop}>
+            <View>
+              <Text style={styles.progressLabel}>PROGRAM PROGRESS</Text>
+              <Text style={styles.progressValue}>
+                {completedCount} OF {selectedProgram.sessions.length} SESSIONS
+              </Text>
+            </View>
+            <Text style={styles.progressPercent}>{Math.round(progress * 100)}%</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+          </View>
+        </View>
+
+        <TactilePressable
+          onPress={handlePrimaryAction}
+          disabled={isPremium && !nextSession}
+          haptic="medium"
+          pressedScale={0.985}
+          accessibilityRole="button"
+          style={[
+            styles.primaryButton,
+            isPremium && !nextSession && styles.primaryButtonComplete,
+          ]}
+        >
+          <Ionicons
+            name={!isPremium ? 'lock-open-outline' : nextSession ? 'play' : 'trophy'}
+            size={21}
+            color={colors.text}
+          />
+          <Text style={styles.primaryButtonText}>
+            {!isPremium
+              ? 'UNLOCK THIS PROGRAM'
+              : nextSession
+                ? `LOAD WEEK ${nextSession.week} · SESSION ${nextSession.sessionInWeek}`
+                : 'PROGRAM COMPLETE'}
+          </Text>
+        </TactilePressable>
+
+        <View style={styles.outcomes}>
+          <Text style={styles.sectionLabel}>WHAT THIS BUILDS</Text>
+          {selectedProgram.outcomes.map(outcome => (
+            <View key={outcome} style={styles.outcomeRow}>
+              <Ionicons name="checkmark-circle-outline" size={19} color={colors.peach} />
+              <Text style={styles.outcomeText}>{outcome}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.weekHeading}>
+          <Text style={styles.sectionLabel}>SESSION MAP</Text>
+          <Text style={styles.weekMeta}>WEEK {String(selectedWeek).padStart(2, '0')}</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.weekSelector}
+        >
+          {Array.from({ length: selectedProgram.weeks }, (_, index) => {
+            const week = index + 1;
+            const selected = week === selectedWeek;
+            const completedInWeek = selectedProgram.sessions
+              .filter(session => session.week === week)
+              .every(session => completedIds.has(session.id));
+            return (
+              <TactilePressable
+                key={week}
+                onPress={() => setSelectedWeek(week)}
+                haptic="selection"
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                style={[
+                  styles.weekButton,
+                  selected && styles.weekButtonSelected,
+                  completedInWeek && !selected && styles.weekButtonComplete,
+                ]}
+              >
+                <Text style={[
+                  styles.weekButtonText,
+                  selected && styles.weekButtonTextSelected,
+                ]}>
+                  W{week}
+                </Text>
+                {completedInWeek ? (
+                  <Ionicons
+                    name="checkmark"
+                    size={12}
+                    color={selected ? colors.text : colors.background}
+                  />
+                ) : null}
+              </TactilePressable>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.sessionList}>
+          {weekSessions.map(session => (
+            <SessionRow
+              key={session.id}
+              session={session}
+              completed={completedIds.has(session.id)}
+              isNext={session.id === nextSession?.id}
+              locked={!completedIds.has(session.id) && session.id !== nextSession?.id}
+              isPremium={isPremium}
+              onOpenPremium={onOpenPremium}
+              onLoadSession={onLoadSession}
+            />
+          ))}
+        </View>
+
+        <View style={styles.safetyNote}>
+          <Ionicons name="heart-outline" size={20} color={colors.peach} />
+          <Text style={styles.safetyText}>
+            Program progress is based on completed sessions, not measured technique or power. Adjust intensity and stop if training feels unsafe.
           </Text>
         </View>
       </ScrollView>
@@ -150,232 +360,342 @@ export function PlanScreen({
 const styles = StyleSheet.create({
   pageContent: {
     paddingHorizontal: 20,
-    paddingTop: 27,
-    paddingBottom: 40,
+    paddingTop: 28,
+    paddingBottom: 42,
+    gap: 22,
+  },
+  pageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
   },
   eyebrow: {
     color: colors.peach,
     fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 12,
-    lineHeight: 15,
-    letterSpacing: 2.2,
-    textTransform: 'uppercase',
+    fontSize: 11,
+    lineHeight: textLineHeight(11),
+    letterSpacing: 2,
   },
   pageTitle: {
     color: colors.text,
     fontFamily: 'Anton',
-    fontSize: 44,
-    lineHeight: 54,
-    letterSpacing: 0.3,
-    marginTop: 3,
+    fontSize: 52,
+    lineHeight: 58,
+    letterSpacing: 0.4,
   },
-  campCard: {
-    width: '100%',
-    minHeight: 280,
-    padding: 22,
+  programCount: { alignItems: 'flex-end', paddingBottom: 5 },
+  programCountValue: {
+    color: colors.red,
+    fontFamily: 'Anton',
+    fontSize: 30,
+    lineHeight: 32,
+  },
+  programCountLabel: {
+    color: colors.textMuted,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 9,
+    lineHeight: textLineHeight(9),
+    letterSpacing: 1,
+  },
+  intro: {
+    maxWidth: 520,
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 16,
+    lineHeight: textLineHeight(16),
+  },
+  catalog: { gap: 11 },
+  programCard: {
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  programCardSelected: { borderColor: colors.peach },
+  programCardGradient: {
+    minHeight: 168,
+    padding: 16,
     overflow: 'hidden',
   },
-  campCardButton: {
-    marginTop: 25,
-  },
-  campRingOuter: {
-    position: 'absolute',
-    width: 224,
-    height: 224,
-    borderRadius: 112,
-    top: -126,
-    right: -58,
-    borderWidth: 28,
-    borderColor: 'rgba(255,255,255,0.13)',
-  },
-  campRingInner: {
-    position: 'absolute',
-    width: 108,
-    height: 108,
-    borderRadius: 54,
-    right: 29,
-    top: 71,
-    backgroundColor: 'rgba(255,255,255,0.09)',
-  },
-  campKicker: {
-    color: 'rgba(255,255,255,0.8)',
-    fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 12,
-    lineHeight: 15,
-    letterSpacing: 2.5,
-  },
-  campTitle: {
-    color: '#fff7f5',
-    fontFamily: 'Anton',
-    fontSize: 45,
-    lineHeight: 50,
-    marginTop: 9,
-  },
-  campFooter: {
+  programCardTop: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginTop: 'auto',
-    paddingTop: 17,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.28)',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  campCount: {
-    color: '#fff7f5',
-    fontFamily: 'Anton',
-    fontSize: 47,
-    lineHeight: 48,
-  },
-  campMeta: {
-    color: '#fff7f5',
+  programCardKicker: {
+    color: 'rgba(255,255,255,0.82)',
     fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 10,
-    lineHeight: 13,
-    letterSpacing: 1.2,
-    marginLeft: 11,
-    marginBottom: 4,
+    lineHeight: textLineHeight(10),
+    letterSpacing: 1.5,
   },
-  campActionWrap: {
-    alignItems: 'flex-end',
-    marginLeft: 'auto',
-    marginBottom: 2,
+  lockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    backgroundColor: colors.peach,
   },
-  campDays: {
-    color: '#fff7f5',
-    fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 11,
-    lineHeight: 14,
-    letterSpacing: 1.2,
-  },
-  campAction: {
-    color: '#fff7f5',
+  lockBadgeText: {
+    color: colors.background,
     fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 8,
-    lineHeight: 11,
-    letterSpacing: 1.2,
+    lineHeight: textLineHeight(8),
+    letterSpacing: 0.7,
+  },
+  programCardTitle: {
+    maxWidth: 330,
+    marginTop: 13,
+    color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 30,
+    lineHeight: 34,
+    letterSpacing: 0.3,
+  },
+  programCardAudience: {
     marginTop: 3,
+    color: 'rgba(255,255,255,0.78)',
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 14,
+    lineHeight: textLineHeight(14),
   },
-  sectionHeading: {
+  programCardFooter: {
+    marginTop: 'auto',
+    paddingTop: 13,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.25)',
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 31,
-    marginBottom: 10,
   },
-  sectionTitle: {
+  programCardMeta: {
+    color: colors.text,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 10,
+    lineHeight: textLineHeight(10),
+    letterSpacing: 1,
+  },
+  programCardProgress: {
+    color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 18,
+    lineHeight: 20,
+  },
+  detailHeader: { gap: 5, marginTop: 8 },
+  detailKicker: {
     color: colors.peach,
     fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 12,
-    lineHeight: 15,
-    letterSpacing: 2,
+    fontSize: 11,
+    lineHeight: textLineHeight(11),
+    letterSpacing: 1.6,
   },
-  sectionMeta: {
+  detailTitle: {
+    color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 38,
+    lineHeight: 43,
+    letterSpacing: 0.3,
+  },
+  detailSummary: {
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 16,
+    lineHeight: textLineHeight(16),
+  },
+  progressCard: {
+    padding: 14,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  progressTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  progressLabel: {
+    color: colors.textMuted,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 9,
+    lineHeight: textLineHeight(9),
+    letterSpacing: 1,
+  },
+  progressValue: {
+    marginTop: 3,
+    color: colors.text,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 12,
+    lineHeight: textLineHeight(12),
+    letterSpacing: 0.7,
+  },
+  progressPercent: {
+    color: colors.peach,
+    fontFamily: 'Anton',
+    fontSize: 26,
+    lineHeight: 28,
+  },
+  progressTrack: { height: 5, backgroundColor: colors.border },
+  progressFill: { height: '100%', backgroundColor: colors.red },
+  primaryButton: {
+    minHeight: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    backgroundColor: colors.red,
+    paddingHorizontal: 16,
+  },
+  primaryButtonComplete: { backgroundColor: colors.surfaceMuted },
+  primaryButtonText: {
+    color: colors.text,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 14,
+    lineHeight: textLineHeight(14),
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  outcomes: {
+    gap: 10,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  sectionLabel: {
+    color: colors.peach,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 11,
+    lineHeight: textLineHeight(11),
+    letterSpacing: 1.5,
+  },
+  outcomeRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  outcomeText: {
+    flex: 1,
+    color: colors.text,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 15,
+    lineHeight: textLineHeight(15),
+  },
+  weekHeading: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  weekMeta: {
     color: colors.textMuted,
     fontFamily: 'BarlowSemiCondensedSemiBold',
     fontSize: 10,
-    lineHeight: 13,
-    letterSpacing: 1.4,
+    lineHeight: textLineHeight(10),
+    letterSpacing: 1,
   },
-  list: {
+  weekSelector: { gap: 8 },
+  weekButton: {
+    minWidth: 50,
+    height: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  weekButtonSelected: {
+    borderColor: colors.red,
+    backgroundColor: colors.red,
+  },
+  weekButtonComplete: {
+    borderColor: colors.peach,
+    backgroundColor: colors.peach,
+  },
+  weekButtonText: {
+    color: colors.textMuted,
+    fontFamily: 'Anton',
+    fontSize: 17,
+    lineHeight: 20,
+  },
+  weekButtonTextSelected: { color: colors.text },
+  sessionList: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  planRow: {
-    minHeight: 123,
+  sessionRow: {
+    minHeight: 132,
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingRight: 9,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  planRowNext: {
-    backgroundColor: colors.surface,
-  },
-  dayRail: {
-    width: 82,
+  sessionRowNext: { backgroundColor: 'rgba(249,189,173,0.06)' },
+  sessionRowLocked: { opacity: 0.5 },
+  sessionStatus: {
+    width: 53,
+    height: 53,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  dayRailNext: {
-    borderRightColor: 'rgba(255,20,20,0.75)',
-    backgroundColor: colors.accent,
-  },
-  dayNumber: {
-    color: colors.textMuted,
-    fontFamily: 'Anton',
-    fontSize: 32,
-    lineHeight: 36,
-  },
-  dayNumberNext: {
-    color: colors.text,
-  },
-  dayText: {
-    color: colors.textMuted,
-    fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 10,
-    lineHeight: 13,
-    letterSpacing: 1.4,
-    marginTop: 2,
-  },
-  dayTextNext: {
-    color: colors.text,
-  },
-  planCopy: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 17,
-    paddingVertical: 14,
-  },
-  nextLabel: {
-    color: colors.accentGlow,
-    fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 9,
-    lineHeight: 11,
-    letterSpacing: 1.7,
-    marginBottom: 4,
-  },
-  planTitle: {
-    color: colors.text,
-    fontFamily: 'Anton',
-    fontSize: 32,
-    lineHeight: 36,
-    letterSpacing: 0.2,
-  },
-  planFocus: {
-    color: colors.textMuted,
-    fontFamily: 'ArchivoNarrow',
-    fontSize: 18,
-    lineHeight: 22,
-    marginTop: 2,
-  },
-  planMeta: {
-    color: colors.peach,
-    fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 9,
-    lineHeight: 12,
-    letterSpacing: 1.15,
-    marginTop: 8,
-  },
-  focusPanel: {
-    marginTop: 30,
-    paddingVertical: 21,
-    paddingHorizontal: 18,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.peach,
+    borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  focusLabel: {
+  sessionStatusComplete: {
+    borderColor: colors.peach,
+    backgroundColor: colors.peach,
+  },
+  sessionStatusNext: {
+    borderColor: colors.red,
+    backgroundColor: colors.red,
+  },
+  sessionNumber: {
+    color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 22,
+    lineHeight: 25,
+  },
+  sessionCopy: { flex: 1, gap: 2 },
+  nextLabel: {
     color: colors.peach,
     fontFamily: 'BarlowSemiCondensedSemiBold',
-    fontSize: 10,
-    lineHeight: 13,
-    letterSpacing: 1.5,
+    fontSize: 9,
+    lineHeight: textLineHeight(9),
+    letterSpacing: 1.2,
   },
-  focusCopy: {
-    maxWidth: 295,
+  sessionTitle: {
     color: colors.text,
+    fontFamily: 'Anton',
+    fontSize: 23,
+    lineHeight: 28,
+    letterSpacing: 0.25,
+  },
+  sessionFocus: {
+    color: colors.textMuted,
     fontFamily: 'ArchivoNarrow',
-    fontSize: 21,
-    lineHeight: 25,
-    marginTop: 6,
+    fontSize: 14,
+    lineHeight: textLineHeight(14),
+  },
+  sessionMeta: {
+    marginTop: 3,
+    color: colors.peach,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 9,
+    lineHeight: textLineHeight(9),
+    letterSpacing: 0.8,
+  },
+  safetyNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  safetyText: {
+    flex: 1,
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 13,
+    lineHeight: textLineHeight(13),
   },
 });

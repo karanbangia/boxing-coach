@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#0a0a0a"/>
+  <g transform="translate(191 40) scale(.58)">
+    <path
+      d="M333 700
+         C274 655 239 576 244 493
+         C249 407 298 334 372 303
+         C390 221 462 164 548 164
+         C664 164 752 253 752 370
+         L747 419
+         C795 420 835 452 846 497
+         C861 556 828 614 774 637
+         C746 649 715 650 687 641
+         C666 691 618 724 561 727
+         L333 727Z"
+      fill="#f5f0ef"
+    />
+    <path
+      d="M333 700
+         C274 655 239 576 244 493
+         C249 407 298 334 372 303
+         C390 221 462 164 548 164
+         C664 164 752 253 752 370
+         L747 419
+         C795 420 835 452 846 497
+         C861 556 828 614 774 637
+         C746 649 715 650 687 641
+         C666 691 618 724 561 727
+         L333 727Z"
+      fill="#ff1f1f"
+      transform="translate(20.5 20.5) scale(.96)"
+    />
+    <path
+      d="M703 407
+         C668 439 645 477 638 517
+         C633 546 641 570 662 590
+         L638 609
+         C608 582 597 549 604 510
+         C613 461 640 417 681 381Z"
+      fill="#a90f14"
+    />
+    <rect x="300" y="686" width="392" height="198" rx="58" fill="#f5f0ef"/>
+    <rect x="322" y="708" width="348" height="154" rx="39" fill="#c91818"/>
+    <rect x="370" y="756" width="252" height="18" rx="9" fill="#ff6969"/>
+  </g>
+  <text
+    x="512"
+    y="700"
+    fill="#f5f0ef"
+    font-family="Anton, Impact, sans-serif"
+    font-size="132"
+    text-anchor="middle"
+  >BOXING</text>
+  <text
+    x="512"
+    y="820"
+    fill="#ff1f1f"
+    font-family="Anton, Impact, sans-serif"
+    font-size="104"
+    text-anchor="middle"
+  >COACH</text>
+  <rect x="352" y="860" width="320" height="10" rx="5" fill="#f5f0ef"/>
+</svg>

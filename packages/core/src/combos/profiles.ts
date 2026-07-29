@@ -89,5 +89,23 @@ const profiles: Record<Difficulty, DifficultyProfile> = {
 };
 
 export function getProfile(difficulty: Difficulty): DifficultyProfile {
-  return profiles[difficulty];
+  const profile = profiles[difficulty];
+  return {
+    ...profile,
+    comboPools: {
+      initial: [...profile.comboPools.initial],
+      mid: [...profile.comboPools.mid],
+      late: [...profile.comboPools.late],
+    },
+    movementPools: {
+      initial: [...profile.movementPools.initial],
+      mid: [...profile.movementPools.mid],
+    },
+    defensePools: {
+      initial: [...profile.defensePools.initial],
+      mid: [...profile.defensePools.mid],
+    },
+    interval: { ...profile.interval },
+    actionMix: { ...profile.actionMix },
+  };
 }

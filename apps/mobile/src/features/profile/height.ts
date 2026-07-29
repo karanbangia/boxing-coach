@@ -1,12 +1,16 @@
 export const CENTIMETRES_PER_INCH = 2.54;
 export const INCHES_PER_FOOT = 12;
 
-// Rounded outward from documented adult human records and aligned with the
-// whole-inch range of 1′9″–9′0″.
-export const MIN_HEIGHT_CM = 53;
-export const MAX_HEIGHT_CM = 274;
-export const MIN_HEIGHT_INCHES = 21;
-export const MAX_HEIGHT_INCHES = 108;
+// A practical, inclusive range for youth and adult boxing profiles. Values
+// outside it are more likely to be corrupt legacy data than intentional input.
+export const MIN_HEIGHT_CM = 120;
+export const MAX_HEIGHT_CM = 230;
+export const MIN_HEIGHT_INCHES = 47;
+export const MAX_HEIGHT_INCHES = 91;
+
+export function isHeightCmInRange(value: number) {
+  return value >= MIN_HEIGHT_CM && value <= MAX_HEIGHT_CM;
+}
 
 export function clampHeightCm(value: number) {
   return Math.max(MIN_HEIGHT_CM, Math.min(MAX_HEIGHT_CM, Math.round(value)));

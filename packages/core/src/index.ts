@@ -36,6 +36,21 @@ export {
 export type { SetupOption, SetupSettings } from './setup.js';
 export { calculateWorkoutPerformance, countActionPunches } from './workout-stats.js';
 export type { WorkoutPerformance } from './workout-stats.js';
+export { PUNCH_NUMBER_GUIDE } from './punch-numbers.js';
+export type { PunchNumberDefinition } from './punch-numbers.js';
+export { recommendFirstWorkout } from './workout-recommendation.js';
+export type {
+  CoachingExperience,
+  FirstWorkoutProfile,
+  FirstWorkoutRecommendation,
+  TrainingGoal,
+} from './workout-recommendation.js';
+export { adaptNextWorkout } from './workout-adaptation.js';
+export type {
+  AdaptiveWorkoutRecommendation,
+  AdaptiveWorkoutSettings,
+  WorkoutFeedback,
+} from './workout-adaptation.js';
 export {
   WorkoutController,
   getInitialWorkoutViewState,

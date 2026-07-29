@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#090909" />
+    <meta name="description" content="Get help with Boxing Coach." />
+    <title>Support · Boxing Coach</title>
+    <link rel="stylesheet" href="/legal.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">BOXING <span>COACH</span></a>
+        <nav class="header-nav" aria-label="Legal and support">
+          <a href="/privacy.html">Privacy</a>
+          <a href="/terms.html">Terms</a>
+          <a href="/support.html" aria-current="page">Support</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page">
+      <p class="eyebrow">Your corner team</p>
+      <h1>Boxing Coach <span>Support</span></h1>
+      <p class="lede">
+        Tell us what happened and include the device, app version, and steps
+        that led to the issue. Do not send passwords or sensitive medical data.
+      </p>
+
+      <div class="card-grid">
+        <section class="card">
+          <h3>Account deletion</h3>
+          <p>
+            Open <strong>Profile → Account &amp; Data → Delete Account</strong>.
+            This removes the signed-in account and cloud fighter profile and
+            clears Boxing Coach data from that device.
+          </p>
+        </section>
+        <section class="card">
+          <h3>Workout audio</h3>
+          <p>
+            Check device volume, Silent Mode, Focus settings, Bluetooth output,
+            and the Audio Cues switch. Include your output device when
+            reporting an audio issue.
+          </p>
+        </section>
+        <section class="card">
+          <h3>Training reminders</h3>
+          <p>
+            Reminders require notification permission and are scheduled on the
+            device. Check Notifications for Boxing Coach in system settings.
+          </p>
+        </section>
+        <section class="card">
+          <h3>Physical safety</h3>
+          <p>
+            Stop training if you feel unwell or injured. This form is not an
+            emergency or medical service. Contact local emergency services or a
+            qualified professional when needed.
+          </p>
+        </section>
+      </div>
+
+      <h2>Send a <span>support request</span></h2>
+      <form
+        class="support-form"
+        name="boxing-coach-support"
+        method="POST"
+        action="/support-success.html"
+        data-netlify="true"
+        netlify-honeypot="bot-field"
+      >
+        <input type="hidden" name="form-name" value="boxing-coach-support" />
+        <p class="hidden">
+          <label>Do not fill this out: <input name="bot-field" /></label>
+        </p>
+
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" name="name" autocomplete="name" required />
+        </div>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required />
+        </div>
+
+        <div class="field">
+          <label for="topic">Topic</label>
+          <select id="topic" name="topic" required>
+            <option value="">Choose one</option>
+            <option>Workout or audio</option>
+            <option>Account or sign-in</option>
+            <option>Account deletion or privacy</option>
+            <option>Purchase or subscription</option>
+            <option>Accessibility</option>
+            <option>Coach or gym partnership</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="device">Device and app version</label>
+          <input
+            id="device"
+            name="device"
+            placeholder="Example: iPhone 16, iOS 26, Boxing Coach 1.0"
+          />
+        </div>
+
+        <div class="field">
+          <label for="message">What can we help with?</label>
+          <textarea id="message" name="message" required></textarea>
+        </div>
+
+        <button type="submit">Send support request</button>
+      </form>
+
+      <p class="callout">
+        For privacy requests, choose <strong>Account deletion or privacy</strong>.
+        We may need to verify account ownership before acting on a request.
+      </p>
+    </main>
+
+    <footer class="site-footer">
+      <span>© 2026 Boxing Coach</span>
+      <nav aria-label="Footer">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/support.html">Support</a>
+      </nav>
+    </footer>
+  </body>
+</html>

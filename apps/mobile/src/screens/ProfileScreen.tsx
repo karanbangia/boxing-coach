@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenShell } from '../components/ScreenShell';
 import { SkeletonBlock } from '../components/SkeletonBlock';
 import { TactilePressable } from '../components/TactilePressable';
+import { AccountSignInActions } from '../components/AccountSignInActions';
 import {
   DEFAULT_FIGHTER_PROFILE,
   EQUIPMENT_OPTIONS,
@@ -48,9 +49,11 @@ import {
   inchesToCentimetres,
   splitFeetAndInches,
 } from '../features/profile/height';
+import { EXTERNAL_LINKS, openExternalLink } from '../lib/externalLinks';
 import { profilePhotoUploadsEnabled } from '../lib/firebase';
 import type { WorkoutHistoryItem } from '../lib/workoutHistory';
 import { useAuth } from '../providers/AuthProvider';
+import { usePremium } from '../providers/PremiumProvider';
 import { useWorkoutHistory } from '../providers/WorkoutHistoryProvider';
 import { colors, textLineHeight } from '../theme';
 
@@ -59,6 +62,7 @@ type ConfirmAction = 'signout' | 'delete' | null;
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
 const GENDER_OPTIONS = [
+  { value: 'unspecified', label: 'Not set' },
   { value: 'male', label: 'Male' },
   { value: 'female', label: 'Female' },
 ] as const;
@@ -122,6 +126,7 @@ function formatTrainingTime(seconds: number) {
 }
 
 function formatWeight(profile: FighterProfile) {
+  if (profile.weightKg === null) return 'Not set';
   const value = profile.weightUnit === 'kg'
     ? profile.weightKg
     : profile.weightKg * 2.2046226218;
@@ -129,6 +134,7 @@ function formatWeight(profile: FighterProfile) {
 }
 
 function formatHeight(profile: FighterProfile) {
+  if (profile.heightCm === null) return 'Not set';
   if (profile.heightUnit === 'cm') return `${Math.round(profile.heightCm)} CM`;
   return formatFeetAndInches(centimetresToRoundedInches(profile.heightCm));
 }
@@ -322,31 +328,7 @@ function AuthScreen({
   onBack?: () => void;
   onSignedIn?: () => Promise<void>;
 }) {
-  const {
-    signInWithApple,
-    signInWithGoogle,
-    isBusy,
-    errorMessage,
-    clearError,
-    appleSignInEnabled,
-  } = useAuth();
-  const [activeProvider, setActiveProvider] = useState<'apple' | 'google' | null>(null);
-  const [backgroundLoaded, setBackgroundLoaded] = useState(false);
   const insets = useSafeAreaInsets();
-  const authenticationBusy = isBusy || activeProvider !== null;
-
-  const authenticate = async (provider: 'apple' | 'google') => {
-    if (authenticationBusy) return;
-    setActiveProvider(provider);
-    try {
-      const signedIn = provider === 'apple'
-        ? await signInWithApple()
-        : await signInWithGoogle();
-      if (signedIn) await onSignedIn?.();
-    } finally {
-      setActiveProvider(null);
-    }
-  };
 
   return (
     <ImageBackground
@@ -354,12 +336,11 @@ function AuthScreen({
       resizeMode="cover"
       style={styles.authBackground}
       accessible={false}
-      onLoad={() => setBackgroundLoaded(true)}
     >
       <LinearGradient
         colors={['rgba(5,0,0,0.52)', 'rgba(5,0,0,0.72)', 'rgba(5,0,0,0.96)']}
         locations={[0, 0.45, 1]}
-        style={[styles.authOverlay, !backgroundLoaded && styles.backgroundContentHidden]}
+        style={styles.authOverlay}
       >
         <View
           style={[
@@ -390,60 +371,30 @@ function AuthScreen({
               <Text style={styles.kicker} allowFontScaling={false}>YOUR CORNER. EVERYWHERE.</Text>
               <ScreenTitle first="SAVE YOUR" accent="TRAINING" />
               <Text style={styles.leadCopy}>
-                Protect your workout history, sync your progress, and get ready for premium coaching.
+                Protect your fighter profile, sync it across devices, and get ready for premium coaching.
               </Text>
             </View>
 
             <View style={styles.authActions}>
-              <ErrorBanner message={errorMessage} onDismiss={clearError} />
-              {Platform.OS === 'ios' ? (
-                <TactilePressable
-                  onPress={() => void authenticate('apple')}
-                  disabled={authenticationBusy || !appleSignInEnabled}
-                  haptic="medium"
-                  accessibilityState={{ disabled: authenticationBusy || !appleSignInEnabled }}
-                  style={[
-                    styles.providerButton,
-                    (authenticationBusy || !appleSignInEnabled) && styles.buttonDisabled,
-                  ]}
+              <AccountSignInActions onSignedIn={onSignedIn} />
+              <Text style={styles.legalCopy}>By continuing, you agree to and acknowledge:</Text>
+              <View style={styles.authLegalLinks}>
+                <Text
+                  style={styles.authLegalLink}
+                  onPress={() => void openExternalLink(EXTERNAL_LINKS.terms, 'Terms of Use')}
+                  accessibilityRole="link"
                 >
-                  {activeProvider === 'apple' ? (
-                    <ActivityIndicator color={colors.background} />
-                  ) : (
-                    <>
-                      <Ionicons name="logo-apple" size={22} color={colors.background} />
-                      <Text style={styles.providerButtonText}>
-                        {appleSignInEnabled ? 'Continue with Apple' : 'Apple Sign-In unavailable'}
-                      </Text>
-                    </>
-                  )}
-                </TactilePressable>
-              ) : null}
-              {Platform.OS === 'ios' && !appleSignInEnabled ? (
-                <Text style={styles.providerUnavailableCopy}>
-                  Requires an Apple Developer Program build. Google Sign-In remains available for testing.
+                  TERMS OF USE
                 </Text>
-              ) : null}
-              <TactilePressable
-                onPress={() => void authenticate('google')}
-                disabled={authenticationBusy}
-                haptic="medium"
-                style={[styles.providerButton, styles.providerButtonDark, authenticationBusy && styles.buttonDisabled]}
-              >
-                {activeProvider === 'google' ? (
-                  <ActivityIndicator color={colors.text} />
-                ) : (
-                  <>
-                    <Ionicons name="logo-google" size={21} color={colors.text} />
-                    <Text style={[styles.providerButtonText, styles.providerButtonTextDark]}>
-                      Continue with Google
-                    </Text>
-                  </>
-                )}
-              </TactilePressable>
-              <Text style={styles.legalCopy}>
-                By continuing, you agree to the Terms of Service and acknowledge the Privacy Policy.
-              </Text>
+                <Text style={styles.authLegalDivider} accessibilityElementsHidden>·</Text>
+                <Text
+                  style={styles.authLegalLink}
+                  onPress={() => void openExternalLink(EXTERNAL_LINKS.privacy, 'Privacy Policy')}
+                  accessibilityRole="link"
+                >
+                  PRIVACY POLICY
+                </Text>
+              </View>
             </View>
           </ScrollView>
         </View>
@@ -623,16 +574,18 @@ function MeasurementField({
   onValueChange,
 }: {
   label: string;
-  value: number;
+  value: number | null;
   unit: WeightUnit | HeightUnit;
   units: typeof WEIGHT_UNIT_OPTIONS | typeof HEIGHT_UNIT_OPTIONS;
   onUnitChange: (unit: WeightUnit | HeightUnit) => void;
   onValueChange: (value: number) => void;
 }) {
-  const [inputValue, setInputValue] = useState(() => String(Math.round(value)));
+  const [inputValue, setInputValue] = useState(
+    () => value === null ? '' : String(Math.round(value)),
+  );
 
   useEffect(() => {
-    setInputValue(String(Math.round(value)));
+    setInputValue(value === null ? '' : String(Math.round(value)));
   }, [unit, value]);
 
   const commitValue = () => {
@@ -641,7 +594,7 @@ function MeasurementField({
       onValueChange(nextValue);
       return;
     }
-    setInputValue(String(Math.round(value)));
+    setInputValue(value === null ? '' : String(Math.round(value)));
   };
 
   return (
@@ -654,6 +607,8 @@ function MeasurementField({
       />
       <TextInput
         value={inputValue}
+        placeholder="Not set"
+        placeholderTextColor={colors.textMuted}
         onChangeText={text => {
           const numericText = text
             .replace(/[^0-9.]/g, '')
@@ -677,18 +632,31 @@ function HeightMeasurementField({
   onUnitChange,
   onValueChange,
 }: {
-  valueCm: number;
+  valueCm: number | null;
   unit: HeightUnit;
   onUnitChange: (unit: HeightUnit) => void;
   onValueChange: (valueCm: number) => void;
 }) {
-  const roundedInches = centimetresToRoundedInches(valueCm);
-  const splitHeight = splitFeetAndInches(roundedInches);
-  const [cmInput, setCmInput] = useState(() => String(Math.round(valueCm)));
-  const [feetInput, setFeetInput] = useState(() => String(splitHeight.feet));
-  const [inchesInput, setInchesInput] = useState(() => String(splitHeight.inches));
+  const initialHeight = valueCm === null
+    ? null
+    : splitFeetAndInches(centimetresToRoundedInches(valueCm));
+  const [cmInput, setCmInput] = useState(
+    () => valueCm === null ? '' : String(Math.round(valueCm)),
+  );
+  const [feetInput, setFeetInput] = useState(
+    () => initialHeight === null ? '' : String(initialHeight.feet),
+  );
+  const [inchesInput, setInchesInput] = useState(
+    () => initialHeight === null ? '' : String(initialHeight.inches),
+  );
 
   useEffect(() => {
+    if (valueCm === null) {
+      setCmInput('');
+      setFeetInput('');
+      setInchesInput('');
+      return;
+    }
     const nextHeight = splitFeetAndInches(centimetresToRoundedInches(valueCm));
     setCmInput(String(Math.round(valueCm)));
     setFeetInput(String(nextHeight.feet));
@@ -696,9 +664,10 @@ function HeightMeasurementField({
   }, [unit, valueCm]);
 
   const commitCentimetres = () => {
+    if (!cmInput.trim() && valueCm === null) return;
     const nextValue = Number(cmInput);
     if (!Number.isFinite(nextValue)) {
-      setCmInput(String(Math.round(valueCm)));
+      setCmInput(valueCm === null ? '' : String(Math.round(valueCm)));
       return;
     }
     const clampedValue = clampHeightCm(nextValue);
@@ -707,14 +676,20 @@ function HeightMeasurementField({
   };
 
   const commitFeetAndInches = () => {
+    if (!feetInput.trim() && !inchesInput.trim() && valueCm === null) return;
     const feet = Number(feetInput);
     const inches = Number(inchesInput);
     if (!Number.isFinite(feet) || !Number.isFinite(inches)) {
-      const currentHeight = splitFeetAndInches(
-        centimetresToRoundedInches(valueCm),
-      );
-      setFeetInput(String(currentHeight.feet));
-      setInchesInput(String(currentHeight.inches));
+      if (valueCm === null) {
+        setFeetInput('');
+        setInchesInput('');
+      } else {
+        const currentHeight = splitFeetAndInches(
+          centimetresToRoundedInches(valueCm),
+        );
+        setFeetInput(String(currentHeight.feet));
+        setInchesInput(String(currentHeight.inches));
+      }
       return;
     }
     const totalInches = clampHeightInches(feet * 12 + inches);
@@ -735,6 +710,8 @@ function HeightMeasurementField({
       {unit === 'cm' ? (
         <TextInput
           value={cmInput}
+          placeholder="Not set"
+          placeholderTextColor={colors.textMuted}
           onChangeText={text => setCmInput(text.replace(/[^0-9]/g, ''))}
           onEndEditing={commitCentimetres}
           keyboardType="number-pad"
@@ -748,6 +725,8 @@ function HeightMeasurementField({
           <View style={styles.heightInputGroup}>
             <TextInput
               value={feetInput}
+              placeholder="FT"
+              placeholderTextColor={colors.textMuted}
               onChangeText={text => setFeetInput(text.replace(/[^0-9]/g, ''))}
               onEndEditing={commitFeetAndInches}
               keyboardType="number-pad"
@@ -761,6 +740,8 @@ function HeightMeasurementField({
           <View style={styles.heightInputGroup}>
             <TextInput
               value={inchesInput}
+              placeholder="IN"
+              placeholderTextColor={colors.textMuted}
               onChangeText={text => setInchesInput(text.replace(/[^0-9]/g, ''))}
               onEndEditing={commitFeetAndInches}
               keyboardType="number-pad"
@@ -851,7 +832,11 @@ function RoutineFields({
       </View>
       <MeasurementField
         label="Weight"
-        value={value.weightUnit === 'kg' ? value.weightKg : value.weightKg * 2.2046226218}
+        value={value.weightKg === null
+          ? null
+          : value.weightUnit === 'kg'
+            ? value.weightKg
+            : value.weightKg * 2.2046226218}
         unit={value.weightUnit}
         units={WEIGHT_UNIT_OPTIONS}
         onUnitChange={unit => onChange({ ...value, weightUnit: unit as WeightUnit })}
@@ -971,7 +956,7 @@ function FighterSetup({
               <View style={styles.syncNote}>
                 <Ionicons name="cloud-upload-outline" size={20} color={colors.peach} />
                 <Text style={styles.syncNoteText}>
-                  We’ll also save the workouts already on this device.
+                  Your fighter profile will be saved to your account. Workout history stays on this device.
                 </Text>
               </View>
             </>
@@ -1037,21 +1022,62 @@ function DetailRow({ icon, label, value }: { icon: IoniconName; label: string; v
   );
 }
 
+function ExternalLinkRow({
+  icon,
+  label,
+  url,
+}: {
+  icon: IoniconName;
+  label: string;
+  url: string;
+}) {
+  return (
+    <TactilePressable
+      onPress={() => void openExternalLink(url, label)}
+      haptic="light"
+      style={styles.accountAction}
+      accessible
+      accessibilityRole="link"
+      accessibilityLabel={`Open ${label}`}
+    >
+      <Ionicons name={icon} size={21} color={colors.peach} />
+      <Text style={styles.accountActionText}>{label.toUpperCase()}</Text>
+      <Ionicons name="open-outline" size={19} color={colors.textMuted} />
+    </TactilePressable>
+  );
+}
+
+function HelpAndLegalLinks() {
+  return (
+    <View style={styles.accountActionsSection}>
+      <SectionLabel>Help &amp; legal</SectionLabel>
+      <ExternalLinkRow icon="help-buoy-outline" label="Support" url={EXTERNAL_LINKS.support} />
+      <ExternalLinkRow icon="document-text-outline" label="Terms of Use" url={EXTERNAL_LINKS.terms} />
+      <ExternalLinkRow icon="shield-checkmark-outline" label="Privacy Policy" url={EXTERNAL_LINKS.privacy} />
+    </View>
+  );
+}
+
 function ProfileOverview({
   profile,
   isGuest,
   cloudSyncPending,
   onEdit,
   onAccount,
+  onOpenPremium,
+  onRestorePremium,
 }: {
   profile: FighterProfile;
   isGuest: boolean;
   cloudSyncPending: boolean;
   onEdit: () => void;
   onAccount: () => void;
+  onOpenPremium: () => void;
+  onRestorePremium: () => void;
 }) {
   const { syncStatus } = useAuth();
   const { history } = useWorkoutHistory();
+  const premium = usePremium();
 
   const metrics = useMemo(() => {
     const rounds = history.reduce((total, workout) => total + workout.totalRounds, 0);
@@ -1116,10 +1142,10 @@ function ProfileOverview({
             {isGuest
               ? 'SAVED ON THIS DEVICE'
               : syncStatus === 'syncing' || cloudSyncPending
-              ? 'SAVING PROGRESS'
+              ? 'SAVING PROFILE'
               : syncStatus === 'error'
                 ? 'SYNC NEEDS ATTENTION'
-                : 'PROGRESS SAVED'}
+                : 'PROFILE SAVED'}
           </Text>
         </View>
 
@@ -1128,6 +1154,84 @@ function ProfileOverview({
           <MetricCard value={String(metrics.workouts)} label="WORKOUTS" />
           <MetricCard value={String(metrics.streak)} label="DAY STREAK" />
           <MetricCard value={metrics.time} label="TRAINING TIME" accent />
+        </View>
+
+        <View style={styles.profileSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.profileSectionTitle}>MEMBERSHIP</Text>
+            <View style={[
+              styles.membershipStatus,
+              premium.isPremium && styles.membershipStatusActive,
+            ]}>
+              <Text style={[
+                styles.membershipStatusText,
+                premium.isPremium && styles.membershipStatusTextActive,
+              ]}>
+                {premium.isPremium ? 'PREMIUM' : 'FREE'}
+              </Text>
+            </View>
+          </View>
+          <LinearGradient
+            colors={premium.isPremium
+              ? ['rgba(249,189,173,0.18)', 'rgba(255,20,20,0.08)']
+              : ['rgba(255,255,255,0.055)', 'rgba(255,255,255,0.025)']}
+            style={[
+              styles.membershipCard,
+              premium.isPremium && styles.membershipCardActive,
+            ]}
+          >
+            <View style={styles.membershipIcon}>
+              <Ionicons
+                name={premium.isPremium ? 'star' : 'flash-outline'}
+                size={25}
+                color={colors.peach}
+              />
+            </View>
+            <View style={styles.membershipCopy}>
+              <Text style={styles.membershipTitle}>
+                {premium.isPremium ? 'LIFETIME PREMIUM' : 'UNLOCK ADVANCED & PRO'}
+              </Text>
+              <Text style={styles.membershipSubtitle}>
+                {premium.isPremium
+                  ? 'Advanced and Pro coaching are permanently unlocked.'
+                  : 'Pay once to unlock Advanced and Pro coaching. Sign in only when you choose to buy.'}
+              </Text>
+            </View>
+            {premium.isPremium ? (
+              <View
+                accessible
+                accessibilityLabel="Lifetime Premium is active"
+                style={styles.membershipAction}
+              >
+                <Text style={styles.membershipActionText}>LIFETIME</Text>
+                <Ionicons name="checkmark" size={18} color={colors.text} />
+              </View>
+            ) : (
+              <TactilePressable
+                onPress={onOpenPremium}
+                haptic="light"
+                accessibilityRole="button"
+                accessibilityLabel="View the Premium lifetime purchase"
+                style={styles.membershipAction}
+              >
+                <Text style={styles.membershipActionText}>UPGRADE</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.text} />
+              </TactilePressable>
+            )}
+          </LinearGradient>
+          <TactilePressable
+            onPress={onRestorePremium}
+            disabled={!premium.isConfigured || premium.isBusy}
+            haptic="light"
+            style={styles.membershipRestore}
+          >
+            <Text style={[
+              styles.membershipRestoreText,
+              (!premium.isConfigured || premium.isBusy) && styles.membershipRestoreTextDisabled,
+            ]}>
+              RESTORE PURCHASES
+            </Text>
+          </TactilePressable>
         </View>
 
         <View style={styles.profileSection}>
@@ -1170,11 +1274,13 @@ function ProfileOverview({
             <Text style={styles.accountRowSubtitle}>
               {isGuest
                 ? 'Sign up to protect this fighter profile'
-                : 'Sign-in, sync, membership and privacy'}
+                : 'Sign-in, profile sync, membership and privacy'}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={21} color={colors.textMuted} />
         </TactilePressable>
+
+        <HelpAndLegalLinks />
       </ScrollView>
     </ScreenShell>
   );
@@ -1298,8 +1404,8 @@ function ConfirmSheet({
           <Text style={styles.sheetTitle}>{deleting ? 'DELETE ACCOUNT?' : 'SIGN OUT?'}</Text>
           <Text style={styles.sheetCopy}>
             {deleting
-              ? `This permanently removes your fighter profile and synced workouts from your account, then clears all Boxing Coach data from this device. ${connectedProvider === 'apple' ? 'Apple may ask you to confirm your identity' : 'Google confirmation is only shown if your saved session has expired'}. This cannot be undone.`
-              : 'This clears your fighter profile, workout history, onboarding progress, and preferences from this device. Synced account data stays protected online.'}
+              ? `This permanently removes your account and cloud fighter profile, then clears all Boxing Coach data from this device. Store purchase history is not refunded or erased; the original store owner can restore Premium to an account later. ${connectedProvider === 'apple' ? 'Apple may ask you to confirm your identity' : 'Google confirmation is only shown if your saved session has expired'}. This cannot be undone.`
+              : 'This clears your fighter profile, workout history, onboarding progress, preferences, and Premium access from this device. Your cloud fighter profile and account-based Premium remain protected until you sign in again.'}
           </Text>
           <ErrorBanner message={errorMessage} onDismiss={onDismissError} />
           <PrimaryButton
@@ -1326,6 +1432,7 @@ function AccountData({ onBack }: { onBack: () => void }) {
     errorMessage,
     clearError,
   } = useAuth();
+  const premium = usePremium();
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
 
   const openConfirm = (action: Exclude<ConfirmAction, null>) => {
@@ -1368,9 +1475,13 @@ function AccountData({ onBack }: { onBack: () => void }) {
           <DetailRow
             icon={syncStatus === 'error' ? 'cloud-offline-outline' : 'cloud-done-outline'}
             label="SYNC STATUS"
-            value={syncStatus === 'syncing' ? 'Saving progress' : syncStatus === 'error' ? 'Sync needs attention' : 'Progress saved'}
+            value={syncStatus === 'syncing' ? 'Saving profile' : syncStatus === 'error' ? 'Sync needs attention' : 'Profile saved'}
           />
-          <DetailRow icon="diamond-outline" label="MEMBERSHIP" value="Free" />
+          <DetailRow
+            icon="diamond-outline"
+            label="MEMBERSHIP"
+            value={premium.isPremium ? 'Lifetime Premium' : 'Free'}
+          />
         </View>
 
         <View style={styles.accountActionsSection}>
@@ -1386,6 +1497,8 @@ function AccountData({ onBack }: { onBack: () => void }) {
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TactilePressable>
         </View>
+
+        <HelpAndLegalLinks />
       </ScrollView>
       <ConfirmSheet
         action={confirmAction}
@@ -1456,12 +1569,16 @@ export function ProfileScreen({
   cloudSyncPending,
   onSaveFighterProfile,
   onPromoteGuestProfile,
+  onOpenPremium,
+  onRestorePremium,
 }: {
   onEnterGym: () => void;
   fighterProfile: FighterProfile | null;
   cloudSyncPending: boolean;
   onSaveFighterProfile: (profile: FighterProfile) => Promise<void>;
   onPromoteGuestProfile: () => Promise<void>;
+  onOpenPremium: () => void;
+  onRestorePremium: () => void;
 }) {
   const { user, isReady } = useAuth();
   const [view, setView] = useState<ProfileView>('profile');
@@ -1512,6 +1629,8 @@ export function ProfileScreen({
       cloudSyncPending={cloudSyncPending}
       onEdit={() => setView('edit')}
       onAccount={() => setView(user ? 'account' : 'signup')}
+      onOpenPremium={onOpenPremium}
+      onRestorePremium={onRestorePremium}
     />
   );
 }
@@ -1530,7 +1649,6 @@ const styles = StyleSheet.create({
   },
   authBackground: { flex: 1, backgroundColor: colors.background },
   authOverlay: { flex: 1 },
-  backgroundContentHidden: { opacity: 0 },
   authSafeArea: { flex: 1 },
   sessionCard: {
     minHeight: 66,
@@ -1632,6 +1750,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: textLineHeight(13),
     textAlign: 'center',
+  },
+  authLegalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+  },
+  authLegalLink: {
+    color: colors.peach,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 11,
+    lineHeight: textLineHeight(11),
+    letterSpacing: 0.8,
+    textDecorationLine: 'underline',
+  },
+  authLegalDivider: {
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 13,
+    lineHeight: textLineHeight(13),
   },
   errorBanner: {
     flexDirection: 'row',
@@ -1830,6 +1968,85 @@ const styles = StyleSheet.create({
   textAction: { paddingHorizontal: 8, paddingVertical: 6 },
   textActionLabel: { color: colors.peach, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 12, lineHeight: textLineHeight(12), letterSpacing: 1.1 },
   detailCard: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  membershipStatus: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  membershipStatusActive: {
+    borderColor: colors.peach,
+    backgroundColor: colors.peach,
+  },
+  membershipStatusText: {
+    color: colors.textMuted,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 9,
+    lineHeight: textLineHeight(9),
+    letterSpacing: 0.9,
+  },
+  membershipStatusTextActive: { color: colors.background },
+  membershipCard: {
+    minHeight: 106,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  membershipCardActive: { borderColor: colors.peach },
+  membershipIcon: {
+    width: 46,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(249,189,173,0.1)',
+  },
+  membershipCopy: { flex: 1, gap: 3 },
+  membershipTitle: {
+    color: colors.text,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 13,
+    lineHeight: textLineHeight(13),
+    letterSpacing: 0.8,
+  },
+  membershipSubtitle: {
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 14,
+    lineHeight: textLineHeight(14),
+  },
+  membershipAction: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingLeft: 10,
+  },
+  membershipActionText: {
+    color: colors.text,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 10,
+    lineHeight: textLineHeight(10),
+    letterSpacing: 0.7,
+  },
+  membershipRestore: {
+    alignSelf: 'flex-start',
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  membershipRestoreText: {
+    color: colors.textMuted,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 10,
+    lineHeight: textLineHeight(10),
+    letterSpacing: 0.8,
+    textDecorationLine: 'underline',
+  },
+  membershipRestoreTextDisabled: { opacity: 0.4 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 72, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   detailIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
   detailCopy: { flex: 1 },

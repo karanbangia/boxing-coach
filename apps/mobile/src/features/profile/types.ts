@@ -40,9 +40,10 @@ export type Experience = (typeof EXPERIENCE_OPTIONS)[number]['value'];
 export type Stance = (typeof STANCE_OPTIONS)[number]['value'];
 export type TrainingGoal = (typeof GOAL_OPTIONS)[number]['value'];
 export type Equipment = (typeof EQUIPMENT_OPTIONS)[number]['value'];
+export type TrainingMode = Extract<Equipment, 'shadowboxing' | 'heavy_bag'>;
 export type SessionDuration = (typeof SESSION_DURATIONS)[number];
 export type TrainingDay = (typeof TRAINING_DAYS)[number];
-export type GenderIdentity = 'male' | 'female';
+export type GenderIdentity = 'unspecified' | 'male' | 'female';
 export type WeightUnit = 'kg' | 'lb';
 export type HeightUnit = 'cm' | 'in';
 
@@ -57,16 +58,16 @@ export interface FighterProfile {
   trainingDays: TrainingDay[];
   targetDaysPerWeek: number;
   preferredSessionMinutes: SessionDuration;
-  weightKg: number;
+  weightKg: number | null;
   weightUnit: WeightUnit;
-  heightCm: number;
+  heightCm: number | null;
   heightUnit: HeightUnit;
 }
 
 export const DEFAULT_FIGHTER_PROFILE: FighterProfile = {
   displayName: '',
   photoUrl: null,
-  gender: 'male',
+  gender: 'unspecified',
   experience: 'beginner',
   stance: 'unsure',
   goal: 'fundamentals',
@@ -74,9 +75,9 @@ export const DEFAULT_FIGHTER_PROFILE: FighterProfile = {
   trainingDays: ['monday', 'wednesday', 'friday'],
   targetDaysPerWeek: 3,
   preferredSessionMinutes: 20,
-  weightKg: 72,
+  weightKg: null,
   weightUnit: 'kg',
-  heightCm: 175,
+  heightCm: null,
   heightUnit: 'cm',
 };
 
@@ -85,4 +86,20 @@ export function optionLabel<T extends string>(
   value: T,
 ) {
   return options.find(option => option.value === value)?.label ?? value;
+}
+
+export function trainingModeFromEquipment(
+  equipment: readonly Equipment[],
+): TrainingMode {
+  return equipment.includes('heavy_bag') ? 'heavy_bag' : 'shadowboxing';
+}
+
+export function equipmentForTrainingMode(
+  trainingMode: TrainingMode,
+  equipment: readonly Equipment[],
+): Equipment[] {
+  const accessories = equipment.filter(
+    item => item !== 'shadowboxing' && item !== 'heavy_bag',
+  );
+  return [trainingMode, ...accessories];
 }

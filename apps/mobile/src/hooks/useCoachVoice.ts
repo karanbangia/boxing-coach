@@ -3,6 +3,7 @@ import { getCoachPlaybackRate } from '@boxing-coach/core';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { coachRegistry } from '../lib/coachRegistry.generated';
+import { reportAudioFailure } from '../lib/observability';
 
 export function useCoachVoice(masterVolume: number, audioCuesEnabled: boolean) {
   const player = useAudioPlayer(undefined, { keepAudioSessionActive: true });
@@ -19,7 +20,9 @@ export function useCoachVoice(masterVolume: number, audioCuesEnabled: boolean) {
       allowsRecording: false,
       shouldPlayInBackground: false,
       shouldRouteThroughEarpiece: false,
-    }).catch(() => {});
+    }).catch(error => {
+      reportAudioFailure(error, 'session', 'configure');
+    });
   }, []);
 
   useEffect(() => {
@@ -28,8 +31,8 @@ export function useCoachVoice(masterVolume: number, audioCuesEnabled: boolean) {
     if (!audioCuesEnabled || masterVolume <= 0) {
       try {
         player.pause();
-      } catch {
-        /* ignore */
+      } catch (error) {
+        reportAudioFailure(error, 'coach', 'pause');
       }
     }
   }, [audioCuesEnabled, masterVolume, player]);
@@ -38,16 +41,16 @@ export function useCoachVoice(masterVolume: number, audioCuesEnabled: boolean) {
     try {
       player.pause();
       void player.seekTo(0).catch(() => {});
-    } catch {
-      /* ignore */
+    } catch (error) {
+      reportAudioFailure(error, 'coach', 'pause');
     }
   }, [player]);
 
   const pauseCoachAudio = useCallback(() => {
     try {
       player.pause();
-    } catch {
-      /* ignore */
+    } catch (error) {
+      reportAudioFailure(error, 'coach', 'pause');
     }
   }, [player]);
 
@@ -62,8 +65,8 @@ export function useCoachVoice(masterVolume: number, audioCuesEnabled: boolean) {
     try {
       player.volume = masterVolumeRef.current;
       player.play();
-    } catch {
-      /* ignore */
+    } catch (error) {
+      reportAudioFailure(error, 'coach', 'resume');
     }
   }, [player]);
 
@@ -74,7 +77,14 @@ export function useCoachVoice(masterVolume: number, audioCuesEnabled: boolean) {
       if (vol <= 0) return;
 
       const source = coachRegistry[action.id];
-      if (source === undefined) return;
+      if (source === undefined) {
+        reportAudioFailure(
+          new Error('Coach audio source is missing from the generated registry.'),
+          'coach',
+          'replace',
+        );
+        return;
+      }
 
       const rate = getCoachPlaybackRate(action, currentRound, totalRounds);
 
@@ -86,8 +96,8 @@ export function useCoachVoice(masterVolume: number, audioCuesEnabled: boolean) {
         // Replacing the source starts the new clip at zero. Seeking here races
         // the new AVPlayerItem load on iOS and can prevent later cues playing.
         player.play();
-      } catch {
-        /* ignore */
+      } catch (error) {
+        reportAudioFailure(error, 'coach', 'play');
       }
     },
     [player],

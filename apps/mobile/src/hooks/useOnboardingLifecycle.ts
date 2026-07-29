@@ -6,6 +6,7 @@ import {
 import {
   createOnboardingRecord,
   loadOnboardingRecord,
+  ONBOARDING_COMPLETED_STEP,
   saveOnboardingRecord,
   subscribeToOnboardingReset,
   type OnboardingRecord,
@@ -13,6 +14,7 @@ import {
 import { resolveOnboardingLaunchDestination } from '../lib/onboardingLaunch';
 import {
   cancelTrainingReminders,
+  requestTrainingReminderPermission,
   scheduleTrainingReminders,
 } from '../lib/trainingReminders';
 import { useAuth } from '../providers/AuthProvider';
@@ -22,7 +24,7 @@ const LEGACY_FORCE_ONBOARDING =
 const ONBOARDING_TEST_SCENARIO = __DEV__
   ? process.env.EXPO_PUBLIC_ONBOARDING_TEST_SCENARIO?.trim().toLowerCase() ?? 'fresh'
   : 'normal';
-const RESUME_TEST_MATCH = /^resume-([2-8])$/.exec(ONBOARDING_TEST_SCENARIO);
+const RESUME_TEST_MATCH = /^resume-([2-5])$/.exec(ONBOARDING_TEST_SCENARIO);
 const RESUME_TEST_STEP = RESUME_TEST_MATCH ? Number(RESUME_TEST_MATCH[1]) - 1 : null;
 const FORCE_ONBOARDING_AT_LAUNCH = LEGACY_FORCE_ONBOARDING
   || ONBOARDING_TEST_SCENARIO === 'fresh'
@@ -109,7 +111,7 @@ export function useOnboardingLifecycle() {
     const recovered: OnboardingRecord = {
       ...createOnboardingRecord(profile),
       status: 'completed',
-      step: 8,
+      step: ONBOARDING_COMPLETED_STEP,
       cloudOwnerUid: user.uid,
       completedAt: new Date().toISOString(),
     };
@@ -136,7 +138,7 @@ export function useOnboardingLifecycle() {
         ? {
             ...createOnboardingRecord(profile),
             status: 'completed' as const,
-            step: 8,
+            step: ONBOARDING_COMPLETED_STEP,
             cloudOwnerUid: user.uid,
             completedAt: new Date().toISOString(),
           }
@@ -195,7 +197,7 @@ export function useOnboardingLifecycle() {
     const completed: OnboardingRecord = {
       ...next,
       status: 'completed',
-      step: 8,
+      step: ONBOARDING_COMPLETED_STEP,
       skipped: options.skipped ?? false,
       cloudSyncPending: options.cloudSyncPending ?? false,
       cloudSyncMode: options.cloudSyncPending ? 'onboarding_merge' : null,
@@ -215,7 +217,7 @@ export function useOnboardingLifecycle() {
     const nextRecord: OnboardingRecord = {
       ...(record ?? createOnboardingRecord(normalizedProfile)),
       status: 'completed',
-      step: 8,
+      step: ONBOARDING_COMPLETED_STEP,
       profile: normalizedProfile,
       skipped: false,
       cloudSyncPending: Boolean(user),
@@ -235,6 +237,27 @@ export function useOnboardingLifecycle() {
       await cancelTrainingReminders().catch(() => undefined);
     }
   }, [record, user]);
+
+  const enableTrainingReminders = useCallback(async () => {
+    if (!record || !record.profile.trainingDays.length) return 'unavailable' as const;
+
+    const reminderPermission = await requestTrainingReminderPermission();
+    const updatedRecord: OnboardingRecord = {
+      ...record,
+      reminderPermission,
+    };
+    setRecord(updatedRecord);
+    await saveOnboardingRecord(updatedRecord);
+
+    if (reminderPermission === 'granted') {
+      await scheduleTrainingReminders(
+        updatedRecord.profile.trainingDays,
+        updatedRecord.profile.preferredSessionMinutes,
+      ).catch(() => undefined);
+    }
+
+    return reminderPermission;
+  }, [record]);
 
   const promoteGuestProfile = useCallback(async () => {
     if (!record || record.status !== 'completed') return;
@@ -268,14 +291,14 @@ export function useOnboardingLifecycle() {
           heightCm: 168,
         }),
         status: 'completed',
-        step: 8,
+        step: ONBOARDING_COMPLETED_STEP,
         completedAt: '2026-01-01T00:00:00.000Z',
       }
     : null;
   const testRecord = {
     ...freshRecord,
     step: ONBOARDING_TEST_SCENARIO === 'signup'
-      ? 8
+      ? ONBOARDING_COMPLETED_STEP
       : RESUME_TEST_STEP ?? 0,
   };
   const initialRecord = FORCE_ONBOARDING_AT_LAUNCH && !forcedOnboardingFinished
@@ -316,6 +339,8 @@ export function useOnboardingLifecycle() {
     fighterProfile: effectiveProfile,
     profileIsSkipped: record?.skipped ?? false,
     cloudSyncPending: record?.cloudSyncPending ?? false,
+    reminderPermission: record?.reminderPermission ?? initialRecord.reminderPermission,
+    enableTrainingReminders,
     saveFighterProfile,
     promoteGuestProfile,
   };

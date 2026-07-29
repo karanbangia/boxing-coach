@@ -4,6 +4,8 @@ import type { WorkoutPerformance } from '@boxing-coach/core';
 
 interface Props {
   performance: WorkoutPerformance;
+  totalRounds: number;
+  roundDuration: number;
   onReturnToGym: () => void;
 }
 
@@ -11,7 +13,12 @@ const APP_NAME = 'Boxing Coach';
 const DOWNLOAD_LINK = '';
 const CONFETTI_COLORS = ['#ff1414', '#f9bdad', '#f5f0ef', '#ff5a4f'];
 
-export function CompleteScreen({ performance, onReturnToGym }: Props) {
+export function CompleteScreen({
+  performance,
+  totalRounds,
+  roundDuration,
+  onReturnToGym,
+}: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
@@ -97,21 +104,21 @@ export function CompleteScreen({ performance, onReturnToGym }: Props) {
             {performance.punches}
           </div>
           <div className="font-['Barlow_Semi_Condensed'] text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-accent)]">
-            Punches
+            Punches called
           </div>
         </div>
 
         <div className="mt-8 grid w-full max-w-[300px] grid-cols-2 divide-x divide-[var(--color-border)]">
           <div className="px-3">
-            <div className="font-['Barlow_Semi_Condensed'] text-[8px] font-semibold uppercase tracking-[0.23em] text-[var(--color-text-muted)]">Avg heart rate</div>
+            <div className="font-['Barlow_Semi_Condensed'] text-[8px] font-semibold uppercase tracking-[0.23em] text-[var(--color-text-muted)]">Rounds</div>
             <div className="mt-1 font-['Anton'] text-[40px] leading-none tabular-nums text-white">
-              {performance.averageHeartRate}<span className="ml-1 font-['Barlow_Semi_Condensed'] text-[9px] font-semibold text-[var(--color-peach)]">BPM</span>
+              {totalRounds}
             </div>
           </div>
           <div className="px-3">
-            <div className="font-['Barlow_Semi_Condensed'] text-[8px] font-semibold uppercase tracking-[0.23em] text-[var(--color-text-muted)]">Calories burned</div>
+            <div className="font-['Barlow_Semi_Condensed'] text-[8px] font-semibold uppercase tracking-[0.23em] text-[var(--color-text-muted)]">Training time</div>
             <div className="mt-1 font-['Anton'] text-[40px] leading-none tabular-nums text-white">
-              {performance.caloriesBurned}<span className="ml-1 font-['Barlow_Semi_Condensed'] text-[9px] font-semibold text-[var(--color-peach)]">KCAL</span>
+              {Math.round((totalRounds * roundDuration) / 60)}<span className="ml-1 font-['Barlow_Semi_Condensed'] text-[9px] font-semibold text-[var(--color-peach)]">MIN</span>
             </div>
           </div>
         </div>

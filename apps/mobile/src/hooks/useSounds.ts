@@ -1,15 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AudioPlayer, setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { reportAudioFailure } from '../lib/observability';
 
-function playFromStart(player: AudioPlayer, volume: number) {
+function playFromStart(
+  player: AudioPlayer,
+  volume: number,
+  cue: 'freestyle' | 'round_end',
+) {
   player.volume = volume;
   void player
     .seekTo(0)
-    .catch(() => {
+    .catch(error => {
       // Ignore seeks before initial load finishes.
+      reportAudioFailure(error, cue, 'seek');
     })
     .finally(() => {
-      player.play();
+      try {
+        player.play();
+      } catch (error) {
+        reportAudioFailure(error, cue, 'play');
+      }
     });
 }
 
@@ -48,8 +58,8 @@ export function useSounds(masterVolume: number) {
       allowsRecording: false,
       shouldPlayInBackground: false,
       shouldRouteThroughEarpiece: false,
-    }).catch(() => {
-      // Silent-mode playback is best-effort.
+    }).catch(error => {
+      reportAudioFailure(error, 'session', 'configure');
     });
   }, [freestylePlayer, masterVolume, prepTickPlayer, roundEndPlayer, roundStartPlayer]);
 
@@ -60,10 +70,16 @@ export function useSounds(masterVolume: number) {
     prepTickPlayer.volume = 0.55 * mul;
     void prepTickPlayer
       .seekTo(0)
-      .catch(() => {})
+      .catch(error => {
+        reportAudioFailure(error, 'prep_tick', 'seek');
+      })
       .finally(() => {
         if (playToken === prepTickPlayTokenRef.current) {
-          prepTickPlayer.play();
+          try {
+            prepTickPlayer.play();
+          } catch (error) {
+            reportAudioFailure(error, 'prep_tick', 'play');
+          }
         }
       });
   }, [prepTickPlayer]);
@@ -73,8 +89,8 @@ export function useSounds(masterVolume: number) {
     try {
       prepTickPlayer.pause();
       void prepTickPlayer.seekTo(0).catch(() => {});
-    } catch {
-      /* ignore */
+    } catch (error) {
+      reportAudioFailure(error, 'prep_tick', 'pause');
     }
   }, [prepTickPlayer]);
 
@@ -85,10 +101,16 @@ export function useSounds(masterVolume: number) {
     roundStartPlayer.volume = 0.85 * mul;
     void roundStartPlayer
       .seekTo(0)
-      .catch(() => {})
+      .catch(error => {
+        reportAudioFailure(error, 'round_start', 'seek');
+      })
       .finally(() => {
         if (playToken === roundStartPlayTokenRef.current) {
-          roundStartPlayer.play();
+          try {
+            roundStartPlayer.play();
+          } catch (error) {
+            reportAudioFailure(error, 'round_start', 'play');
+          }
         }
       });
   }, [roundStartPlayer]);
@@ -98,21 +120,21 @@ export function useSounds(masterVolume: number) {
     try {
       roundStartPlayer.pause();
       void roundStartPlayer.seekTo(0).catch(() => {});
-    } catch {
-      /* ignore */
+    } catch (error) {
+      reportAudioFailure(error, 'round_start', 'pause');
     }
   }, [roundStartPlayer]);
 
   const roundEnd = useCallback(() => {
     const mul = masterVolumeRef.current;
     if (mul <= 0) return;
-    playFromStart(roundEndPlayer, 0.9 * mul);
+    playFromStart(roundEndPlayer, 0.9 * mul, 'round_end');
   }, [roundEndPlayer]);
 
   const freestyleStart = useCallback(() => {
     const mul = masterVolumeRef.current;
     if (mul <= 0) return;
-    playFromStart(freestylePlayer, 0.65 * mul);
+    playFromStart(freestylePlayer, 0.65 * mul, 'freestyle');
   }, [freestylePlayer]);
 
   return useMemo(

@@ -2,8 +2,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { Animated, Easing, Image, StyleSheet, useWindowDimensions, View } from 'react-native';
-import type { EngineConfig } from '@boxing-coach/core';
-import { calculateWorkoutPerformance, resolvePrepCountdownSeconds } from '@boxing-coach/core';
+import type { EngineConfig, WorkoutFeedback } from '@boxing-coach/core';
+import {
+  adaptNextWorkout,
+  calculateWorkoutPerformance,
+  recommendFirstWorkout,
+  resolvePrepCountdownSeconds,
+} from '@boxing-coach/core';
 import type { SetupSettings } from './config';
 import { MainTabShell } from './components/MainTabShell';
 import type { AppTab } from './components/BottomTabBar';
@@ -18,9 +23,24 @@ import { useWorkout } from './hooks/useWorkout';
 import { useReducedMotion } from './hooks/useReducedMotion';
 import { useOnboardingLifecycle } from './hooks/useOnboardingLifecycle';
 import { useProgressSeedDeepLink } from './hooks/useProgressSeedDeepLink';
+import { trainingModeFromEquipment } from './features/profile/types';
+import {
+  getProgram,
+  type ProgramId,
+  type ProgramSession,
+} from './features/programs/programs';
 import { clearLocalAppData } from './lib/appData';
+import {
+  recordCompletedWorkoutForReview,
+  requestReviewAfterPositiveFeedback,
+} from './lib/appStoreReview';
+import type { OnboardingRecord } from './lib/onboarding';
+import { reportError, trackEvent } from './lib/observability';
 import { saveWorkoutToHistory } from './lib/workoutHistory';
-import { CompleteScreen } from './screens/CompleteScreen';
+import {
+  CompleteScreen,
+  type NextWorkoutRecommendation,
+} from './screens/CompleteScreen';
 import { DevScreen } from './screens/DevScreen';
 import { RestScreen } from './screens/RestScreen';
 import { PrepScreen } from './screens/PrepScreen';
@@ -29,7 +49,12 @@ import { WorkoutScreen } from './screens/WorkoutScreen';
 import { ProgressScreen } from './screens/ProgressScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
+import {
+  PremiumPaywall,
+  type PaywallSource,
+} from './screens/PremiumPaywall';
 import { useAuth } from './providers/AuthProvider';
+import { usePremium } from './providers/PremiumProvider';
 import { useWorkoutHistory } from './providers/WorkoutHistoryProvider';
 import { colors } from './theme';
 
@@ -41,8 +66,49 @@ const ROUND_START_BELL_LEAD_SECONDS = 3;
 const SAVE_TRAINING_BACKGROUND = require('../assets/onboarding/save-training-glove.jpg');
 
 type StartRevealOrigin = { x: number; y: number };
+type PaywallRequest = {
+  source: PaywallSource;
+  initialAction?: 'restore';
+  intendedDifficulty?: SetupSettings['difficulty'];
+  pendingStart?: {
+    settings: SetupSettings;
+    origin: StartRevealOrigin;
+  };
+};
+
+function requiresPremium(difficulty: SetupSettings['difficulty']) {
+  return difficulty === 'advanced' || difficulty === 'pro';
+}
+
+function programAnalyticsId(programId: ProgramId) {
+  return programId.replaceAll('-', '_') as
+    | 'beginner_fundamentals'
+    | 'heavy_bag_conditioning'
+    | 'fight_camp';
+}
+
+function workoutAnalyticsProperties(
+  config: EngineConfig,
+  trainingMode: 'shadowboxing' | 'heavy_bag',
+) {
+  return {
+    difficulty: config.difficulty,
+    training_mode: trainingMode,
+    total_rounds: config.totalRounds,
+    round_duration_seconds: config.roundDuration,
+    rest_duration_seconds: config.restDuration,
+  };
+}
 
 export function App() {
+  const premiumPreview = __DEV__
+    && process.env.EXPO_PUBLIC_PREMIUM_TEST_SCENARIO === 'paywall';
+  const progressPreview = __DEV__
+    && process.env.EXPO_PUBLIC_PROGRESS_TEST_SCENARIO === 'progress';
+  const profilePreview = __DEV__
+    && process.env.EXPO_PUBLIC_PROFILE_PREVIEW === 'profile';
+  const completionPreview = __DEV__
+    && process.env.EXPO_PUBLIC_COMPLETION_TEST_SCENARIO === 'feedback';
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [fontsLoaded] = useFonts({
     Anton: require('../assets/fonts/Anton-Regular.ttf'),
@@ -51,7 +117,13 @@ export function App() {
     BarlowSemiCondensed: require('../assets/fonts/BarlowSemiCondensed-Regular.ttf'),
     BarlowSemiCondensedSemiBold: require('../assets/fonts/BarlowSemiCondensed-SemiBold.ttf'),
   });
-  const [activeTab, setActiveTab] = useState<AppTab>('timer');
+  const [activeTab, setActiveTab] = useState<AppTab>(
+    progressPreview
+      ? 'workout'
+      : profilePreview
+        ? 'profile'
+        : 'timer',
+  );
   const { settings, updateSettings, isReady: settingsReady } = useStoredSettings();
   const { tuning, setTuning, isReady: tuningReady } = useStoredTuning();
   const [config, setConfig] = useState<EngineConfig | null>(null);
@@ -60,13 +132,21 @@ export function App() {
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(settings.audioCuesEnabled);
   const [isEnteringPrep, setIsEnteringPrep] = useState(false);
   const [startRevealOrigin, setStartRevealOrigin] = useState<StartRevealOrigin | null>(null);
-  const { signOut, syncWorkout, user } = useAuth();
+  const [paywallRequest, setPaywallRequest] = useState<PaywallRequest | null>(
+    premiumPreview ? { source: 'preset' } : null,
+  );
+  const [loadedProgramSession, setLoadedProgramSession] = useState<ProgramSession | null>(null);
+  const { signOut, user } = useAuth();
+  const { isPremium } = usePremium();
   const onboarding = useOnboardingLifecycle();
   const { refreshHistory } = useWorkoutHistory();
   useProgressSeedDeepLink(user?.uid ?? null, refreshHistory);
   const workout = useWorkout(config);
   const workoutIdRef = useRef('');
   const savedWorkoutIdRef = useRef('');
+  const workoutStartedTrackedRef = useRef(false);
+  const firstRoundCompletedTrackedRef = useRef(false);
+  const activeProgramSessionRef = useRef<ProgramSession | null>(null);
   const prepEntrance = useRef(new Animated.Value(0)).current;
   const setupExit = useRef(new Animated.Value(1)).current;
   const startReveal = useRef(new Animated.Value(0)).current;
@@ -78,6 +158,11 @@ export function App() {
 
   const sounds = useSounds(session.effectiveVolume);
   const coach = useCoachVoice(session.effectiveVolume, audioCuesEnabled);
+
+  useEffect(() => {
+    if (progressPreview) setActiveTab('workout');
+    else if (profilePreview) setActiveTab('profile');
+  }, [profilePreview, progressPreview]);
 
   useEffect(() => {
     const uri = Image.resolveAssetSource(SAVE_TRAINING_BACKGROUND)?.uri;
@@ -148,6 +233,15 @@ export function App() {
       // first coach action is allowed to play.
       sounds.stopPrepTick();
       sounds.stopRoundStart();
+
+      if (config && !workoutStartedTrackedRef.current) {
+        workoutStartedTrackedRef.current = true;
+        trackEvent('workout_started', {
+          ...workoutAnalyticsProperties(config, settings.trainingMode),
+          audio_cues_enabled: audioCuesEnabled,
+          combo_instructions_enabled: settings.comboInstructionsEnabled,
+        });
+      }
     }
 
     if (workout.phase === 'rest' && prevPhase === 'round') {
@@ -156,6 +250,20 @@ export function App() {
 
     if (workout.phase === 'complete' && prevPhase !== 'complete') {
       sounds.roundEnd();
+    }
+
+    if (
+      config
+      && prevPhase === 'round'
+      && (workout.phase === 'rest' || workout.phase === 'complete')
+      && workout.currentRound === 1
+      && !firstRoundCompletedTrackedRef.current
+    ) {
+      firstRoundCompletedTrackedRef.current = true;
+      trackEvent(
+        'first_round_completed',
+        workoutAnalyticsProperties(config, settings.trainingMode),
+      );
     }
 
     if (workout.isFreestyle && !prevFreestyle) {
@@ -176,6 +284,11 @@ export function App() {
     prevTimeRef.current = workout.timeRemaining;
   }, [
     sounds,
+    audioCuesEnabled,
+    config,
+    settings.comboInstructionsEnabled,
+    settings.trainingMode,
+    workout.currentRound,
     workout.isFreestyle,
     workout.isPaused,
     workout.phase,
@@ -199,13 +312,50 @@ export function App() {
       difficulty: config.difficulty,
       totalRounds: config.totalRounds,
       roundDuration: config.roundDuration,
+      ...(activeProgramSessionRef.current
+        ? {
+          programId: activeProgramSessionRef.current.programId,
+          programSessionId: activeProgramSessionRef.current.id,
+        }
+        : {}),
       ...performance,
     };
-    void saveWorkoutToHistory(completedWorkout).then(async () => {
-      await refreshHistory();
-      await syncWorkout(completedWorkout);
+    trackEvent('workout_completed', {
+      ...workoutAnalyticsProperties(config, settings.trainingMode),
+      punches: workout.punchesThrown,
     });
-  }, [config, refreshHistory, syncWorkout, workout.phase, workout.punchesThrown]);
+    if (activeProgramSessionRef.current) {
+      trackEvent('program_session_completed', {
+        program: programAnalyticsId(activeProgramSessionRef.current.programId),
+        week: activeProgramSessionRef.current.week,
+        session: activeProgramSessionRef.current.sessionInWeek,
+      });
+    }
+    void saveWorkoutToHistory(completedWorkout)
+      .then(async () => {
+        await refreshHistory();
+      })
+      .catch(error => {
+        reportError(error, 'workout_history', {
+          operation: 'save_or_refresh',
+        });
+      })
+      .finally(async () => {
+        try {
+          await recordCompletedWorkoutForReview();
+        } catch (error) {
+          reportError(error, 'app_store_review', {
+            operation: 'record_completion',
+          });
+        }
+      });
+  }, [
+    config,
+    refreshHistory,
+    settings.trainingMode,
+    workout.phase,
+    workout.punchesThrown,
+  ]);
 
   useEffect(() => {
     if (workout.phase !== 'round') {
@@ -249,16 +399,22 @@ export function App() {
       prepBellPlayedRef.current = false;
       lastCoachActionKeyRef.current = -1;
       setAudioCuesEnabled(s.audioCuesEnabled);
-      const hasOverrides = Object.values(tuning).some(value => value !== undefined);
+      const effectiveTuning = {
+        ...tuning,
+        ...(activeProgramSessionRef.current?.tuning ?? {}),
+      };
+      const hasOverrides = Object.values(effectiveTuning).some(value => value !== undefined);
       const engine: EngineConfig = {
         difficulty: s.difficulty,
         roundDuration: s.roundDuration,
         totalRounds: s.totalRounds,
         restDuration: s.restDuration,
-        ...(hasOverrides ? { tuning } : {}),
+        ...(hasOverrides ? { tuning: effectiveTuning } : {}),
       };
       workoutIdRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       savedWorkoutIdRef.current = '';
+      workoutStartedTrackedRef.current = false;
+      firstRoundCompletedTrackedRef.current = false;
       prepEntrance.stopAnimation();
       setupExit.stopAnimation();
       prepEntrance.setValue(0);
@@ -273,6 +429,23 @@ export function App() {
   const handleStart = useCallback(
     (s: SetupSettings, origin: StartRevealOrigin) => {
       if (pendingStartRef.current) return;
+      activeProgramSessionRef.current = loadedProgramSession;
+      if (loadedProgramSession && !isPremium) {
+        setPaywallRequest({
+          source: 'difficulty',
+          intendedDifficulty: s.difficulty,
+          pendingStart: { settings: s, origin },
+        });
+        return;
+      }
+      if (!isPremium && requiresPremium(s.difficulty)) {
+        setPaywallRequest({
+          source: 'difficulty',
+          intendedDifficulty: s.difficulty,
+          pendingStart: { settings: s, origin },
+        });
+        return;
+      }
 
       if (reduceMotion) {
         beginPrep(s);
@@ -286,8 +459,27 @@ export function App() {
       startRevealOpacity.setValue(1);
       setStartRevealOrigin(origin);
     },
-    [beginPrep, reduceMotion, startReveal, startRevealOpacity],
+    [
+      beginPrep,
+      isPremium,
+      loadedProgramSession,
+      reduceMotion,
+      startReveal,
+      startRevealOpacity,
+    ],
   );
+
+  const handlePremiumUnlocked = useCallback(() => {
+    const request = paywallRequest;
+    setPaywallRequest(null);
+    if (!request) return;
+    if (request.intendedDifficulty) {
+      updateSettings({ difficulty: request.intendedDifficulty });
+    }
+    if (request.pendingStart) {
+      beginPrep(request.pendingStart.settings);
+    }
+  }, [beginPrep, paywallRequest, updateSettings]);
 
   useLayoutEffect(() => {
     if (!startRevealOrigin) return;
@@ -399,11 +591,127 @@ export function App() {
     setIsEnteringPrep(false);
     coach.stopCoachAudio();
     workout.stop();
+    activeProgramSessionRef.current = null;
+    setLoadedProgramSession(null);
     setConfig(null);
     setActiveTab('timer');
   }, [coach, prepEntrance, setupExit, sounds, workout]);
 
+  const handleCompletionFeedback = useCallback((
+    feedback: WorkoutFeedback,
+  ): NextWorkoutRecommendation => {
+    trackEvent('completion_rating_submitted', { rating: feedback });
+
+    if (feedback === 'just_right' || feedback === 'too_easy') {
+      void requestReviewAfterPositiveFeedback()
+        .then(review => {
+          if (review.requested) {
+            trackEvent('app_store_review_requested', {
+              completed_workouts: review.completedWorkouts,
+            });
+          }
+        })
+        .catch(error => {
+          reportError(error, 'app_store_review', {
+            operation: 'request_after_positive_feedback',
+          });
+        });
+    }
+
+    const currentProgramSession = activeProgramSessionRef.current;
+    if (currentProgramSession) {
+      const program = getProgram(currentProgramSession.programId);
+      const currentIndex = program?.sessions.findIndex(
+        sessionItem => sessionItem.id === currentProgramSession.id,
+      ) ?? -1;
+      const nextProgramSession = currentIndex >= 0
+        ? program?.sessions[currentIndex + 1] ?? null
+        : null;
+
+      if (feedback === 'too_hard') {
+        return {
+          title: 'REPEAT WITH CONTROL',
+          detail: 'Repeat this program session before moving forward. Clean work beats rushed progress.',
+          buttonLabel: 'LOAD THIS SESSION AGAIN',
+          settings: {
+            ...settings,
+            ...currentProgramSession.settings,
+          },
+          programSession: currentProgramSession,
+        };
+      }
+
+      if (nextProgramSession) {
+        return {
+          title: `WEEK ${nextProgramSession.week} · SESSION ${nextProgramSession.sessionInWeek}`,
+          detail: `${nextProgramSession.title}. ${nextProgramSession.focus}.`,
+          buttonLabel: 'LOAD NEXT PROGRAM SESSION',
+          settings: {
+            ...settings,
+            ...nextProgramSession.settings,
+          },
+          programSession: nextProgramSession,
+        };
+      }
+
+      return {
+        title: 'PROGRAM COMPLETE',
+        detail: 'You finished every session in this program. Head back to Programs to choose the next challenge.',
+        buttonLabel: 'PROGRAM COMPLETE',
+        settings: null,
+        programSession: null,
+      };
+    }
+
+    if (!config) {
+      return {
+        title: 'SESSION SAVED',
+        detail: 'Return to the gym when you are ready to train again.',
+        buttonLabel: 'RETURN TO GYM',
+        settings: null,
+        programSession: null,
+      };
+    }
+
+    const adaptive = adaptNextWorkout(config, feedback);
+    return {
+      title: adaptive.title,
+      detail: adaptive.detail,
+      buttonLabel: 'LOAD NEXT WORKOUT',
+      settings: {
+        ...settings,
+        ...adaptive.settings,
+      },
+      programSession: null,
+    };
+  }, [config, settings]);
+
+  const handleLoadNextWorkout = useCallback((
+    recommendation: NextWorkoutRecommendation,
+  ) => {
+    if (!recommendation.settings) return;
+
+    updateSettings(recommendation.settings);
+    handleRestart();
+    setLoadedProgramSession(recommendation.programSession ?? null);
+    trackEvent('next_workout_loaded', {
+      source: recommendation.programSession ? 'program' : 'adaptive',
+      difficulty: recommendation.settings.difficulty,
+      total_rounds: recommendation.settings.totalRounds,
+    });
+  }, [handleRestart, updateSettings]);
+
   const handleStop = useCallback(() => {
+    if (config && workoutIdRef.current && workout.phase !== 'complete') {
+      const phase = workout.phase === 'round' || workout.phase === 'rest'
+        ? workout.phase
+        : 'prep';
+      trackEvent('workout_abandoned', {
+        ...workoutAnalyticsProperties(config, settings.trainingMode),
+        phase,
+        rounds_started: phase === 'prep' ? 0 : workout.currentRound,
+      });
+    }
     sounds.stopPrepTick();
     sounds.stopRoundStart();
     lastPrepTickSecondRef.current = null;
@@ -416,9 +724,10 @@ export function App() {
     setIsEnteringPrep(false);
     coach.stopCoachAudio();
     workout.stop();
+    activeProgramSessionRef.current = null;
     setConfig(null);
     setActiveTab('timer');
-  }, [coach, prepEntrance, setupExit, sounds, workout]);
+  }, [coach, config, prepEntrance, settings.trainingMode, setupExit, sounds, workout]);
 
   const handleResetAsyncStorage = useCallback(async () => {
     if (user) {
@@ -430,11 +739,80 @@ export function App() {
     setActiveTab('timer');
   }, [signOut, user]);
 
+  const handleOnboardingComplete = useCallback(async (
+    record: OnboardingRecord,
+    options?: { skipped?: boolean; cloudSyncPending?: boolean },
+  ) => {
+    await onboarding.complete(record, options);
+
+    // A user who deliberately skips onboarding keeps any settings already
+    // stored on this device. Completed answers only seed the first workout;
+    // later manual changes remain authoritative.
+    if (!options?.skipped) {
+      updateSettings({
+        ...recommendFirstWorkout(record.profile),
+        trainingMode: trainingModeFromEquipment(record.profile.equipment),
+      });
+    }
+    trackEvent('onboarding_completed', {
+      path: options?.skipped
+        ? 'skipped'
+        : options?.cloudSyncPending
+          ? 'account'
+          : 'guest',
+      experience: record.profile.experience,
+      goal: record.profile.goal,
+      training_mode: trainingModeFromEquipment(record.profile.equipment),
+    });
+  }, [onboarding.complete, updateSettings]);
+
   if (!fontsLoaded || !onboarding.isReady) {
     return (
       <ScreenShell>
         <StatusBar style="light" />
       </ScreenShell>
+    );
+  }
+
+  if (completionPreview) {
+    const previewSettings: SetupSettings = {
+      ...settings,
+      difficulty: 'intermediate',
+      roundDuration: 120,
+      totalRounds: 4,
+      restDuration: 60,
+    };
+    return (
+      <View style={styles.app}>
+        <StatusBar style="light" />
+        <CompleteScreen
+          performance={{
+            punches: 186,
+            averageHeartRate: 0,
+            caloriesBurned: 148,
+          }}
+          totalRounds={4}
+          roundDuration={120}
+          initialFeedback="just_right"
+          onSubmitFeedback={feedback => {
+            const adaptive = adaptNextWorkout(previewSettings, feedback);
+            return {
+              title: adaptive.title,
+              detail: adaptive.detail,
+              buttonLabel: 'LOAD NEXT WORKOUT',
+              settings: {
+                ...previewSettings,
+                ...adaptive.settings,
+              },
+              programSession: null,
+            };
+          }}
+          onLoadNextWorkout={() => undefined}
+          canEnableReminders={false}
+          onEnableReminders={async () => undefined}
+          onReturnToGym={() => undefined}
+        />
+      </View>
     );
   }
 
@@ -445,7 +823,7 @@ export function App() {
         <OnboardingScreen
           initialRecord={onboarding.initialRecord}
           onProgress={onboarding.saveProgress}
-          onComplete={onboarding.complete}
+          onComplete={handleOnboardingComplete}
         />
       </View>
     );
@@ -479,8 +857,18 @@ export function App() {
                 <SetupScreen
                   settings={settings}
                   isReady={isReady}
+                  isPremium={isPremium}
                   onChange={updateSettings}
                   onStart={handleStart}
+                  onPremiumRequest={difficulty => setPaywallRequest({
+                    source: 'difficulty',
+                    intendedDifficulty: difficulty,
+                  })}
+                  programSession={loadedProgramSession}
+                  onClearProgramSession={() => {
+                    setLoadedProgramSession(null);
+                    activeProgramSessionRef.current = null;
+                  }}
                   onOpenDev={() => setShowDevScreen(true)}
                 />
               ) : activeTab === 'workout' ? (
@@ -492,6 +880,11 @@ export function App() {
                   cloudSyncPending={onboarding.cloudSyncPending}
                   onSaveFighterProfile={onboarding.saveFighterProfile}
                   onPromoteGuestProfile={onboarding.promoteGuestProfile}
+                  onOpenPremium={() => setPaywallRequest({ source: 'preset' })}
+                  onRestorePremium={() => setPaywallRequest({
+                    source: 'profile',
+                    initialAction: 'restore',
+                  })}
                 />
               )}
             </MainTabShell>
@@ -524,6 +917,24 @@ export function App() {
             totalRounds: config.totalRounds,
             roundDuration: config.roundDuration,
           })}
+          totalRounds={config.totalRounds}
+          roundDuration={config.roundDuration}
+          onSubmitFeedback={handleCompletionFeedback}
+          onLoadNextWorkout={handleLoadNextWorkout}
+          canEnableReminders={
+            onboarding.reminderPermission === 'not_requested'
+            && Boolean(onboarding.fighterProfile?.trainingDays.length)
+          }
+          onEnableReminders={async () => {
+            try {
+              const result = await onboarding.enableTrainingReminders();
+              trackEvent('training_reminder_permission_resolved', { result });
+            } catch (error) {
+              reportError(error, 'training_reminders', {
+                operation: 'request_and_schedule',
+              });
+            }
+          }}
           onReturnToGym={handleRestart}
         />
       ) : config && workout.phase === 'rest' ? (
@@ -545,6 +956,7 @@ export function App() {
           isPaused={workout.isPaused}
           isFreestyle={workout.isFreestyle}
           actionKey={workout.actionKey}
+          trainingMode={settings.trainingMode}
           comboInstructionsEnabled={settings.comboInstructionsEnabled}
           muted={session.muted}
           masterVolume={session.masterVolume}
@@ -588,6 +1000,15 @@ export function App() {
           ]}
         />
       ) : null}
+
+      <PremiumPaywall
+        visible={Boolean(paywallRequest)}
+        source={paywallRequest?.source ?? 'difficulty'}
+        initialAction={paywallRequest?.initialAction}
+        onClose={() => setPaywallRequest(null)}
+        onUnlocked={handlePremiumUnlocked}
+        onPromoteGuestProfile={onboarding.promoteGuestProfile}
+      />
     </View>
   );
 }

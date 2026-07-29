@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {
@@ -13,7 +14,10 @@ import {
   type SetupSettings,
 } from '../config';
 import { ScreenShell } from '../components/ScreenShell';
+import { PunchNumberGuideModal } from '../components/PunchNumberGuideModal';
 import { TactilePressable } from '../components/TactilePressable';
+import type { ProgramSession } from '../features/programs/programs';
+import { trackEvent } from '../lib/observability';
 import { colors, textLineHeight } from '../theme';
 
 const DEV_TAP_THRESHOLD = 3;
@@ -23,6 +27,7 @@ const MAX_ROUNDS = 12;
 const displayFont = 'Anton';
 const bodyFont = 'ArchivoNarrow';
 const labelFont = 'BarlowSemiCondensedSemiBold';
+const PREMIUM_DIFFICULTIES = new Set<SetupSettings['difficulty']>(['advanced', 'pro']);
 
 interface Props {
   settings: SetupSettings;
@@ -30,6 +35,10 @@ interface Props {
   onChange: (patch: Partial<SetupSettings>) => void;
   onStart: (settings: SetupSettings, origin: { x: number; y: number }) => void;
   onOpenDev: () => void;
+  isPremium: boolean;
+  onPremiumRequest: (difficulty: SetupSettings['difficulty']) => void;
+  programSession: ProgramSession | null;
+  onClearProgramSession: () => void;
 }
 
 function OptionGroup<T extends string | number>({
@@ -37,13 +46,19 @@ function OptionGroup<T extends string | number>({
   options,
   value,
   onSelect,
+  lockedValues,
+  onLockedSelect,
   variant = 'tile',
+  compact = false,
 }: {
   label: string;
   options: { value: T; label: string; desc?: string }[];
   value: T;
   onSelect: (value: T) => void;
+  lockedValues?: ReadonlySet<T>;
+  onLockedSelect?: (value: T) => void;
   variant?: 'tile' | 'segment';
+  compact?: boolean;
 }) {
   return (
     <View style={styles.section}>
@@ -51,24 +66,37 @@ function OptionGroup<T extends string | number>({
       <View style={variant === 'tile' ? styles.tileGrid : styles.segmentGrid}>
         {options.map(option => {
           const selected = option.value === value;
+          const locked = lockedValues?.has(option.value) ?? false;
 
           return (
             <TactilePressable
               key={String(option.value)}
-              onPress={() => onSelect(option.value)}
+              onPress={() => locked
+                ? onLockedSelect?.(option.value)
+                : onSelect(option.value)}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
+              accessibilityHint={locked ? 'Opens Boxing Coach Premium options' : undefined}
               haptic="selection"
               pressedScale={0.985}
               style={[
                 variant === 'tile' ? styles.tileButton : styles.segmentButton,
+                variant === 'tile' && compact && styles.tileButtonCompact,
+                variant === 'segment' && compact && styles.segmentButtonCompact,
                 variant === 'tile' && selected && styles.tileButtonSelected,
                 variant === 'segment' && selected && styles.segmentButtonSelected,
               ]}
             >
+              {locked ? (
+                <View style={styles.premiumBadge}>
+                  <Text style={styles.premiumBadgeText} allowFontScaling={false}>PREMIUM</Text>
+                </View>
+              ) : null}
               <Text
                 style={[
                   variant === 'tile' ? styles.tileLabel : styles.segmentLabel,
+                  variant === 'tile' && compact && styles.tileLabelCompact,
+                  variant === 'segment' && compact && styles.segmentLabelCompact,
                   selected && styles.selectedLabel,
                 ]}
                 numberOfLines={1}
@@ -79,7 +107,11 @@ function OptionGroup<T extends string | number>({
                 {option.label}
               </Text>
               {option.desc ? (
-                <Text style={styles.tileDesc} numberOfLines={2} allowFontScaling={false}>
+                <Text
+                  style={[styles.tileDesc, compact && styles.tileDescCompact]}
+                  numberOfLines={2}
+                  allowFontScaling={false}
+                >
                   {option.desc}
                 </Text>
               ) : null}
@@ -110,9 +142,24 @@ function ComboIcon() {
   );
 }
 
-export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }: Props) {
+export function SetupScreen({
+  settings,
+  isReady,
+  onChange,
+  onStart,
+  onOpenDev,
+  isPremium,
+  onPremiumRequest,
+  programSession,
+  onClearProgramSession,
+}: Props) {
+  const { height: windowHeight } = useWindowDimensions();
+  const compact = windowHeight <= 700;
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [punchGuideVisible, setPunchGuideVisible] = useState(
+    __DEV__ && process.env.EXPO_PUBLIC_PUNCH_GUIDE_TEST_SCENARIO === 'guide',
+  );
 
   useEffect(() => {
     return () => {
@@ -140,13 +187,19 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
       tapTimerRef.current = null;
     }, DEV_TAP_WINDOW_MS);
   };
+  const selectedDifficultyRequiresPremium = !isPremium
+    && PREMIUM_DIFFICULTIES.has(settings.difficulty);
+  const openPunchGuide = () => {
+    trackEvent('punch_guide_opened', { source: 'setup' });
+    setPunchGuideVisible(true);
+  };
 
   return (
     <ScreenShell>
       <View style={styles.screen}>
         <ScrollView
           style={styles.scroller}
-          contentContainerStyle={styles.container}
+          contentContainerStyle={[styles.container, compact && styles.containerCompact]}
           showsVerticalScrollIndicator={false}
         >
           <TactilePressable
@@ -154,9 +207,9 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
             haptic="none"
             pressedScale={0.995}
           >
-            <View style={styles.heroPanel}>
+            <View style={[styles.heroPanel, compact && styles.heroPanelCompact]}>
               <Text
-                style={styles.title}
+                style={[styles.title, compact && styles.titleCompact]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.82}
@@ -165,7 +218,12 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
                 SETUP YOUR
               </Text>
               <Text
-                style={[styles.title, styles.titleAccent]}
+                style={[
+                  styles.title,
+                  styles.titleAccent,
+                  compact && styles.titleCompact,
+                  compact && styles.titleAccentCompact,
+                ]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.82}
@@ -176,6 +234,25 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
             </View>
           </TactilePressable>
 
+          <TactilePressable
+            accessibilityRole="button"
+            accessibilityLabel="Open punch number guide"
+            accessibilityHint="Explains boxing punch numbers one through six"
+            onPress={openPunchGuide}
+            haptic="light"
+            pressedScale={0.985}
+            style={[styles.guideLink, compact && styles.guideLinkCompact]}
+          >
+            <View style={styles.guideLinkNumber}>
+              <Text style={styles.guideLinkNumberText} allowFontScaling={false}>1–6</Text>
+            </View>
+            <View style={styles.guideLinkCopy}>
+              <Text style={styles.guideLinkTitle} allowFontScaling={false}>NEW TO PUNCH NUMBERS?</Text>
+              <Text style={styles.guideLinkHint} allowFontScaling={false}>Open the quick boxing guide</Text>
+            </View>
+            <Text style={styles.guideLinkArrow} allowFontScaling={false}>→</Text>
+          </TactilePressable>
+
           {!isReady ? (
             <View style={styles.loadingPanel}>
               <ActivityIndicator color={colors.accent} />
@@ -183,11 +260,38 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
             </View>
           ) : (
             <>
+              {programSession ? (
+                <View style={styles.programBanner}>
+                  <View style={styles.programBannerCopy}>
+                    <Text style={styles.programBannerKicker} allowFontScaling={false}>
+                      PROGRAM SESSION LOADED
+                    </Text>
+                    <Text style={styles.programBannerTitle} allowFontScaling={false}>
+                      {programSession.title}
+                    </Text>
+                    <Text style={styles.programBannerMeta} allowFontScaling={false}>
+                      WEEK {programSession.week} · SESSION {programSession.sessionInWeek}
+                    </Text>
+                  </View>
+                  <TactilePressable
+                    onPress={onClearProgramSession}
+                    haptic="light"
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove loaded program session"
+                    style={styles.programBannerClose}
+                  >
+                    <Text style={styles.programBannerCloseText} allowFontScaling={false}>×</Text>
+                  </TactilePressable>
+                </View>
+              ) : null}
               <OptionGroup
                 label="Difficulty"
                 options={DIFFICULTIES}
                 value={settings.difficulty}
                 onSelect={difficulty => onChange({ difficulty })}
+                lockedValues={isPremium ? undefined : PREMIUM_DIFFICULTIES}
+                onLockedSelect={onPremiumRequest}
+                compact={compact}
               />
               <OptionGroup
                 label="Round Duration"
@@ -195,6 +299,7 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
                 value={settings.roundDuration}
                 onSelect={roundDuration => onChange({ roundDuration })}
                 variant="segment"
+                compact={compact}
               />
 
               <View style={styles.section}>
@@ -238,6 +343,7 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
                 value={settings.restDuration}
                 onSelect={restDuration => onChange({ restDuration })}
                 variant="segment"
+                compact={compact}
               />
 
               <View style={styles.instructionSettings}>
@@ -330,24 +436,35 @@ export function SetupScreen({ settings, isReady, onChange, onStart, onOpenDev }:
         </ScrollView>
 
         {isReady ? (
-          <View style={styles.floatingCta}>
+          <View style={[styles.floatingCta, compact && styles.floatingCtaCompact]}>
             <TactilePressable
               accessibilityRole="button"
-              accessibilityLabel="Start workout"
+              accessibilityLabel={selectedDifficultyRequiresPremium
+                ? 'Unlock Premium to start this workout'
+                : 'Start workout'}
               onPress={event => onStart(settings, {
                 x: event.nativeEvent.pageX,
                 y: event.nativeEvent.pageY,
               })}
               haptic="medium"
               pressedScale={0.98}
-              style={styles.startButton}
+              style={[styles.startButton, compact && styles.startButtonCompact]}
             >
               <View style={styles.playTriangle} />
-              <Text style={styles.startButtonText} allowFontScaling={false}>START WORKOUT</Text>
+              <Text
+                style={[styles.startButtonText, compact && styles.startButtonTextCompact]}
+                allowFontScaling={false}
+              >
+                {selectedDifficultyRequiresPremium ? 'UNLOCK PREMIUM' : 'START WORKOUT'}
+              </Text>
             </TactilePressable>
           </View>
         ) : null}
       </View>
+      <PunchNumberGuideModal
+        visible={punchGuideVisible}
+        onClose={() => setPunchGuideVisible(false)}
+      />
     </ScreenShell>
   );
 }
@@ -365,9 +482,17 @@ const styles = StyleSheet.create({
     paddingBottom: 137,
     gap: 20,
   },
+  containerCompact: {
+    paddingTop: 14,
+    paddingBottom: 106,
+    gap: 13,
+  },
   heroPanel: {
     paddingTop: 6,
     paddingBottom: 0,
+  },
+  heroPanelCompact: {
+    paddingTop: 0,
   },
   heroPressed: {
     opacity: 0.98,
@@ -385,6 +510,62 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginTop: 58 - textLineHeight(58),
   },
+  titleCompact: {
+    fontSize: 44,
+    lineHeight: textLineHeight(44),
+  },
+  titleAccentCompact: {
+    marginTop: 44 - textLineHeight(44),
+  },
+  guideLink: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: 'rgba(249,189,173,0.06)',
+  },
+  guideLinkCompact: {
+    minHeight: 46,
+    paddingVertical: 6,
+  },
+  guideLinkNumber: {
+    width: 48,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.peach,
+  },
+  guideLinkNumberText: {
+    color: colors.peach,
+    fontFamily: displayFont,
+    fontSize: 18,
+    lineHeight: textLineHeight(18),
+  },
+  guideLinkCopy: { flex: 1 },
+  guideLinkTitle: {
+    color: colors.text,
+    fontFamily: labelFont,
+    fontSize: 11,
+    lineHeight: textLineHeight(11),
+    letterSpacing: 1.2,
+  },
+  guideLinkHint: {
+    color: colors.textMuted,
+    fontFamily: bodyFont,
+    fontSize: 13,
+    lineHeight: textLineHeight(13),
+  },
+  guideLinkArrow: {
+    color: colors.accent,
+    fontFamily: displayFont,
+    fontSize: 24,
+    lineHeight: textLineHeight(24),
+  },
   loadingPanel: {
     padding: 20,
     borderWidth: 2,
@@ -396,6 +577,50 @@ const styles = StyleSheet.create({
   loadingText: {
     color: colors.textMuted,
     fontSize: 14,
+  },
+  programBanner: {
+    minHeight: 94,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderWidth: 2,
+    borderColor: colors.peach,
+    backgroundColor: 'rgba(249,189,173,0.08)',
+  },
+  programBannerCopy: { flex: 1, gap: 2 },
+  programBannerKicker: {
+    color: colors.peach,
+    fontFamily: labelFont,
+    fontSize: 10,
+    lineHeight: 12,
+    letterSpacing: 1.2,
+  },
+  programBannerTitle: {
+    color: colors.text,
+    fontFamily: displayFont,
+    fontSize: 23,
+    lineHeight: 28,
+    letterSpacing: 0.4,
+  },
+  programBannerMeta: {
+    color: colors.textMuted,
+    fontFamily: labelFont,
+    fontSize: 10,
+    lineHeight: 12,
+    letterSpacing: 0.8,
+  },
+  programBannerClose: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  programBannerCloseText: {
+    color: colors.text,
+    fontFamily: bodyFont,
+    fontSize: 32,
+    lineHeight: 34,
   },
   section: {
     gap: 8,
@@ -431,6 +656,27 @@ const styles = StyleSheet.create({
   tileButtonSelected: {
     borderColor: colors.accent,
   },
+  tileButtonCompact: {
+    minHeight: 78,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 3,
+  },
+  premiumBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: colors.peach,
+  },
+  premiumBadgeText: {
+    color: colors.background,
+    fontFamily: labelFont,
+    fontSize: 8,
+    lineHeight: 9,
+    letterSpacing: 0.8,
+  },
   segmentButton: {
     flex: 1,
     minHeight: 58,
@@ -444,6 +690,9 @@ const styles = StyleSheet.create({
   segmentButtonSelected: {
     borderColor: colors.accent,
     backgroundColor: colors.accent,
+  },
+  segmentButtonCompact: {
+    minHeight: 50,
   },
   buttonPressed: {
     opacity: 0.86,
@@ -463,6 +712,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
   },
+  tileLabelCompact: {
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  tileDescCompact: {
+    fontSize: 13,
+    lineHeight: 16,
+  },
   segmentLabel: {
     color: colors.textMuted,
     fontFamily: displayFont,
@@ -470,6 +727,10 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     letterSpacing: 0,
     transform: [{ translateY: 4 }],
+  },
+  segmentLabelCompact: {
+    fontSize: 20,
+    lineHeight: 25,
   },
   selectedLabel: {
     color: colors.text,
@@ -638,6 +899,11 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     backgroundColor: 'transparent',
   },
+  floatingCtaCompact: {
+    height: 94,
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
   startButton: {
     minHeight: 84,
     backgroundColor: colors.accent,
@@ -650,6 +916,9 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },
     elevation: 8,
+  },
+  startButtonCompact: {
+    minHeight: 66,
   },
   startButtonPressed: {
     opacity: 0.92,
@@ -672,5 +941,9 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     letterSpacing: 0,
     textTransform: 'uppercase',
+  },
+  startButtonTextCompact: {
+    fontSize: 25,
+    lineHeight: 31,
   },
 });

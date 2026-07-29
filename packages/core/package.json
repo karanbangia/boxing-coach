@@ -13,6 +13,10 @@
   },
   "scripts": {
     "build": "tsc",
+    "test:recommendation": "pnpm run build && node scripts/test-workout-recommendation.mjs",
+    "test:adaptation": "pnpm run build && node scripts/test-workout-adaptation.mjs",
+    "test:profile-isolation": "pnpm run build && node scripts/test-profile-isolation.mjs",
+    "test:punch-numbers": "pnpm run build && node scripts/test-punch-numbers.mjs",
     "dev": "tsc --watch",
     "clean": "rm -rf dist .turbo"
   },

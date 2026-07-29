@@ -49,6 +49,7 @@ import {
   type TrainingGoal,
   type WeightUnit,
 } from '../features/profile/types';
+import { isHeightCmInRange } from '../features/profile/height';
 import {
   firebaseConfigured,
   googleSignInConfigured,
@@ -60,12 +61,14 @@ import {
   loadWorkoutHistoryForScope,
   replaceWorkoutHistoryForScope,
   setActiveHistoryUser,
-  type WorkoutHistoryItem,
 } from '../lib/workoutHistory';
 import { clearLocalAppData } from '../lib/appData';
+import { reportError } from '../lib/observability';
 
 type AuthProviderName = 'apple' | 'google';
 type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
+
+export type AuthResult = 'signed_in' | 'cancelled' | 'failed';
 
 const RECENT_AUTH_MAX_AGE_MS = 3 * 60 * 1000;
 const DELETE_BATCH_SIZE = 450;
@@ -79,12 +82,11 @@ interface AuthContextValue {
   errorMessage: string | null;
   connectedProvider: AuthProviderName | null;
   appleSignInEnabled: boolean;
-  signInWithApple: () => Promise<boolean>;
-  signInWithGoogle: () => Promise<boolean>;
+  signInWithApple: () => Promise<AuthResult>;
+  signInWithGoogle: () => Promise<AuthResult>;
   saveProfile: (profile: FighterProfile) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
-  syncWorkout: (workout: WorkoutHistoryItem) => Promise<void>;
   clearError: () => void;
 }
 
@@ -95,12 +97,12 @@ const loadingPreviewMode = profilePreviewMode === 'loading';
 const appleSignInEnabled = process.env.EXPO_PUBLIC_APPLE_SIGN_IN_ENABLED !== 'false';
 const previewUser = {
   uid: 'profile-preview',
-  displayName: 'Jordan “Switch” Lee',
+  displayName: 'Jordan Lee',
   email: 'jordan@example.com',
   providerData: [{ providerId: 'google.com' }],
 } as User;
 const previewProfile: FighterProfile = {
-  displayName: 'Jordan “Switch” Lee',
+  displayName: 'Jordan Lee',
   photoUrl: null,
   gender: 'female',
   experience: 'intermediate',
@@ -135,7 +137,11 @@ function parseProfile(data: Record<string, unknown> | undefined): FighterProfile
   return {
     displayName: data.displayName,
     photoUrl: isString(data.photoUrl) ? data.photoUrl : null,
-    gender: (isString(data.gender) ? data.gender : DEFAULT_FIGHTER_PROFILE.gender) as GenderIdentity,
+    gender: (
+      data.gender === 'male' || data.gender === 'female' || data.gender === 'unspecified'
+        ? data.gender
+        : DEFAULT_FIGHTER_PROFILE.gender
+    ) as GenderIdentity,
     experience: (isString(data.experience)
       ? data.experience
       : DEFAULT_FIGHTER_PROFILE.experience) as Experience,
@@ -151,37 +157,23 @@ function parseProfile(data: Record<string, unknown> | undefined): FighterProfile
       typeof data.preferredSessionMinutes === 'number'
         ? data.preferredSessionMinutes as SessionDuration
         : DEFAULT_FIGHTER_PROFILE.preferredSessionMinutes,
-    weightKg: typeof data.weightKg === 'number' ? data.weightKg : DEFAULT_FIGHTER_PROFILE.weightKg,
+    weightKg: typeof data.weightKg === 'number' || data.weightKg === null
+      ? data.weightKg
+      : DEFAULT_FIGHTER_PROFILE.weightKg,
     weightUnit: (isString(data.weightUnit)
       ? data.weightUnit
       : DEFAULT_FIGHTER_PROFILE.weightUnit) as WeightUnit,
-    heightCm: typeof data.heightCm === 'number' ? data.heightCm : DEFAULT_FIGHTER_PROFILE.heightCm,
+    heightCm: data.heightCm === null
+      || (
+        typeof data.heightCm === 'number'
+        && Number.isFinite(data.heightCm)
+        && isHeightCmInRange(data.heightCm)
+      )
+      ? data.heightCm as number | null
+      : DEFAULT_FIGHTER_PROFILE.heightCm,
     heightUnit: (isString(data.heightUnit)
       ? data.heightUnit
       : DEFAULT_FIGHTER_PROFILE.heightUnit) as HeightUnit,
-  };
-}
-
-function parseWorkout(data: Record<string, unknown>, id: string): WorkoutHistoryItem | null {
-  if (
-    !isString(data.completedAt) ||
-    !isString(data.difficulty) ||
-    typeof data.totalRounds !== 'number' ||
-    typeof data.roundDuration !== 'number' ||
-    typeof data.punches !== 'number' ||
-    typeof data.averageHeartRate !== 'number' ||
-    typeof data.caloriesBurned !== 'number'
-  ) return null;
-
-  return {
-    id,
-    completedAt: data.completedAt,
-    difficulty: data.difficulty as WorkoutHistoryItem['difficulty'],
-    totalRounds: data.totalRounds,
-    roundDuration: data.roundDuration,
-    punches: data.punches,
-    averageHeartRate: data.averageHeartRate,
-    caloriesBurned: data.caloriesBurned,
   };
 }
 
@@ -190,6 +182,12 @@ function providerForUser(user: User | null): AuthProviderName | null {
   if (providerId === 'apple.com') return 'apple';
   if (providerId === 'google.com') return 'google';
   return null;
+}
+
+function isAuthenticationCancellation(error: unknown) {
+  const code = (error as { code?: string }).code;
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  return code === 'ERR_REQUEST_CANCELED' || message.includes('cancel');
 }
 
 async function hasRecentAuthentication(user: User) {
@@ -219,27 +217,12 @@ function accountDeletionError(error: unknown) {
     : new Error('Your account could not be deleted. Please try again.');
 }
 
-async function mergeWorkoutHistory(userId: string) {
-  const { db } = requireFirebase();
+async function activateLocalWorkoutHistory(userId: string) {
   const guestHistory = await loadWorkoutHistoryForScope(null);
   const accountHistory = await loadWorkoutHistoryForScope(userId);
   const localById = new Map(
     [...guestHistory, ...accountHistory].map(workout => [workout.id, workout]),
   );
-
-  if (localById.size) {
-    const batch = writeBatch(db);
-    for (const workout of localById.values()) {
-      batch.set(doc(db, 'users', userId, 'workouts', workout.id), workout, { merge: true });
-    }
-    await batch.commit();
-  }
-
-  const remoteSnapshot = await getDocs(collection(db, 'users', userId, 'workouts'));
-  for (const remote of remoteSnapshot.docs) {
-    const workout = parseWorkout(remote.data(), remote.id);
-    if (workout) localById.set(workout.id, workout);
-  }
 
   await replaceWorkoutHistoryForScope(userId, [...localById.values()]);
   await clearWorkoutHistoryForScope(null);
@@ -306,7 +289,7 @@ async function getAppleCredential() {
       code === 'ERR_REQUEST_NOT_HANDLED'
     ) {
       throw new Error(
-        'Apple could not complete sign-in on this device. Confirm iCloud and two-factor authentication, then retry on a physical iPhone.',
+        'Apple could not complete sign-in on this device. Confirm the Apple Account and two-factor authentication, then try again.',
       );
     }
     if (code === 'ERR_REQUEST_NOT_INTERACTIVE') {
@@ -349,6 +332,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const message = error instanceof Error ? error.message : 'Something went wrong. Try again.';
       if (options?.showCancellationError || !message.toLowerCase().includes('cancel')) {
         setErrorMessage(message);
+        reportError(error, 'authentication', {
+          operation: 'account_action',
+        });
       }
       throw error;
     } finally {
@@ -395,10 +381,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         try {
           const profileSnapshot = await getDoc(doc(db, 'users', nextUser.uid));
           if (active) setProfile(parseProfile(profileSnapshot.data()));
-          await mergeWorkoutHistory(nextUser.uid);
+          await activateLocalWorkoutHistory(nextUser.uid);
           if (active) setSyncStatus('synced');
         } catch (error) {
           await setActiveHistoryUser(nextUser.uid);
+          reportError(error, 'profile_sync', {
+            operation: 'load_profile',
+          });
           if (active) {
             setSyncStatus('error');
             setErrorMessage(
@@ -417,29 +406,33 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    let signedIn = false;
+    let result: AuthResult = 'cancelled';
     await run(async () => {
       const { auth } = requireFirebase();
       const credential = await getGoogleCredential();
       if (!credential) return;
       await signInWithCredential(auth, credential);
-      signedIn = true;
-    }).catch(() => undefined);
-    return signedIn;
+      result = 'signed_in';
+    }).catch(error => {
+      result = isAuthenticationCancellation(error) ? 'cancelled' : 'failed';
+    });
+    return result;
   }, [run]);
 
   const signInWithApple = useCallback(async () => {
-    let signedIn = false;
+    let result: AuthResult = 'cancelled';
     await run(async () => {
       const { auth } = requireFirebase();
       const { credential, displayName } = await getAppleCredential();
-      const result = await signInWithCredential(auth, credential);
-      signedIn = true;
-      if (displayName && !result.user.displayName) {
-        await updateFirebaseProfile(result.user, { displayName });
+      const credentialResult = await signInWithCredential(auth, credential);
+      if (displayName && !credentialResult.user.displayName) {
+        await updateFirebaseProfile(credentialResult.user, { displayName });
       }
-    }).catch(() => undefined);
-    return signedIn;
+      result = 'signed_in';
+    }).catch(error => {
+      result = isAuthenticationCancellation(error) ? 'cancelled' : 'failed';
+    });
+    return result;
   }, [run]);
 
   const saveProfile = useCallback(async (nextProfile: FighterProfile) => {
@@ -555,18 +548,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }, { showCancellationError: true });
   }, [run, user]);
 
-  const syncWorkout = useCallback(async (workout: WorkoutHistoryItem) => {
-    if (!user || !firebaseConfigured || profilePreviewMode) return;
-    try {
-      const { db } = requireFirebase();
-      setSyncStatus('syncing');
-      await setDoc(doc(db, 'users', user.uid, 'workouts', workout.id), workout, { merge: true });
-      setSyncStatus('synced');
-    } catch {
-      setSyncStatus('error');
-    }
-  }, [user]);
-
   const value = useMemo<AuthContextValue>(() => ({
     user,
     profile,
@@ -581,7 +562,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     saveProfile,
     signOut,
     deleteAccount,
-    syncWorkout,
     clearError: () => setErrorMessage(null),
   }), [
     deleteAccount,
@@ -594,7 +574,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     signInWithGoogle,
     signOut,
     syncStatus,
-    syncWorkout,
     user,
   ]);
 

@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Action } from '@boxing-coach/core';
+import type { TrainingMode } from '../features/profile/types';
 import { ScreenShell } from '../components/ScreenShell';
 import { TactilePressable } from '../components/TactilePressable';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -31,6 +32,7 @@ interface Props {
   isPaused: boolean;
   isFreestyle: boolean;
   actionKey: number;
+  trainingMode: TrainingMode;
   comboInstructionsEnabled: boolean;
   muted: boolean;
   masterVolume: number;
@@ -296,6 +298,7 @@ export function WorkoutScreen({
   isPaused,
   isFreestyle,
   actionKey,
+  trainingMode,
   comboInstructionsEnabled,
   muted,
   masterVolume,
@@ -419,7 +422,9 @@ export function WorkoutScreen({
         <View style={styles.header}>
           <View style={styles.sessionType}>
             <Ionicons name="flame-outline" size={26} color={colors.peach} accessibilityElementsHidden />
-            <Text style={styles.headerTitle} allowFontScaling={false}>HEAVY BAG</Text>
+            <Text style={styles.headerTitle} allowFontScaling={false}>
+              {trainingMode === 'heavy_bag' ? 'HEAVY BAG' : 'SHADOWBOXING'}
+            </Text>
           </View>
 
           <TactilePressable

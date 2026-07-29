@@ -7,9 +7,11 @@ import {
   type TrainingDay,
   type WeightUnit,
 } from '../features/profile/types';
+import { isHeightCmInRange } from '../features/profile/height';
 
 const STORAGE_KEY = 'boxing-coach-onboarding:v1';
-const ONBOARDING_VERSION = 4;
+const ONBOARDING_VERSION = 5;
+export const ONBOARDING_COMPLETED_STEP = 5;
 
 export type ReminderPermission = 'not_requested' | 'granted' | 'denied' | 'unavailable';
 export type OnboardingStatus = 'in_progress' | 'completed';
@@ -39,6 +41,12 @@ function numberOr(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
+function nullableNumberOr(value: unknown, fallback: number | null) {
+  return value === null || (typeof value === 'number' && Number.isFinite(value))
+    ? value
+    : fallback;
+}
+
 function enumOr<T extends string | number>(value: unknown, allowed: readonly T[], fallback: T): T {
   return (typeof value === 'string' || typeof value === 'number') && allowed.includes(value as T)
     ? value as T
@@ -60,7 +68,11 @@ function normalizeProfile(value: unknown): FighterProfile {
   return {
     displayName: typeof data.displayName === 'string' ? data.displayName : '',
     photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : null,
-    gender: enumOr(data.gender, ['male', 'female'] as const, DEFAULT_FIGHTER_PROFILE.gender),
+    gender: enumOr(
+      data.gender,
+      ['unspecified', 'male', 'female'] as const,
+      DEFAULT_FIGHTER_PROFILE.gender,
+    ),
     experience: enumOr(
       data.experience,
       ['beginner', 'intermediate', 'advanced', 'professional'] as const,
@@ -86,13 +98,17 @@ function normalizeProfile(value: unknown): FighterProfile {
       [10, 20, 30, 45, 60] as const,
       DEFAULT_FIGHTER_PROFILE.preferredSessionMinutes,
     ),
-    weightKg: numberOr(data.weightKg, DEFAULT_FIGHTER_PROFILE.weightKg),
+    weightKg: nullableNumberOr(data.weightKg, DEFAULT_FIGHTER_PROFILE.weightKg),
     weightUnit: enumOr(
       data.weightUnit,
       ['kg', 'lb'] as const satisfies readonly WeightUnit[],
       DEFAULT_FIGHTER_PROFILE.weightUnit,
     ),
-    heightCm: numberOr(data.heightCm, DEFAULT_FIGHTER_PROFILE.heightCm),
+    heightCm: typeof data.heightCm === 'number'
+      && Number.isFinite(data.heightCm)
+      && isHeightCmInRange(data.heightCm)
+      ? data.heightCm
+      : DEFAULT_FIGHTER_PROFILE.heightCm,
     heightUnit: enumOr(
       data.heightUnit,
       ['cm', 'in'] as const satisfies readonly HeightUnit[],
@@ -108,15 +124,25 @@ function normalizeRecord(value: unknown): OnboardingRecord | null {
       value.version !== 1
       && value.version !== 2
       && value.version !== 3
+      && value.version !== 4
       && value.version !== ONBOARDING_VERSION
     )
   ) return null;
   const rawStep = Math.max(0, Math.round(numberOr(value.step, 0)));
-  const migratedStep = value.version === 2 && rawStep > 0 ? rawStep + 1 : rawStep;
+  const legacyStep = value.version === 2 && rawStep > 0 ? rawStep + 1 : rawStep;
+  const migratedStep = value.version === ONBOARDING_VERSION
+    ? rawStep
+    : legacyStep >= 8
+      ? ONBOARDING_COMPLETED_STEP
+      : legacyStep <= 1
+        ? 0
+        : Math.min(4, legacyStep - 1);
   return {
     version: ONBOARDING_VERSION,
     status: value.status === 'completed' ? 'completed' : 'in_progress',
-    step: Math.min(8, migratedStep),
+    step: value.status === 'completed'
+      ? ONBOARDING_COMPLETED_STEP
+      : Math.min(ONBOARDING_COMPLETED_STEP, migratedStep),
     profile: normalizeProfile(value.profile),
     reminderPermission: enumOr(
       value.reminderPermission,

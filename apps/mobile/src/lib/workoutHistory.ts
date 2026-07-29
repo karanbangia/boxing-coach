@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Difficulty } from '@boxing-coach/core';
+import type { ProgramId } from '../features/programs/programs';
 
 const LEGACY_STORAGE_KEY = 'boxing-coach-workout-history';
 const GUEST_STORAGE_KEY = 'boxing-coach-workout-history:guest';
@@ -17,6 +18,8 @@ export interface WorkoutHistoryItem {
   punches: number;
   averageHeartRate: number;
   caloriesBurned: number;
+  programId?: ProgramId;
+  programSessionId?: string;
 }
 
 function storageKeyForScope(userId: string | null) {

@@ -565,7 +565,7 @@ export function ProgressScreen() {
                 <MetricCard value={String(summary.totalSessions)} label="TOTAL SESSIONS" />
                 <MetricCard
                   value={formatPunches(summary.totalPunches)}
-                  label="PUNCHES THROWN"
+                  label="PUNCHES CALLED"
                   accent
                 />
               </View>
@@ -752,7 +752,7 @@ function PunchTrend({ points, isLoading }: { points: PunchTrendPoint[]; isLoadin
   return (
     <View style={styles.trendSection}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle} allowFontScaling={false}>PUNCHES OVER TIME</Text>
+        <Text style={styles.sectionTitle} allowFontScaling={false}>PUNCHES CALLED OVER TIME</Text>
         {!isLoading && points.length > 0 ? (
           <Text style={styles.sectionMeta} allowFontScaling={false}>DAILY TOTAL</Text>
         ) : null}
@@ -765,8 +765,8 @@ function PunchTrend({ points, isLoading }: { points: PunchTrendPoint[]; isLoadin
           style={styles.chart}
           accessible
           accessibilityRole="image"
-          accessibilityLabel={`Daily punches over time. ${points
-            .map(point => `${formatDayForAccessibility(point.key)}: ${point.punches} punches`)
+          accessibilityLabel={`Daily punches called over time. ${points
+            .map(point => `${formatDayForAccessibility(point.key)}: ${point.punches} punches called`)
             .join('. ')}`}
         >
           <View style={styles.chartBody}>
@@ -874,7 +874,7 @@ function HistoryCard({
   return (
     <TactilePressable
       accessibilityRole="button"
-      accessibilityLabel={`${isLatest ? 'Latest workout, ' : ''}${difficultyName}, ${formatHistoryDate(workout.completedAt)} at ${time}, ${workout.totalRounds} ${workout.totalRounds === 1 ? 'round' : 'rounds'}, ${duration}, ${workout.punches} punches`}
+      accessibilityLabel={`${isLatest ? 'Latest workout, ' : ''}${difficultyName}, ${formatHistoryDate(workout.completedAt)} at ${time}, ${workout.totalRounds} ${workout.totalRounds === 1 ? 'round' : 'rounds'}, ${duration}, ${workout.punches} punches called`}
       accessibilityHint="Opens this workout summary"
       onPress={onPress}
       haptic="light"
@@ -895,7 +895,7 @@ function HistoryCard({
           <Text style={styles.historyTime} allowFontScaling={false}>{time}</Text>
         </View>
         <Text style={styles.historyMeta} numberOfLines={1} allowFontScaling={false}>
-          {formatRounds(workout.totalRounds)} • {duration} • {formatPunches(workout.punches)} {workout.punches === 1 ? 'PUNCH' : 'PUNCHES'}
+          {formatRounds(workout.totalRounds)} • {duration} • {formatPunches(workout.punches)} {workout.punches === 1 ? 'PUNCH CALLED' : 'PUNCHES CALLED'}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
@@ -954,7 +954,7 @@ function DaySummarySheet({
               <DayMetric value={String(sessions.length)} label="SESSIONS" />
               <DayMetric value={String(summary.rounds)} label="ROUNDS" />
               <DayMetric value={formatTotalTime(summary.seconds)} label="TIME" />
-              <DayMetric value={formatPunches(summary.punches)} label="PUNCHES" accent />
+              <DayMetric value={formatPunches(summary.punches)} label="PUNCHES CALLED" accent />
             </View>
 
             <Text style={styles.daySessionsLabel} allowFontScaling={false}>WORKOUTS</Text>
@@ -971,7 +971,7 @@ function DaySummarySheet({
                         {getDifficultyName(workout.difficulty)}
                       </Text>
                       <Text style={styles.daySessionMeta} allowFontScaling={false}>
-                        {formatRounds(workout.totalRounds)} • {workout.punches} PUNCHES
+                        {formatRounds(workout.totalRounds)} • {workout.punches} PUNCHES CALLED
                       </Text>
                     </View>
                     <Text style={styles.daySessionTime} allowFontScaling={false}>
@@ -1040,8 +1040,8 @@ function WorkoutSummarySheet({
                   value={formatTotalTime(workout.totalRounds * workout.roundDuration)}
                   label="TIME"
                 />
-                <DayMetric value={formatPunches(workout.punches)} label="PUNCHES" accent />
-                <DayMetric value={String(workout.caloriesBurned)} label="CALORIES" />
+                <DayMetric value={formatPunches(workout.punches)} label="PUNCHES CALLED" accent />
+                <DayMetric value={String(workout.caloriesBurned)} label="EST. CALORIES" />
               </View>
 
               <TactilePressable
