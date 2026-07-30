@@ -196,6 +196,8 @@ export function SetupScreen({
   }, []);
 
   const handleHeroPress = () => {
+    if (!__DEV__) return;
+
     tapCountRef.current += 1;
 
     if (tapTimerRef.current) {

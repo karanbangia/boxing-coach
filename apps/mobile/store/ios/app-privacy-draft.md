@@ -21,6 +21,7 @@ Only applies when the boxer voluntarily creates a cloud profile:
 | User Content > Photos or Videos | Optional fighter profile photo | App Functionality |
 | Identifiers > User ID | Firebase user identifier | App Functionality |
 | Other User Content | Fighter profile choices and nickname | App Functionality |
+| Purchases > Purchase History | StoreKit transaction and RevenueCat entitlement state when linked to a signed-in account | App Functionality |
 
 The app must remain useful without creating this account.
 
@@ -28,16 +29,17 @@ The app must remain useful without creating this account.
 
 | Apple data type | Source | Purpose |
 | --- | --- | --- |
-| Purchases > Purchase History | StoreKit transaction and RevenueCat account-based entitlement state | App Functionality |
 | Usage Data > Product Interaction | Privacy-restricted PostHog event allow-list, when configured | Analytics |
 | Diagnostics > Crash Data | Privacy-restricted Sentry events, when configured | App Functionality / Analytics |
 | Diagnostics > Performance Data | Only if explicitly enabled later | App Functionality / Analytics |
 
-RevenueCat uses the pseudonymous Firebase UID, not the account email address,
-to make Premium available across supported devices and platforms. Automatic
-device-identifier collection and RevenueCat diagnostics are disabled in app
-code. PostHog person profiles, autocapture, replay, and GeoIP enrichment are
-disabled. Sentry user, request, screenshot, and PII capture are disabled.
+RevenueCat uses a pseudonymous anonymous App User ID for guests and the
+Firebase UID for signed-in users, never the account email address. Guest
+purchase and restore use the native store account without requiring a Boxing
+Coach account. Automatic device-identifier collection and RevenueCat
+diagnostics are disabled in app code. PostHog person profiles, autocapture,
+replay, and GeoIP enrichment are disabled. Sentry user, request, screenshot,
+and PII capture are disabled.
 
 ## Not collected by this version
 

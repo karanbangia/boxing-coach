@@ -279,7 +279,7 @@ export function PremiumProvider({ children }: PropsWithChildren) {
         setErrorMessage(
           firebaseUid
             ? 'Your account is signed in, but Premium could not connect. Check your connection and try again.'
-            : 'Premium account access could not be cleared. Please try again.',
+            : 'Premium could not connect to the store. Please try again.',
         );
       }
     };
@@ -332,18 +332,21 @@ export function PremiumProvider({ children }: PropsWithChildren) {
     sdkReady,
   ]);
 
-  const accountReady = Boolean(
-    firebaseUid
-    && identityState === 'identified'
-    && revenueCatAppUserId === firebaseUid,
+  const purchaseIdentityReady = Boolean(
+    revenueCatAppUserId
+    && (
+      firebaseUid
+        ? identityState === 'identified' && revenueCatAppUserId === firebaseUid
+        : identityState === 'guest'
+          && revenueCatAppUserId.startsWith(REVENUECAT_ANONYMOUS_PREFIX)
+    ),
   );
 
   const purchase = useCallback(async (
     plan: PremiumPlanId,
   ): Promise<PremiumActionResult> => {
-    if (!firebaseUid) return { status: 'account_required' };
-    if (!accountReady) {
-      setErrorMessage('Finish connecting your account before purchasing Premium.');
+    if (!purchaseIdentityReady) {
+      setErrorMessage('Finish connecting to the store before purchasing Premium.');
       return { status: 'failed' };
     }
     if (isPremium) return { status: 'unlocked' };
@@ -358,7 +361,8 @@ export function PremiumProvider({ children }: PropsWithChildren) {
     setErrorMessage(null);
     try {
       const result = await Purchases.purchasePackage(purchasePackage);
-      applyCustomerInfo(result.customerInfo, firebaseUid);
+      const appUserId = await Purchases.getAppUserID();
+      applyCustomerInfo(result.customerInfo, appUserId);
       const unlocked = Boolean(activePremiumEntitlement(result.customerInfo));
       if (!unlocked) {
         setErrorMessage('The store completed without activating Premium. Try Restore Purchases.');
@@ -378,18 +382,16 @@ export function PremiumProvider({ children }: PropsWithChildren) {
       setActionBusy(false);
     }
   }, [
-    accountReady,
     applyCustomerInfo,
-    firebaseUid,
     isConfigured,
     isPremium,
     lifetimePackage,
+    purchaseIdentityReady,
   ]);
 
   const restore = useCallback(async (): Promise<PremiumActionResult> => {
-    if (!firebaseUid) return { status: 'account_required' };
-    if (!accountReady) {
-      setErrorMessage('Finish connecting your account before restoring Premium.');
+    if (!purchaseIdentityReady) {
+      setErrorMessage('Finish connecting to the store before restoring Premium.');
       return { status: 'failed' };
     }
     if (!isConfigured) {
@@ -401,7 +403,8 @@ export function PremiumProvider({ children }: PropsWithChildren) {
     setErrorMessage(null);
     try {
       const customerInfo = await Purchases.restorePurchases();
-      applyCustomerInfo(customerInfo, firebaseUid);
+      const appUserId = await Purchases.getAppUserID();
+      applyCustomerInfo(customerInfo, appUserId);
       const entitlementActiveNow = Boolean(activePremiumEntitlement(customerInfo));
       trackEvent('purchase_restored', { entitlement_active: entitlementActiveNow });
       return { status: entitlementActiveNow ? 'unlocked' : 'not_found' };
@@ -416,10 +419,9 @@ export function PremiumProvider({ children }: PropsWithChildren) {
       setActionBusy(false);
     }
   }, [
-    accountReady,
     applyCustomerInfo,
-    firebaseUid,
     isConfigured,
+    purchaseIdentityReady,
   ]);
 
   const plans = useMemo(() => (

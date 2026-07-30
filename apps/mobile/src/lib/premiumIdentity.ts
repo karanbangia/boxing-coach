@@ -25,6 +25,8 @@ export interface PendingPremiumResolution {
   effect: PendingPremiumEffect;
 }
 
+const REVENUECAT_ANONYMOUS_PREFIX = '$RCAnonymousID:';
+
 export function hasPremiumAccess({
   firebaseUid,
   revenueCatAppUserId,
@@ -34,11 +36,10 @@ export function hasPremiumAccess({
   revenueCatAppUserId: string | null;
   entitlementActive: boolean;
 }) {
-  return Boolean(
-    firebaseUid
-    && revenueCatAppUserId === firebaseUid
-    && entitlementActive,
-  );
+  if (!entitlementActive || !revenueCatAppUserId) return false;
+  return firebaseUid
+    ? revenueCatAppUserId === firebaseUid
+    : revenueCatAppUserId.startsWith(REVENUECAT_ANONYMOUS_PREFIX);
 }
 
 export function actionStatusUnlocksPremium(status: PremiumActionStatus) {
@@ -54,7 +55,7 @@ export function resolvePendingPremiumAction({
   identityState: PremiumIdentityState;
   isPremium: boolean;
 }): PendingPremiumResolution {
-  if (identityState !== 'identified') {
+  if (identityState !== 'identified' && identityState !== 'guest') {
     return { pendingAction, effect: 'wait' };
   }
   if (isPremium) {

@@ -159,17 +159,12 @@ export function PremiumPaywall({
   const requestAction = useCallback((action: PendingPremiumAction) => {
     clearError();
     setPendingAction(action);
-    if (!user) {
-      setAccountGateVisible(true);
-      return;
-    }
     if (identityState === 'error') void refresh();
-  }, [clearError, identityState, refresh, user]);
+  }, [clearError, identityState, refresh]);
 
   useEffect(() => {
     if (
       !pendingAction
-      || !user
       || accountGateVisible
       || resumingActionRef.current
     ) return;
@@ -200,7 +195,6 @@ export function PremiumPaywall({
     isPremium,
     onUnlocked,
     pendingAction,
-    user,
   ]);
 
   useEffect(() => {

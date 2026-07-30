@@ -1,10 +1,8 @@
-const base = require('./app.json');
-
-module.exports = () => {
+module.exports = ({ config }) => {
   const iosUrlScheme = process.env.EXPO_PUBLIC_FIREBASE_GOOGLE_IOS_URL_SCHEME;
   const sentryOrganization = process.env.SENTRY_ORG;
   const sentryProject = process.env.SENTRY_PROJECT;
-  const plugins = [...base.expo.plugins];
+  const plugins = [...(config.plugins ?? [])];
 
   plugins.push('expo-localization');
 
@@ -38,7 +36,7 @@ module.exports = () => {
   }
 
   return {
-    ...base.expo,
+    ...config,
     plugins,
   };
 };

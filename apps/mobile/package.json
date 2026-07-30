@@ -4,6 +4,7 @@
   "main": "index.ts",
   "scripts": {
     "build:core": "pnpm --filter @boxing-coach/core build",
+    "eas-build-post-install": "pnpm run build:core && pnpm run generate:coach-registry",
     "generate:coach-registry": "node scripts/generate-coach-registry.mjs",
     "test:onboarding-launch": "node scripts/test-onboarding-launch.cjs",
     "test:premium-identity": "node scripts/test-premium-identity.cjs",
@@ -33,9 +34,10 @@
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@sentry/react-native": "~7.2.0",
     "@shopify/react-native-skia": "2.2.12",
-    "expo": "~54.0.35",
+    "expo": "~54.0.36",
     "expo-apple-authentication": "~8.0.8",
     "expo-application": "~7.0.8",
+    "expo-asset": "~12.0.13",
     "expo-audio": "~1.1.1",
     "expo-blur": "~15.0.8",
     "expo-build-properties": "~1.0.10",
@@ -65,7 +67,7 @@
     "react-native-svg": "15.12.1",
     "react-native-view-shot": "4.0.3",
     "react-native-web": "^0.21.2",
-    "react-native-worklets": "0.8.3"
+    "react-native-worklets": "0.5.1"
   },
   "devDependencies": {
     "@types/react": "~19.1.17",

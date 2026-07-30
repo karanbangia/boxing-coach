@@ -4,28 +4,34 @@
   },
   "build": {
     "development": {
+      "environment": "development",
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
+      "environment": "preview",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       }
     },
     "ios-simulator": {
+      "environment": "development",
       "ios": {
         "simulator": true
       }
     },
     "production": {
+      "environment": "production",
       "autoIncrement": true
     }
   },
   "submit": {
     "production": {
       "android": {},
-      "ios": {}
+      "ios": {
+        "ascAppId": "6796233660"
+      }
     }
   }
 }

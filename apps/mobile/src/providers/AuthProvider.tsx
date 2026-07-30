@@ -18,6 +18,7 @@ import {
   OAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
+  revokeAccessToken,
   signInWithCredential,
   signOut as firebaseSignOut,
   updateProfile as updateFirebaseProfile,
@@ -309,7 +310,11 @@ async function getAppleCredential() {
   const displayName = [response.fullName?.givenName, response.fullName?.familyName]
     .filter(Boolean)
     .join(' ');
-  return { credential, displayName };
+  return {
+    credential,
+    displayName,
+    authorizationCode: response.authorizationCode,
+  };
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -512,17 +517,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
           await clearLocalAppData();
           return;
         }
-        const { db, storage } = requireFirebase();
+        const { auth, db, storage } = requireFirebase();
         const provider = providerForUser(user);
-        if (!(await hasRecentAuthentication(user))) {
+        let appleAuthorizationCode: string | null = null;
+        if (provider === 'apple') {
+          const { credential, authorizationCode } = await getAppleCredential();
+          if (!authorizationCode) {
+            throw new Error(
+              'Apple did not return the authorization needed to delete this account. Please try again.',
+            );
+          }
+          await reauthenticateWithCredential(user, credential);
+          appleAuthorizationCode = authorizationCode;
+        } else if (!(await hasRecentAuthentication(user))) {
           if (provider === 'google') {
             const credential = await getSilentGoogleCredential() ?? await getGoogleCredential();
             if (!credential) {
               throw new Error('Google sign-in was cancelled. Your account was not deleted.');
             }
-            await reauthenticateWithCredential(user, credential);
-          } else if (provider === 'apple') {
-            const { credential } = await getAppleCredential();
             await reauthenticateWithCredential(user, credential);
           } else {
             throw new Error('Sign in again before deleting this account.');
@@ -545,6 +557,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }
         }
         await deleteDoc(doc(db, 'users', user.uid));
+        if (appleAuthorizationCode) {
+          await revokeAccessToken(auth, appleAuthorizationCode);
+        }
         await deleteUser(user);
 
         if (provider === 'google') await GoogleSignin.signOut().catch(() => null);

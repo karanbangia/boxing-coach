@@ -10,11 +10,13 @@ without creating an account.
 3. Select Advanced or Pro to open the Premium paywall.
 4. Open Programs to preview the three Premium programs and their 42 sessions.
 5. Restore Purchases is available on the paywall and under Profile > Membership.
-6. Optional Apple/Google sign-in only saves the fighter profile. It is not
-   required for training or purchasing Premium.
+6. Optional Apple/Google sign-in saves the fighter profile and can link an
+   existing Premium entitlement to that Boxing Coach account. It is not
+   required for training, purchasing, or restoring Premium.
 7. For a signed-in user, account deletion is available at Profile > Account &
    Data > Delete Account. It deletes the Firebase account and cloud fighter
-   profile, then clears local Boxing Coach data.
+   profile, revokes Sign in with Apple authorization when applicable, then
+   clears local Boxing Coach data.
 
 ## In-app purchase behavior
 
@@ -23,11 +25,12 @@ without creating an account.
 - Premium is a single non-consumable lifetime purchase.
 - There is no subscription, introductory trial, or recurring charge.
 - The final localized one-time price comes from StoreKit.
-- Basic and Medium remain usable as a guest. Sign-in is requested only when
-  purchasing or restoring Premium so lifetime access can be recovered after
-  reinstalling and used on supported devices.
-- RevenueCat uses the Firebase UID, not the account email address, as its
-  customer identifier.
+- Basic and Medium remain usable as a guest. A guest can purchase and restore
+  Premium through the native store account without creating a Boxing Coach
+  account.
+- RevenueCat uses an anonymous App User ID for guests and the Firebase UID for
+  signed-in users. It never uses the account email address as the customer
+  identifier.
 - Premium unlocks the three Programs plus Advanced and Pro coaching.
 - Basic and Medium remain available without purchase.
 

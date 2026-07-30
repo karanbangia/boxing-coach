@@ -32,6 +32,16 @@ assert.equal(hasPremiumAccess({
   firebaseUid: null,
   revenueCatAppUserId: '$RCAnonymousID:guest',
   entitlementActive: true,
+}), true);
+assert.equal(hasPremiumAccess({
+  firebaseUid: null,
+  revenueCatAppUserId: 'account-a',
+  entitlementActive: true,
+}), false);
+assert.equal(hasPremiumAccess({
+  firebaseUid: null,
+  revenueCatAppUserId: '$RCAnonymousID:guest',
+  entitlementActive: false,
 }), false);
 assert.equal(hasPremiumAccess({
   firebaseUid: 'account-a',
@@ -64,6 +74,22 @@ assert.deepEqual(resolvePendingPremiumAction({
 }), {
   pendingAction: 'purchase',
   effect: 'wait',
+});
+assert.deepEqual(resolvePendingPremiumAction({
+  pendingAction: 'purchase',
+  identityState: 'guest',
+  isPremium: false,
+}), {
+  pendingAction: null,
+  effect: 'purchase',
+});
+assert.deepEqual(resolvePendingPremiumAction({
+  pendingAction: 'restore',
+  identityState: 'guest',
+  isPremium: true,
+}), {
+  pendingAction: null,
+  effect: 'unlock',
 });
 assert.deepEqual(resolvePendingPremiumAction({
   pendingAction: 'purchase',
