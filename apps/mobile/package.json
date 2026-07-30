@@ -5,6 +5,7 @@
   "scripts": {
     "build:core": "pnpm --filter @boxing-coach/core build",
     "generate:coach-registry": "node scripts/generate-coach-registry.mjs",
+    "test:onboarding-launch": "node scripts/test-onboarding-launch.cjs",
     "test:premium-identity": "node scripts/test-premium-identity.cjs",
     "test:programs": "node scripts/test-programs.cjs",
     "test:store-metadata": "node scripts/test-store-metadata.mjs",

@@ -31,6 +31,21 @@ export const premiumBackgroundGradient = {
   end: { x: 1, y: 1 },
 };
 
+export const glass = {
+  surface: 'rgba(255, 255, 255, 0.055)',
+  surfaceStrong: 'rgba(255, 255, 255, 0.09)',
+  sheet: 'rgba(18, 18, 18, 0.82)',
+  border: 'rgba(255, 255, 255, 0.18)',
+  borderStrong: 'rgba(249, 189, 173, 0.38)',
+  accentSurface: 'rgba(255, 20, 20, 0.14)',
+  accentSurfaceStrong: 'rgba(255, 20, 20, 0.56)',
+  accentHighlight: 'rgba(255, 119, 107, 0.34)',
+  intensityLow: 'rgba(85, 26, 26, 0.58)',
+  intensityMedium: 'rgba(140, 39, 37, 0.62)',
+  intensityHigh: 'rgba(201, 54, 48, 0.68)',
+  intensityMax: 'rgba(255, 85, 64, 0.78)',
+} as const;
+
 export const TEXT_LINE_HEIGHT_MULTIPLIER = 1.4;
 
 export function textLineHeight(fontSize: number) {

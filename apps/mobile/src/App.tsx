@@ -37,10 +37,7 @@ import {
 import type { OnboardingRecord } from './lib/onboarding';
 import { reportError, trackEvent } from './lib/observability';
 import { saveWorkoutToHistory } from './lib/workoutHistory';
-import {
-  CompleteScreen,
-  type NextWorkoutRecommendation,
-} from './screens/CompleteScreen';
+import { CompleteScreen } from './screens/CompleteScreen';
 import { DevScreen } from './screens/DevScreen';
 import { RestScreen } from './screens/RestScreen';
 import { PrepScreen } from './screens/PrepScreen';
@@ -63,6 +60,7 @@ const START_REVEAL_DIAMETER = 96;
 const START_REVEAL_DURATION = 440;
 const START_REVEAL_FADE_DURATION = 180;
 const ROUND_START_BELL_LEAD_SECONDS = 3;
+const REST_COUNTDOWN_LEAD_SECONDS = 4;
 const SAVE_TRAINING_BACKGROUND = require('../assets/onboarding/save-training-glove.jpg');
 
 type StartRevealOrigin = { x: number; y: number };
@@ -75,6 +73,14 @@ type PaywallRequest = {
     origin: StartRevealOrigin;
   };
 };
+
+interface NextWorkoutRecommendation {
+  title: string;
+  detail: string;
+  buttonLabel: string;
+  settings: SetupSettings | null;
+  programSession?: ProgramSession | null;
+}
 
 function requiresPremium(difficulty: SetupSettings['difficulty']) {
   return difficulty === 'advanced' || difficulty === 'pro';
@@ -229,10 +235,11 @@ export function App() {
     const prevTimeRemaining = prevTimeRef.current;
 
     if (workout.phase === 'round' && prevPhase !== 'round') {
-      // The bell starts during prep/rest and must be fully stopped before the
-      // first coach action is allowed to play.
+      // Countdown cues start before the round and must be fully stopped before
+      // the first coach action is allowed to play.
       sounds.stopPrepTick();
       sounds.stopRoundStart();
+      sounds.stopRestCountdown();
 
       if (config && !workoutStartedTrackedRef.current) {
         workoutStartedTrackedRef.current = true;
@@ -273,10 +280,10 @@ export function App() {
     if (
       workout.phase === 'rest' &&
       !workout.isPaused &&
-      Math.ceil(prevTimeRemaining) > ROUND_START_BELL_LEAD_SECONDS &&
-      Math.ceil(workout.timeRemaining) <= ROUND_START_BELL_LEAD_SECONDS
+      Math.ceil(prevTimeRemaining) > REST_COUNTDOWN_LEAD_SECONDS &&
+      Math.ceil(workout.timeRemaining) <= REST_COUNTDOWN_LEAD_SECONDS
     ) {
-      sounds.roundStart();
+      sounds.restCountdown();
     }
 
     prevPhaseRef.current = workout.phase;
@@ -481,6 +488,15 @@ export function App() {
     }
   }, [beginPrep, paywallRequest, updateSettings]);
 
+  useEffect(() => {
+    if (!paywallRequest || !isPremium) return;
+
+    // Sign-in can temporarily unmount the paywall while account setup resolves.
+    // Resume the original Pro/Advanced request from app-level state once the
+    // signed-in RevenueCat identity confirms that Premium is already active.
+    handlePremiumUnlocked();
+  }, [handlePremiumUnlocked, isPremium, paywallRequest]);
+
   useLayoutEffect(() => {
     if (!startRevealOrigin) return;
 
@@ -574,13 +590,14 @@ export function App() {
   }, [sounds]);
 
   const handleSkipRest = useCallback(() => {
-    sounds.stopRoundStart();
+    sounds.stopRestCountdown();
     workout.skipRest();
   }, [sounds, workout.skipRest]);
 
   const handleRestart = useCallback(() => {
     sounds.stopPrepTick();
     sounds.stopRoundStart();
+    sounds.stopRestCountdown();
     lastPrepTickSecondRef.current = null;
     prepBellPlayedRef.current = false;
     lastCoachActionKeyRef.current = -1;
@@ -714,6 +731,7 @@ export function App() {
     }
     sounds.stopPrepTick();
     sounds.stopRoundStart();
+    sounds.stopRestCountdown();
     lastPrepTickSecondRef.current = null;
     prepBellPlayedRef.current = false;
     lastCoachActionKeyRef.current = -1;
@@ -743,6 +761,7 @@ export function App() {
     record: OnboardingRecord,
     options?: { skipped?: boolean; cloudSyncPending?: boolean },
   ) => {
+    const completedAccountSetup = onboarding.entryMode === 'account_setup';
     await onboarding.complete(record, options);
 
     // A user who deliberately skips onboarding keeps any settings already
@@ -754,6 +773,9 @@ export function App() {
         trainingMode: trainingModeFromEquipment(record.profile.equipment),
       });
     }
+    if (completedAccountSetup) {
+      setActiveTab('timer');
+    }
     trackEvent('onboarding_completed', {
       path: options?.skipped
         ? 'skipped'
@@ -764,7 +786,7 @@ export function App() {
       goal: record.profile.goal,
       training_mode: trainingModeFromEquipment(record.profile.equipment),
     });
-  }, [onboarding.complete, updateSettings]);
+  }, [onboarding.complete, onboarding.entryMode, updateSettings]);
 
   if (!fontsLoaded || !onboarding.isReady) {
     return (
@@ -775,13 +797,6 @@ export function App() {
   }
 
   if (completionPreview) {
-    const previewSettings: SetupSettings = {
-      ...settings,
-      difficulty: 'intermediate',
-      roundDuration: 120,
-      totalRounds: 4,
-      restDuration: 60,
-    };
     return (
       <View style={styles.app}>
         <StatusBar style="light" />
@@ -791,25 +806,6 @@ export function App() {
             averageHeartRate: 0,
             caloriesBurned: 148,
           }}
-          totalRounds={4}
-          roundDuration={120}
-          initialFeedback="just_right"
-          onSubmitFeedback={feedback => {
-            const adaptive = adaptNextWorkout(previewSettings, feedback);
-            return {
-              title: adaptive.title,
-              detail: adaptive.detail,
-              buttonLabel: 'LOAD NEXT WORKOUT',
-              settings: {
-                ...previewSettings,
-                ...adaptive.settings,
-              },
-              programSession: null,
-            };
-          }}
-          onLoadNextWorkout={() => undefined}
-          canEnableReminders={false}
-          onEnableReminders={async () => undefined}
           onReturnToGym={() => undefined}
         />
       </View>
@@ -821,8 +817,21 @@ export function App() {
       <View style={styles.app}>
         <StatusBar style="light" />
         <OnboardingScreen
+          entryMode={onboarding.entryMode}
           initialRecord={onboarding.initialRecord}
           onProgress={onboarding.saveProgress}
+          onEnableTrainingReminders={async record => {
+            try {
+              const result = await onboarding.enableTrainingReminders(record);
+              trackEvent('training_reminder_permission_resolved', { result });
+              return result;
+            } catch (error) {
+              reportError(error, 'training_reminders', {
+                operation: 'request_and_schedule_from_onboarding',
+              });
+              return 'unavailable';
+            }
+          }}
           onComplete={handleOnboardingComplete}
         />
       </View>
@@ -917,24 +926,6 @@ export function App() {
             totalRounds: config.totalRounds,
             roundDuration: config.roundDuration,
           })}
-          totalRounds={config.totalRounds}
-          roundDuration={config.roundDuration}
-          onSubmitFeedback={handleCompletionFeedback}
-          onLoadNextWorkout={handleLoadNextWorkout}
-          canEnableReminders={
-            onboarding.reminderPermission === 'not_requested'
-            && Boolean(onboarding.fighterProfile?.trainingDays.length)
-          }
-          onEnableReminders={async () => {
-            try {
-              const result = await onboarding.enableTrainingReminders();
-              trackEvent('training_reminder_permission_resolved', { result });
-            } catch (error) {
-              reportError(error, 'training_reminders', {
-                operation: 'request_and_schedule',
-              });
-            }
-          }}
           onReturnToGym={handleRestart}
         />
       ) : config && workout.phase === 'rest' ? (

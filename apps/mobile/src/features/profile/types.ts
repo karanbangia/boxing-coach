@@ -1,8 +1,8 @@
 export const EXPERIENCE_OPTIONS = [
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'intermediate', label: 'Lightly active' },
-  { value: 'advanced', label: 'Active' },
-  { value: 'professional', label: 'Very active' },
+  { value: 'beginner', label: 'Just starting', description: 'New or returning' },
+  { value: 'intermediate', label: 'Building momentum', description: '1–2 workouts/week' },
+  { value: 'advanced', label: 'In the groove', description: '3–4 workouts/week' },
+  { value: 'professional', label: 'All in', description: '5+ workouts/week' },
 ] as const;
 
 export const STANCE_OPTIONS = [
@@ -26,6 +26,22 @@ export const EQUIPMENT_OPTIONS = [
 ] as const;
 
 export const SESSION_DURATIONS = [10, 20, 30, 45, 60] as const;
+
+export const GENDER_OPTIONS = [
+  { value: 'unspecified', label: 'Not set' },
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+] as const;
+
+export const WEIGHT_UNIT_OPTIONS = [
+  { value: 'kg', label: 'KG' },
+  { value: 'lb', label: 'LB' },
+] as const;
+
+export const HEIGHT_UNIT_OPTIONS = [
+  { value: 'cm', label: 'CM' },
+  { value: 'in', label: 'FT + IN' },
+] as const;
 
 export const TRAINING_DAYS = [
   'monday',

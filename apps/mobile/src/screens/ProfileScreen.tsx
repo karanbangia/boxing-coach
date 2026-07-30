@@ -17,18 +17,23 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackButton } from '../components/BackButton';
 import { ScreenShell } from '../components/ScreenShell';
 import { SkeletonBlock } from '../components/SkeletonBlock';
 import { TactilePressable } from '../components/TactilePressable';
 import { AccountSignInActions } from '../components/AccountSignInActions';
+import { PunchNumberGuideModal } from '../components/PunchNumberGuideModal';
 import {
   DEFAULT_FIGHTER_PROFILE,
   EQUIPMENT_OPTIONS,
   EXPERIENCE_OPTIONS,
+  GENDER_OPTIONS,
   GOAL_OPTIONS,
+  HEIGHT_UNIT_OPTIONS,
   SESSION_DURATIONS,
   STANCE_OPTIONS,
   TRAINING_DAYS,
+  WEIGHT_UNIT_OPTIONS,
   optionLabel,
   type Equipment,
   type FighterProfile,
@@ -51,29 +56,17 @@ import {
 } from '../features/profile/height';
 import { EXTERNAL_LINKS, openExternalLink } from '../lib/externalLinks';
 import { profilePhotoUploadsEnabled } from '../lib/firebase';
+import { trackEvent } from '../lib/observability';
 import type { WorkoutHistoryItem } from '../lib/workoutHistory';
 import { useAuth } from '../providers/AuthProvider';
 import { usePremium } from '../providers/PremiumProvider';
 import { useWorkoutHistory } from '../providers/WorkoutHistoryProvider';
-import { colors, textLineHeight } from '../theme';
+import { colors, glass, textLineHeight } from '../theme';
 
 type ProfileView = 'profile' | 'edit' | 'account' | 'signup';
 type ConfirmAction = 'signout' | 'delete' | null;
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
-const GENDER_OPTIONS = [
-  { value: 'unspecified', label: 'Not set' },
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-] as const;
-const WEIGHT_UNIT_OPTIONS = [
-  { value: 'kg', label: 'KG' },
-  { value: 'lb', label: 'LB' },
-] as const;
-const HEIGHT_UNIT_OPTIONS = [
-  { value: 'cm', label: 'CM' },
-  { value: 'in', label: 'FT + IN' },
-] as const;
 const DAY_LABELS: Record<TrainingDay, string> = {
   monday: 'MON',
   tuesday: 'TUE',
@@ -212,7 +205,7 @@ function ChoiceGrid<T extends string | number>({
   onChange,
   columns = 2,
 }: {
-  options: readonly { value: T; label: string }[];
+  options: readonly { value: T; label: string; description?: string }[];
   value: T;
   onChange: (value: T) => void;
   columns?: 2 | 3;
@@ -235,12 +228,17 @@ function ChoiceGrid<T extends string | number>({
               selected && styles.choiceCardSelected,
             ]}
           >
-            <Text
-              style={[styles.choiceText, selected && styles.choiceTextSelected]}
-              allowFontScaling={false}
-            >
-              {option.label}
-            </Text>
+            <View style={styles.choiceCopy}>
+              <Text
+                style={[styles.choiceText, selected && styles.choiceTextSelected]}
+                allowFontScaling={false}
+              >
+                {option.label}
+              </Text>
+              {option.description ? (
+                <Text style={styles.choiceDescription}>{option.description}</Text>
+              ) : null}
+            </View>
           </TactilePressable>
         );
       })}
@@ -359,14 +357,10 @@ function AuthScreen({
           >
             <View>
               {onBack ? (
-                <TactilePressable
+                <BackButton
                   onPress={onBack}
-                  haptic="light"
-                  style={styles.backIconButton}
                   accessibilityLabel="Back to fighter profile"
-                >
-                  <Ionicons name="chevron-back" size={23} color={colors.text} />
-                </TactilePressable>
+                />
               ) : null}
               <Text style={styles.kicker} allowFontScaling={false}>YOUR CORNER. EVERYWHERE.</Text>
               <ScreenTitle first="SAVE YOUR" accent="TRAINING" />
@@ -516,7 +510,7 @@ function IdentityFields({
         />
       </View>
       <View style={styles.fieldGroup}>
-        <SectionLabel>Experience</SectionLabel>
+        <SectionLabel>Weekly activity</SectionLabel>
         <ChoiceGrid
           options={EXPERIENCE_OPTIONS}
           value={value.experience}
@@ -866,7 +860,7 @@ function SetupSummary({ value }: { value: FighterProfile }) {
         <Text style={styles.summaryTitle}>YOUR FIGHTER</Text>
       </View>
       <SummaryRow label="Name" value={value.displayName || 'Add your name'} />
-      <SummaryRow label="Level" value={optionLabel(EXPERIENCE_OPTIONS, value.experience)} />
+      <SummaryRow label="Activity" value={optionLabel(EXPERIENCE_OPTIONS, value.experience)} />
       <SummaryRow label="Goal" value={optionLabel(GOAL_OPTIONS, value.goal)} />
       <SummaryRow label="Routine" value={`${value.targetDaysPerWeek} days · ${value.preferredSessionMinutes} min`} />
     </View>
@@ -1048,13 +1042,36 @@ function ExternalLinkRow({
 }
 
 function HelpAndLegalLinks() {
+  const [punchGuideVisible, setPunchGuideVisible] = useState(false);
+  const openPunchGuide = () => {
+    trackEvent('punch_guide_opened', { source: 'profile' });
+    setPunchGuideVisible(true);
+  };
+
   return (
-    <View style={styles.accountActionsSection}>
-      <SectionLabel>Help &amp; legal</SectionLabel>
-      <ExternalLinkRow icon="help-buoy-outline" label="Support" url={EXTERNAL_LINKS.support} />
-      <ExternalLinkRow icon="document-text-outline" label="Terms of Use" url={EXTERNAL_LINKS.terms} />
-      <ExternalLinkRow icon="shield-checkmark-outline" label="Privacy Policy" url={EXTERNAL_LINKS.privacy} />
-    </View>
+    <>
+      <View style={styles.accountActionsSection}>
+        <SectionLabel>Help &amp; legal</SectionLabel>
+        <TactilePressable
+          onPress={openPunchGuide}
+          haptic="light"
+          style={styles.accountAction}
+          accessibilityRole="button"
+          accessibilityLabel="Open punch number guide"
+        >
+          <Ionicons name="fitness-outline" size={21} color={colors.peach} />
+          <Text style={styles.accountActionText}>PUNCH NUMBER GUIDE</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+        </TactilePressable>
+        <ExternalLinkRow icon="help-buoy-outline" label="Support" url={EXTERNAL_LINKS.support} />
+        <ExternalLinkRow icon="document-text-outline" label="Terms of Use" url={EXTERNAL_LINKS.terms} />
+        <ExternalLinkRow icon="shield-checkmark-outline" label="Privacy Policy" url={EXTERNAL_LINKS.privacy} />
+      </View>
+      <PunchNumberGuideModal
+        visible={punchGuideVisible}
+        onClose={() => setPunchGuideVisible(false)}
+      />
+    </>
   );
 }
 
@@ -1194,7 +1211,7 @@ function ProfileOverview({
               <Text style={styles.membershipSubtitle}>
                 {premium.isPremium
                   ? 'Advanced and Pro coaching are permanently unlocked.'
-                  : 'Pay once to unlock Advanced and Pro coaching. Sign in only when you choose to buy.'}
+                  : 'Pay once to unlock Advanced and Pro coaching.'}
               </Text>
             </View>
             {premium.isPremium ? (
@@ -1318,9 +1335,7 @@ function EditProfile({
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.editHeader}>
-            <TactilePressable onPress={onDone} haptic="light" style={styles.backIconButton}>
-              <Ionicons name="chevron-back" size={23} color={colors.text} />
-            </TactilePressable>
+            <BackButton onPress={onDone} accessibilityLabel="Back to fighter profile" />
             <View style={styles.editHeaderCopy}>
               <Text style={styles.kicker}>FIGHTER PROFILE</Text>
               <Text style={styles.editTitle}>EDIT YOUR DETAILS</Text>
@@ -1456,9 +1471,7 @@ function AccountData({ onBack }: { onBack: () => void }) {
     <ScreenShell>
       <ScrollView contentContainerStyle={styles.accountContent} showsVerticalScrollIndicator={false}>
         <View style={styles.editHeader}>
-          <TactilePressable onPress={onBack} haptic="light" style={styles.backIconButton}>
-            <Ionicons name="chevron-back" size={23} color={colors.text} />
-          </TactilePressable>
+          <BackButton onPress={onBack} accessibilityLabel="Back to fighter profile" />
           <View style={styles.editHeaderCopy}>
             <Text style={styles.kicker}>PROFILE</Text>
             <Text style={styles.editTitle}>ACCOUNT & DATA</Text>
@@ -1498,7 +1511,6 @@ function AccountData({ onBack }: { onBack: () => void }) {
           </TactilePressable>
         </View>
 
-        <HelpAndLegalLinks />
       </ScrollView>
       <ConfirmSheet
         action={confirmAction}
@@ -1658,15 +1670,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 11,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   sessionIcon: {
     width: 38,
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: glass.surfaceStrong,
   },
   sessionCopy: {
     flex: 1,
@@ -1722,8 +1734,8 @@ const styles = StyleSheet.create({
     borderColor: colors.text,
   },
   providerButtonDark: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: glass.surface,
+    borderColor: glass.border,
   },
   providerButtonText: {
     color: colors.background,
@@ -1820,8 +1832,8 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   avatarLarge: {
     width: 78,
@@ -1853,8 +1865,8 @@ const styles = StyleSheet.create({
     height: 56,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
     color: colors.text,
     fontFamily: 'ArchivoNarrow',
     fontSize: 19,
@@ -1881,12 +1893,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 11,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   choiceCardThird: { flexBasis: '30%', paddingHorizontal: 9 },
-  choiceCardSelected: { borderColor: colors.red, borderWidth: 2, backgroundColor: '#211b1b' },
+  choiceCardSelected: { borderColor: colors.red, borderWidth: 2, backgroundColor: glass.accentSurface },
+  choiceCopy: { flex: 1, minWidth: 0 },
   choiceText: { color: colors.text, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 14, lineHeight: textLineHeight(14) },
+  choiceDescription: {
+    marginTop: 4,
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 13,
+    lineHeight: textLineHeight(13),
+  },
   equipmentChoiceText: { flex: 1, minWidth: 0 },
   choiceTextSelected: { color: colors.peach },
   checkRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1898,8 +1918,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   dayButtonSelected: { backgroundColor: colors.red, borderColor: colors.red },
   dayButtonText: { color: colors.textMuted, fontFamily: 'Anton', fontSize: 19, lineHeight: textLineHeight(19) },
@@ -1913,21 +1933,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   durationButtonSelected: { borderColor: colors.red, borderWidth: 2 },
   durationValue: { color: colors.text, fontFamily: 'Anton', fontSize: 22, lineHeight: textLineHeight(22) },
   durationValueSelected: { color: colors.red },
   durationUnit: { color: colors.textMuted, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 9, lineHeight: textLineHeight(9), letterSpacing: 1 },
   durationUnitSelected: { color: colors.peach },
-  summaryCard: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 16 },
+  summaryCard: { borderWidth: 1, borderColor: glass.border, backgroundColor: glass.surface, padding: 16 },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   summaryTitle: { color: colors.text, fontFamily: 'Anton', fontSize: 21, lineHeight: textLineHeight(21), letterSpacing: 0.6 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 20, paddingVertical: 9, borderTopWidth: 1, borderTopColor: colors.border },
   summaryLabel: { color: colors.textMuted, fontFamily: 'ArchivoNarrow', fontSize: 15, lineHeight: textLineHeight(15) },
   summaryValue: { flex: 1, color: colors.text, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 14, lineHeight: textLineHeight(14), textAlign: 'right' },
-  syncNote: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: '#221e1d' },
+  syncNote: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: glass.surfaceStrong },
   syncNoteText: { flex: 1, color: colors.textMuted, fontFamily: 'ArchivoNarrow', fontSize: 15, lineHeight: textLineHeight(15) },
   formActions: { gap: 10, marginTop: 2 },
   floatingSaveCta: {
@@ -1945,7 +1965,7 @@ const styles = StyleSheet.create({
   saveChangesButtonText: { color: colors.text, fontFamily: 'Anton', fontSize: 30, lineHeight: textLineHeight(30), letterSpacing: 0, textTransform: 'uppercase' },
   primaryButton: { height: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: colors.red },
   primaryButtonText: { color: colors.text, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 15, lineHeight: textLineHeight(15), letterSpacing: 1.2 },
-  secondaryButton: { height: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  secondaryButton: { height: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: glass.border, backgroundColor: glass.surface },
   secondaryButtonText: { color: colors.textMuted, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 14, lineHeight: textLineHeight(14), letterSpacing: 1.1 },
   profileContent: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 42, gap: 22 },
   profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -1954,11 +1974,20 @@ const styles = StyleSheet.create({
   profileHeaderCopy: { flex: 1 },
   profileName: { marginTop: 4, color: colors.text, fontFamily: 'Anton', fontSize: 32, lineHeight: textLineHeight(32) },
   profileMeta: { marginTop: 3, color: colors.textMuted, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 11, lineHeight: textLineHeight(11), letterSpacing: 1.2 },
-  editIconButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  syncPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 11, paddingVertical: 7, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  editIconButton: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: glass.border,
+    borderRadius: 21,
+    backgroundColor: glass.surface,
+  },
+  syncPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 11, paddingVertical: 7, borderWidth: 1, borderColor: glass.border, backgroundColor: glass.surface },
   syncPillText: { color: colors.textMuted, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 10, lineHeight: textLineHeight(10), letterSpacing: 1.1 },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  metricCard: { flexBasis: '47%', flexGrow: 1, minHeight: 116, padding: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, justifyContent: 'space-between' },
+  metricCard: { flexBasis: '47%', flexGrow: 1, minHeight: 116, padding: 15, borderWidth: 1, borderColor: glass.border, backgroundColor: glass.surface, justifyContent: 'space-between' },
   metricLabel: { color: colors.peach, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 14, lineHeight: textLineHeight(14), letterSpacing: 1.1 },
   metricValue: { color: colors.text, fontFamily: 'Anton', fontSize: 48, lineHeight: textLineHeight(48) },
   metricValueAccent: { color: colors.red },
@@ -1967,13 +1996,13 @@ const styles = StyleSheet.create({
   profileSectionTitle: { color: colors.text, fontFamily: 'Anton', fontSize: 32, lineHeight: textLineHeight(32), letterSpacing: 0.4 },
   textAction: { paddingHorizontal: 8, paddingVertical: 6 },
   textActionLabel: { color: colors.peach, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 12, lineHeight: textLineHeight(12), letterSpacing: 1.1 },
-  detailCard: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  detailCard: { borderWidth: 1, borderColor: glass.border, backgroundColor: glass.surface },
   membershipStatus: {
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   membershipStatusActive: {
     borderColor: colors.peach,
@@ -1994,7 +2023,8 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   membershipCardActive: { borderColor: colors.peach },
   membershipIcon: {
@@ -2002,7 +2032,7 @@ const styles = StyleSheet.create({
     height: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(249,189,173,0.1)',
+    backgroundColor: glass.surfaceStrong,
   },
   membershipCopy: { flex: 1, gap: 3 },
   membershipTitle: {
@@ -2048,23 +2078,22 @@ const styles = StyleSheet.create({
   },
   membershipRestoreTextDisabled: { opacity: 0.4 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 72, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  detailIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+  detailIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: glass.surfaceStrong },
   detailCopy: { flex: 1 },
   detailLabel: { color: colors.textMuted, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 10, lineHeight: textLineHeight(10), letterSpacing: 1.1 },
   detailValue: { marginTop: 3, color: colors.text, fontFamily: 'ArchivoNarrow', fontSize: 17, lineHeight: textLineHeight(17) },
-  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 76, padding: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  accountIconBox: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 76, padding: 14, borderWidth: 1, borderColor: glass.border, backgroundColor: glass.surface },
+  accountIconBox: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: glass.surfaceStrong },
   accountRowCopy: { flex: 1 },
   accountRowTitle: { color: colors.text, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 14, lineHeight: textLineHeight(14), letterSpacing: 0.9 },
   accountRowSubtitle: { marginTop: 3, color: colors.textMuted, fontFamily: 'ArchivoNarrow', fontSize: 14, lineHeight: textLineHeight(14) },
   editHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  backIconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   editHeaderCopy: { flex: 1 },
   editTitle: { marginTop: 3, color: colors.text, fontFamily: 'Anton', fontSize: 31, lineHeight: textLineHeight(31) },
   accountContent: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 44, gap: 24 },
-  accountCard: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  accountCard: { borderWidth: 1, borderColor: glass.border, backgroundColor: glass.surface },
   accountActionsSection: { gap: 10 },
-  accountAction: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  accountAction: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: glass.border, backgroundColor: glass.surface },
   accountActionText: { flex: 1, color: colors.text, fontFamily: 'BarlowSemiCondensedSemiBold', fontSize: 13, lineHeight: textLineHeight(13), letterSpacing: 1 },
   dangerText: { color: colors.red },
   skeletonProfileHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -2083,9 +2112,9 @@ const styles = StyleSheet.create({
   skeletonDetailValue: { width: '72%', height: 17, marginTop: 7 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end' },
   modalDismissArea: { flex: 1 },
-  confirmSheet: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 30, backgroundColor: '#171717', borderTopWidth: 1, borderTopColor: colors.border, gap: 12 },
+  confirmSheet: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 30, backgroundColor: glass.sheet, borderTopWidth: 1, borderTopColor: glass.borderStrong, gap: 12 },
   sheetHandle: { width: 42, height: 4, alignSelf: 'center', borderRadius: 2, backgroundColor: '#5a5a5a', marginBottom: 7 },
-  sheetIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+  sheetIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: glass.surfaceStrong },
   sheetTitle: { color: colors.text, fontFamily: 'Anton', fontSize: 31, lineHeight: textLineHeight(31) },
   sheetCopy: { marginBottom: 5, color: colors.textMuted, fontFamily: 'ArchivoNarrow', fontSize: 17, lineHeight: textLineHeight(17) },
 });

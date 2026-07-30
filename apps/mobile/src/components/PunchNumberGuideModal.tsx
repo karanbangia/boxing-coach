@@ -2,7 +2,7 @@ import { PUNCH_NUMBER_GUIDE } from '@boxing-coach/core';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ScreenShell } from './ScreenShell';
 import { TactilePressable } from './TactilePressable';
-import { colors, textLineHeight } from '../theme';
+import { colors, glass, textLineHeight } from '../theme';
 
 interface Props {
   visible: boolean;
@@ -159,8 +159,8 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     borderWidth: 2,
     borderColor: colors.peach,
-    backgroundColor: 'rgba(249,189,173,0.08)',
+    backgroundColor: glass.surfaceStrong,
   },
   stanceRuleItem: {
     flex: 1,
@@ -230,8 +230,8 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 12,
     borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   punchNumber: {
     width: 39,
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderLeftWidth: 4,
     borderLeftColor: colors.accent,
-    backgroundColor: colors.surface,
+    backgroundColor: glass.surfaceStrong,
   },
   bodyShotMark: {
     width: 48,
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: glass.border,
     backgroundColor: 'rgba(0,0,0,0.22)',
   },
   comboNumbers: {

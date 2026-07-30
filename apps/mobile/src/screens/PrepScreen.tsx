@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { ScreenShell } from '../components/ScreenShell';
 import { TactilePressable } from '../components/TactilePressable';
-import { colors } from '../theme';
+import { colors, glass } from '../theme';
 
 interface Props {
   secondsLeft: number;
@@ -255,12 +255,12 @@ const styles = StyleSheet.create({
     minHeight: 56,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: glass.border,
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(26,26,26,0.64)',
+    backgroundColor: glass.surface,
   },
   cancelIcon: {
     width: 14,

@@ -11,7 +11,10 @@ import {
   subscribeToOnboardingReset,
   type OnboardingRecord,
 } from '../lib/onboarding';
-import { resolveOnboardingLaunchDestination } from '../lib/onboardingLaunch';
+import {
+  nicknameFromDisplayName,
+  resolveOnboardingLaunchDestination,
+} from '../lib/onboardingLaunch';
 import {
   cancelTrainingReminders,
   requestTrainingReminderPermission,
@@ -24,7 +27,7 @@ const LEGACY_FORCE_ONBOARDING =
 const ONBOARDING_TEST_SCENARIO = __DEV__
   ? process.env.EXPO_PUBLIC_ONBOARDING_TEST_SCENARIO?.trim().toLowerCase() ?? 'fresh'
   : 'normal';
-const RESUME_TEST_MATCH = /^resume-([2-5])$/.exec(ONBOARDING_TEST_SCENARIO);
+const RESUME_TEST_MATCH = /^resume-([2-8])$/.exec(ONBOARDING_TEST_SCENARIO);
 const RESUME_TEST_STEP = RESUME_TEST_MATCH ? Number(RESUME_TEST_MATCH[1]) - 1 : null;
 const FORCE_ONBOARDING_AT_LAUNCH = LEGACY_FORCE_ONBOARDING
   || ONBOARDING_TEST_SCENARIO === 'fresh'
@@ -40,6 +43,7 @@ function profilesMatch(left: FighterProfile, right: FighterProfile) {
 function mergeOnboardingProfile(
   onboardingProfile: FighterProfile,
   cloudProfile: FighterProfile | null,
+  accountPhotoUrl: string | null,
 ): FighterProfile {
   return {
     ...(cloudProfile ?? onboardingProfile),
@@ -55,13 +59,21 @@ function mergeOnboardingProfile(
     weightUnit: onboardingProfile.weightUnit,
     heightCm: onboardingProfile.heightCm,
     heightUnit: onboardingProfile.heightUnit,
-    photoUrl: cloudProfile?.photoUrl ?? onboardingProfile.photoUrl,
+    photoUrl: cloudProfile
+      ? cloudProfile.photoUrl
+      : onboardingProfile.photoUrl ?? accountPhotoUrl,
     equipment: cloudProfile?.equipment ?? onboardingProfile.equipment,
   };
 }
 
 export function useOnboardingLifecycle() {
-  const { user, profile, isReady: authReady, saveProfile } = useAuth();
+  const {
+    user,
+    profile,
+    isReady: authReady,
+    syncStatus,
+    saveProfile,
+  } = useAuth();
   const [record, setRecord] = useState<OnboardingRecord | null>(null);
   const [storageReady, setStorageReady] = useState(false);
   const [forcedOnboardingFinished, setForcedOnboardingFinished] = useState(false);
@@ -128,6 +140,7 @@ export function useOnboardingLifecycle() {
       || !user
       || !record?.cloudSyncPending
       || record.status !== 'completed'
+      || syncStatus === 'error'
       || cloudSyncAttemptedFor.current === user.uid
     ) return;
 
@@ -146,7 +159,7 @@ export function useOnboardingLifecycle() {
             ...record,
             cloudSyncPending: false,
             cloudSyncMode: null,
-            cloudOwnerUid: null,
+            cloudOwnerUid: belongsToAnotherAccount ? record.cloudOwnerUid : null,
           };
       setRecord(resolved);
       void saveOnboardingRecord(resolved).catch(() => undefined);
@@ -161,7 +174,7 @@ export function useOnboardingLifecycle() {
     };
     const profileForSync = record.cloudSyncMode === 'full_profile'
       ? localProfileForSync
-      : mergeOnboardingProfile(localProfileForSync, profile);
+      : mergeOnboardingProfile(localProfileForSync, profile, user.photoURL);
     void saveProfile(profileForSync)
       .then(() => {
         setRecord(current => {
@@ -178,7 +191,7 @@ export function useOnboardingLifecycle() {
         });
       })
       .catch(() => undefined);
-  }, [authReady, profile, record, saveProfile, storageReady, user]);
+  }, [authReady, profile, record, saveProfile, storageReady, syncStatus, user]);
 
   const saveProgress = useCallback(async (next: OnboardingRecord) => {
     if (FORCE_ONBOARDING_AT_LAUNCH && !forcedOnboardingFinished) return;
@@ -201,12 +214,14 @@ export function useOnboardingLifecycle() {
       skipped: options.skipped ?? false,
       cloudSyncPending: options.cloudSyncPending ?? false,
       cloudSyncMode: options.cloudSyncPending ? 'onboarding_merge' : null,
-      cloudOwnerUid: null,
+      cloudOwnerUid: options.cloudSyncPending
+        ? user?.uid ?? next.cloudOwnerUid
+        : next.cloudOwnerUid,
       completedAt: new Date().toISOString(),
     };
     setRecord(completed);
     await saveOnboardingRecord(completed);
-  }, []);
+  }, [user]);
 
   const saveFighterProfile = useCallback(async (nextProfile: FighterProfile) => {
     const normalizedProfile = {
@@ -238,12 +253,14 @@ export function useOnboardingLifecycle() {
     }
   }, [record, user]);
 
-  const enableTrainingReminders = useCallback(async () => {
-    if (!record || !record.profile.trainingDays.length) return 'unavailable' as const;
+  const enableTrainingReminders = useCallback(async (
+    onboardingRecord: OnboardingRecord | null = record,
+  ) => {
+    if (!onboardingRecord?.profile.trainingDays.length) return 'unavailable' as const;
 
     const reminderPermission = await requestTrainingReminderPermission();
     const updatedRecord: OnboardingRecord = {
-      ...record,
+      ...onboardingRecord,
       reminderPermission,
     };
     setRecord(updatedRecord);
@@ -301,14 +318,49 @@ export function useOnboardingLifecycle() {
       ? ONBOARDING_COMPLETED_STEP
       : RESUME_TEST_STEP ?? 0,
   };
-  const initialRecord = FORCE_ONBOARDING_AT_LAUNCH && !forcedOnboardingFinished
-    ? testRecord
-    : record ?? guestPreviewRecord ?? freshRecord;
   const isReady = storageReady && authReady;
+  const accountProfileResolution = !user
+    ? null
+    : profile
+      ? 'complete' as const
+      : syncStatus === 'synced'
+        ? 'missing' as const
+        : 'error' as const;
   const launchDestination = resolveOnboardingLaunchDestination({
-    signedIn: Boolean(user),
+    userId: user?.uid ?? null,
+    accountProfileResolution,
     record,
   });
+  const canResumeAccountSetup = Boolean(
+    user
+    && record?.status === 'in_progress'
+    && (record.cloudOwnerUid === null || record.cloudOwnerUid === user.uid),
+  );
+  const accountSetupRecord = canResumeAccountSetup && record && user
+    ? {
+        ...record,
+        skipped: false,
+        cloudOwnerUid: user.uid,
+        profile: {
+          ...record.profile,
+          displayName: record.profile.displayName.trim()
+            || nicknameFromDisplayName(user.displayName),
+          photoUrl: record.profile.photoUrl ?? user.photoURL,
+        },
+      }
+    : {
+        ...createOnboardingRecord({
+          ...DEFAULT_FIGHTER_PROFILE,
+          displayName: nicknameFromDisplayName(user?.displayName),
+          photoUrl: user?.photoURL ?? null,
+        }),
+        cloudOwnerUid: user?.uid ?? null,
+      };
+  const initialRecord = FORCE_ONBOARDING_AT_LAUNCH && !forcedOnboardingFinished
+    ? testRecord
+    : launchDestination === 'account_setup'
+      ? accountSetupRecord
+      : record ?? guestPreviewRecord ?? freshRecord;
   const shouldShowFromSavedState = launchDestination !== 'dashboard';
   const shouldShow = isReady && !forcedOnboardingFinished && (
     FORCE_ONBOARDING_AT_LAUNCH
@@ -333,6 +385,9 @@ export function useOnboardingLifecycle() {
   return {
     isReady,
     shouldShow,
+    entryMode: launchDestination === 'account_setup'
+      ? 'account_setup' as const
+      : 'standard' as const,
     initialRecord,
     saveProgress,
     complete,

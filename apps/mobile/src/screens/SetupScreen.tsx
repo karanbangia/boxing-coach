@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BlurView } from 'expo-blur';
 import {
   ActivityIndicator,
   ScrollView,
@@ -18,7 +20,7 @@ import { PunchNumberGuideModal } from '../components/PunchNumberGuideModal';
 import { TactilePressable } from '../components/TactilePressable';
 import type { ProgramSession } from '../features/programs/programs';
 import { trackEvent } from '../lib/observability';
-import { colors, textLineHeight } from '../theme';
+import { colors, glass, textLineHeight } from '../theme';
 
 const DEV_TAP_THRESHOLD = 3;
 const DEV_TAP_WINDOW_MS = 3500;
@@ -28,6 +30,7 @@ const displayFont = 'Anton';
 const bodyFont = 'ArchivoNarrow';
 const labelFont = 'BarlowSemiCondensedSemiBold';
 const PREMIUM_DIFFICULTIES = new Set<SetupSettings['difficulty']>(['advanced', 'pro']);
+const PUNCH_GUIDE_PROMPT_DISMISSED_KEY = 'boxing-coach-punch-guide-prompt-dismissed:v1';
 
 interface Props {
   settings: SetupSettings;
@@ -87,6 +90,17 @@ function OptionGroup<T extends string | number>({
                 variant === 'segment' && selected && styles.segmentButtonSelected,
               ]}
             >
+              <BlurView
+                pointerEvents="none"
+                intensity={selected ? 30 : 22}
+                tint="dark"
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  styles.glassLayer,
+                  selected && variant === 'tile' && styles.glassLayerSelected,
+                  selected && variant === 'segment' && styles.glassLayerAccentSelected,
+                ]}
+              />
               {locked ? (
                 <View style={styles.premiumBadge}>
                   <Text style={styles.premiumBadgeText} allowFontScaling={false}>PREMIUM</Text>
@@ -160,9 +174,21 @@ export function SetupScreen({
   const [punchGuideVisible, setPunchGuideVisible] = useState(
     __DEV__ && process.env.EXPO_PUBLIC_PUNCH_GUIDE_TEST_SCENARIO === 'guide',
   );
+  const [punchGuidePromptVisible, setPunchGuidePromptVisible] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
+    void AsyncStorage.getItem(PUNCH_GUIDE_PROMPT_DISMISSED_KEY)
+      .then(value => {
+        if (active) setPunchGuidePromptVisible(value !== 'true');
+      })
+      .catch(() => {
+        if (active) setPunchGuidePromptVisible(true);
+      });
+
     return () => {
+      active = false;
       if (tapTimerRef.current) {
         clearTimeout(tapTimerRef.current);
       }
@@ -192,6 +218,13 @@ export function SetupScreen({
   const openPunchGuide = () => {
     trackEvent('punch_guide_opened', { source: 'setup' });
     setPunchGuideVisible(true);
+  };
+  const dismissPunchGuidePrompt = () => {
+    setPunchGuidePromptVisible(false);
+    trackEvent('punch_guide_prompt_dismissed', { source: 'setup' });
+    void AsyncStorage.setItem(PUNCH_GUIDE_PROMPT_DISMISSED_KEY, 'true').catch(() => {
+      // Keep the prompt hidden for this session if persistence is unavailable.
+    });
   };
 
   return (
@@ -234,27 +267,55 @@ export function SetupScreen({
             </View>
           </TactilePressable>
 
-          <TactilePressable
-            accessibilityRole="button"
-            accessibilityLabel="Open punch number guide"
-            accessibilityHint="Explains boxing punch numbers one through six"
-            onPress={openPunchGuide}
-            haptic="light"
-            pressedScale={0.985}
-            style={[styles.guideLink, compact && styles.guideLinkCompact]}
-          >
-            <View style={styles.guideLinkNumber}>
-              <Text style={styles.guideLinkNumberText} allowFontScaling={false}>1–6</Text>
+          {punchGuidePromptVisible ? (
+            <View style={[styles.guidePrompt, compact && styles.guidePromptCompact]}>
+              <BlurView
+                pointerEvents="none"
+                intensity={24}
+                tint="dark"
+                style={[StyleSheet.absoluteFillObject, styles.glassLayer]}
+              />
+              <TactilePressable
+                accessibilityRole="button"
+                accessibilityLabel="Open punch number guide"
+                accessibilityHint="Explains boxing punch numbers one through six"
+                onPress={openPunchGuide}
+                haptic="light"
+                pressedScale={0.985}
+                style={[styles.guideLink, compact && styles.guideLinkCompact]}
+              >
+                <View style={styles.guideLinkNumber}>
+                  <Text style={styles.guideLinkNumberText} allowFontScaling={false}>1–6</Text>
+                </View>
+                <View style={styles.guideLinkCopy}>
+                  <Text style={styles.guideLinkTitle} allowFontScaling={false}>NEW TO PUNCH NUMBERS?</Text>
+                  <Text style={styles.guideLinkHint} allowFontScaling={false}>Open the quick boxing guide</Text>
+                </View>
+                <Text style={styles.guideLinkArrow} allowFontScaling={false}>→</Text>
+              </TactilePressable>
+              <TactilePressable
+                accessibilityRole="button"
+                accessibilityLabel="Hide punch number guide prompt"
+                accessibilityHint="The guide remains available from Profile"
+                onPress={dismissPunchGuidePrompt}
+                haptic="light"
+                pressedScale={0.9}
+                hitSlop={4}
+                style={[styles.guideDismiss, compact && styles.guideDismissCompact]}
+              >
+                <Text style={styles.guideDismissText} allowFontScaling={false}>×</Text>
+              </TactilePressable>
             </View>
-            <View style={styles.guideLinkCopy}>
-              <Text style={styles.guideLinkTitle} allowFontScaling={false}>NEW TO PUNCH NUMBERS?</Text>
-              <Text style={styles.guideLinkHint} allowFontScaling={false}>Open the quick boxing guide</Text>
-            </View>
-            <Text style={styles.guideLinkArrow} allowFontScaling={false}>→</Text>
-          </TactilePressable>
+          ) : null}
 
           {!isReady ? (
             <View style={styles.loadingPanel}>
+              <BlurView
+                pointerEvents="none"
+                intensity={24}
+                tint="dark"
+                style={[StyleSheet.absoluteFillObject, styles.glassLayer]}
+              />
               <ActivityIndicator color={colors.accent} />
               <Text style={styles.loadingText} allowFontScaling={false}>Loading your last session...</Text>
             </View>
@@ -262,6 +323,16 @@ export function SetupScreen({
             <>
               {programSession ? (
                 <View style={styles.programBanner}>
+                  <BlurView
+                    pointerEvents="none"
+                    intensity={26}
+                    tint="dark"
+                    style={[
+                      StyleSheet.absoluteFillObject,
+                      styles.glassLayer,
+                      styles.glassLayerPeach,
+                    ]}
+                  />
                   <View style={styles.programBannerCopy}>
                     <Text style={styles.programBannerKicker} allowFontScaling={false}>
                       PROGRAM SESSION LOADED
@@ -305,6 +376,12 @@ export function SetupScreen({
               <View style={styles.section}>
                 <Text style={styles.sectionLabel} allowFontScaling={false}>Rounds</Text>
                 <View style={styles.roundStepper}>
+                  <BlurView
+                    pointerEvents="none"
+                    intensity={24}
+                    tint="dark"
+                    style={[StyleSheet.absoluteFillObject, styles.glassLayer]}
+                  />
                   <TactilePressable
                     accessibilityRole="button"
                     accessibilityLabel="Decrease rounds"
@@ -364,6 +441,12 @@ export function SetupScreen({
                   pressedScale={0.985}
                   style={styles.audioCueRow}
                 >
+                  <BlurView
+                    pointerEvents="none"
+                    intensity={24}
+                    tint="dark"
+                    style={[StyleSheet.absoluteFillObject, styles.glassLayer]}
+                  />
                   <View style={styles.audioLabelWrap}>
                     <ComboIcon />
                     <View style={styles.audioCueCopy}>
@@ -407,6 +490,12 @@ export function SetupScreen({
                     !settings.comboInstructionsEnabled && styles.instructionSettingDisabled,
                   ]}
                 >
+                  <BlurView
+                    pointerEvents="none"
+                    intensity={24}
+                    tint="dark"
+                    style={[StyleSheet.absoluteFillObject, styles.glassLayer]}
+                  />
                   <View style={styles.audioLabelWrap}>
                     <AudioIcon />
                     <View style={styles.audioCueCopy}>
@@ -447,16 +536,25 @@ export function SetupScreen({
                 y: event.nativeEvent.pageY,
               })}
               haptic="medium"
-              pressedScale={0.98}
+              pressedScale={0.97}
               style={[styles.startButton, compact && styles.startButtonCompact]}
             >
-              <View style={styles.playTriangle} />
-              <Text
-                style={[styles.startButtonText, compact && styles.startButtonTextCompact]}
-                allowFontScaling={false}
+              <View
+                pointerEvents="none"
+                style={[styles.startButtonDepth, compact && styles.startButtonDepthCompact]}
+              />
+              <View
+                pointerEvents="none"
+                style={[styles.startButtonFace, compact && styles.startButtonFaceCompact]}
               >
-                {selectedDifficultyRequiresPremium ? 'UNLOCK PREMIUM' : 'START WORKOUT'}
-              </Text>
+                <View style={styles.playTriangle} />
+                <Text
+                  style={[styles.startButtonText, compact && styles.startButtonTextCompact]}
+                  allowFontScaling={false}
+                >
+                  {selectedDifficultyRequiresPremium ? 'UNLOCK PREMIUM' : 'START WORKOUT'}
+                </Text>
+              </View>
             </TactilePressable>
           </View>
         ) : null}
@@ -517,19 +615,30 @@ const styles = StyleSheet.create({
   titleAccentCompact: {
     marginTop: 44 - textLineHeight(44),
   },
-  guideLink: {
+  guidePrompt: {
     minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: colors.transparent,
+    overflow: 'hidden',
+  },
+  guidePromptCompact: {
+    minHeight: 46,
+  },
+  guideLink: {
+    minWidth: 0,
+    flex: 1,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(249,189,173,0.06)',
   },
   guideLinkCompact: {
-    minHeight: 46,
+    minHeight: 44,
     paddingVertical: 6,
   },
   guideLinkNumber: {
@@ -566,13 +675,32 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: textLineHeight(24),
   },
+  guideDismiss: {
+    width: 44,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
+  },
+  guideDismissCompact: {
+    minHeight: 44,
+  },
+  guideDismissText: {
+    color: colors.textMuted,
+    fontFamily: bodyFont,
+    fontSize: 26,
+    lineHeight: 28,
+    marginTop: -2,
+  },
   loadingPanel: {
     padding: 20,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: colors.transparent,
     alignItems: 'center',
     gap: 10,
+    overflow: 'hidden',
   },
   loadingText: {
     color: colors.textMuted,
@@ -584,9 +712,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 14,
-    borderWidth: 2,
-    borderColor: colors.peach,
-    backgroundColor: 'rgba(249,189,173,0.08)',
+    borderWidth: 1,
+    borderColor: glass.borderStrong,
+    backgroundColor: colors.transparent,
+    overflow: 'hidden',
   },
   programBannerCopy: { flex: 1, gap: 2 },
   programBannerKicker: {
@@ -645,16 +774,18 @@ const styles = StyleSheet.create({
   tileButton: {
     width: '49.4%',
     minHeight: 96,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: colors.transparent,
     justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 8,
+    overflow: 'hidden',
   },
   tileButtonSelected: {
     borderColor: colors.accent,
+    borderWidth: 2,
   },
   tileButtonCompact: {
     minHeight: 78,
@@ -680,16 +811,18 @@ const styles = StyleSheet.create({
   segmentButton: {
     flex: 1,
     minHeight: 58,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: colors.transparent,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 2,
+    overflow: 'hidden',
   },
   segmentButtonSelected: {
     borderColor: colors.accent,
-    backgroundColor: colors.accent,
+    borderWidth: 2,
+    backgroundColor: colors.transparent,
   },
   segmentButtonCompact: {
     minHeight: 50,
@@ -737,13 +870,14 @@ const styles = StyleSheet.create({
   },
   roundStepper: {
     minHeight: 88,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: colors.transparent,
     paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   stepperButton: {
     width: 48,
@@ -771,13 +905,14 @@ const styles = StyleSheet.create({
   },
   audioCueRow: {
     minHeight: 64,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: colors.transparent,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   instructionSettings: {
     gap: 8,
@@ -888,6 +1023,22 @@ const styles = StyleSheet.create({
   toggleThumbOn: {
     transform: [{ translateX: 24 }],
   },
+  glassLayer: {
+    backgroundColor: glass.surface,
+  },
+  glassLayerSelected: {
+    backgroundColor: glass.accentSurface,
+    borderTopWidth: 1,
+    borderTopColor: glass.accentHighlight,
+  },
+  glassLayerAccentSelected: {
+    backgroundColor: glass.accentSurfaceStrong,
+    borderTopWidth: 1,
+    borderTopColor: glass.accentHighlight,
+  },
+  glassLayerPeach: {
+    backgroundColor: glass.surfaceStrong,
+  },
   floatingCta: {
     position: 'absolute',
     left: 0,
@@ -906,19 +1057,51 @@ const styles = StyleSheet.create({
   },
   startButton: {
     minHeight: 84,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOpacity: 0.62,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+  },
+  startButtonDepth: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 7,
+    bottom: 0,
+    backgroundColor: '#870606',
+    borderBottomWidth: 2,
+    borderBottomColor: '#570000',
+  },
+  startButtonDepthCompact: {
+    top: 6,
+  },
+  startButtonFace: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 7,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 12,
-    shadowColor: colors.accent,
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
+    borderTopWidth: 2,
+    borderTopColor: 'rgba(255,255,255,0.34)',
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255,255,255,0.16)',
+    borderRightWidth: 1,
+    borderRightColor: '#c40b0b',
+    borderBottomWidth: 2,
+    borderBottomColor: '#b60808',
   },
   startButtonCompact: {
     minHeight: 66,
+  },
+  startButtonFaceCompact: {
+    bottom: 6,
   },
   startButtonPressed: {
     opacity: 0.92,

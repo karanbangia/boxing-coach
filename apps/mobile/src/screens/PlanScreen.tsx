@@ -12,7 +12,7 @@ import {
 } from '../features/programs/programs';
 import { trackEvent } from '../lib/observability';
 import { useWorkoutHistory } from '../providers/WorkoutHistoryProvider';
-import { colors, textLineHeight } from '../theme';
+import { colors, glass, textLineHeight } from '../theme';
 
 function analyticsProgramId(programId: ProgramId) {
   return programId.replaceAll('-', '_') as
@@ -505,8 +505,8 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   progressTop: {
     flexDirection: 'row',
@@ -558,8 +558,8 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 15,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   sectionLabel: {
     color: colors.peach,
@@ -597,8 +597,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   weekButtonSelected: {
     borderColor: colors.red,
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  sessionRowNext: { backgroundColor: 'rgba(249,189,173,0.06)' },
+  sessionRowNext: { backgroundColor: glass.surfaceStrong },
   sessionRowLocked: { opacity: 0.5 },
   sessionStatus: {
     width: 53,
@@ -637,8 +637,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   sessionStatusComplete: {
     borderColor: colors.peach,
@@ -689,7 +689,8 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   safetyText: {
     flex: 1,

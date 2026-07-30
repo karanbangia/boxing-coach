@@ -4,7 +4,15 @@ import PostHog from 'posthog-react-native';
 
 type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'pro';
 type TrainingMode = 'shadowboxing' | 'heavy_bag';
-type OnboardingStepKey = 'nickname' | 'experience' | 'goal' | 'training_mode' | 'routine';
+type OnboardingStepKey =
+  | 'gender'
+  | 'nickname'
+  | 'experience'
+  | 'goal'
+  | 'training_mode'
+  | 'routine'
+  | 'weight'
+  | 'height';
 
 interface WorkoutConfigurationProperties {
   difficulty: Difficulty;
@@ -19,7 +27,7 @@ export interface AnalyticsEventMap {
     entry: 'new' | 'resumed';
   };
   onboarding_step_completed: {
-    step: 1 | 2 | 3 | 4 | 5;
+    step: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
     step_key: OnboardingStepKey;
   };
   recommended_workout_shown: WorkoutConfigurationProperties;
@@ -69,6 +77,9 @@ export interface AnalyticsEventMap {
     total_rounds: number;
   };
   punch_guide_opened: {
+    source: 'setup' | 'profile';
+  };
+  punch_guide_prompt_dismissed: {
     source: 'setup';
   };
   paywall_viewed: {
@@ -101,6 +112,7 @@ const ANALYTICS_EVENT_NAMES = new Set<AnalyticsEventName>([
   'completion_rating_submitted',
   'next_workout_loaded',
   'punch_guide_opened',
+  'punch_guide_prompt_dismissed',
   'paywall_viewed',
   'purchase_completed',
   'purchase_restored',
@@ -227,15 +239,26 @@ export function initializeObservability() {
         autocapture: false,
         exceptionSteps: { enabled: false },
       },
-      personProfiles: 'never',
+      personProfiles: 'identified_only',
       preloadFeatureFlags: false,
       sendFeatureFlagEvent: false,
       setDefaultPersonProperties: false,
-      before_send: event => (
-        event && ANALYTICS_EVENT_NAMES.has(event.event as AnalyticsEventName)
-          ? { ...event, $set: undefined, $set_once: undefined }
-          : null
-      ),
+      before_send: event => {
+        if (
+          !event
+          || (
+            event.event !== '$identify'
+            && !ANALYTICS_EVENT_NAMES.has(event.event as AnalyticsEventName)
+          )
+        ) {
+          return null;
+        }
+
+        const scrubbedEvent = { ...event };
+        delete scrubbedEvent.$set;
+        delete scrubbedEvent.$set_once;
+        return scrubbedEvent;
+      },
     });
   }
 }
@@ -257,6 +280,14 @@ export function trackEvent<Name extends AnalyticsEventName>(
     name,
     properties as unknown as Record<string, string | number | boolean>,
   );
+}
+
+export function identifyAnalyticsUser(firebaseUid: string) {
+  analyticsClient?.identify(firebaseUid);
+}
+
+export function resetAnalyticsUser() {
+  analyticsClient?.reset();
 }
 
 export function reportError(
@@ -281,7 +312,14 @@ export function reportError(
 
 export function reportAudioFailure(
   error: unknown,
-  cue: 'coach' | 'freestyle' | 'prep_tick' | 'round_end' | 'round_start' | 'session',
+  cue:
+    | 'coach'
+    | 'freestyle'
+    | 'prep_tick'
+    | 'rest_countdown'
+    | 'round_end'
+    | 'round_start'
+    | 'session',
   operation: 'configure' | 'pause' | 'play' | 'replace' | 'resume' | 'seek',
 ) {
   const dedupeKey = `${cue}:${operation}`;

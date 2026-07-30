@@ -20,7 +20,7 @@ import { ScreenShell } from '../components/ScreenShell';
 import { TactilePressable } from '../components/TactilePressable';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { formatClock } from '../lib/time';
-import { colors } from '../theme';
+import { colors, glass } from '../theme';
 
 interface Props {
   currentRound: number;
@@ -796,7 +796,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 30,
     right: 29,
-    backgroundColor: colors.surface,
+    backgroundColor: glass.surfaceStrong,
     justifyContent: 'center',
     overflow: 'hidden',
   },
@@ -942,7 +942,8 @@ const styles = StyleSheet.create({
     bottom: 18,
     height: 54,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -980,7 +981,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: '100%',
     borderRadius: 0,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: glass.surfaceStrong,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -1007,9 +1008,9 @@ const styles = StyleSheet.create({
     padding: 22,
     borderWidth: 1,
     borderTopWidth: 3,
-    borderColor: 'rgba(249,189,173,0.32)',
+    borderColor: glass.borderStrong,
     borderTopColor: colors.accent,
-    backgroundColor: '#171717',
+    backgroundColor: glass.sheet,
   },
   stopSheetKickerRow: {
     flexDirection: 'row',

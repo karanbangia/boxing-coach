@@ -17,7 +17,7 @@ import { SkeletonBlock } from '../components/SkeletonBlock';
 import { TactilePressable } from '../components/TactilePressable';
 import type { WorkoutHistoryItem } from '../lib/workoutHistory';
 import { useWorkoutHistory } from '../providers/WorkoutHistoryProvider';
-import { colors } from '../theme';
+import { colors, glass } from '../theme';
 
 const LINE_HEIGHT_RATIO = 1.4;
 const PUNCH_GRAPH_HEIGHT = 132;
@@ -136,6 +136,21 @@ function getIntensityColor(intensity: WorkoutIntensity) {
       return colors.workoutIntensity4;
     default:
       return colors.transparent;
+  }
+}
+
+function getIntensityGlassColor(intensity: WorkoutIntensity) {
+  switch (intensity) {
+    case 1:
+      return glass.intensityLow;
+    case 2:
+      return glass.intensityMedium;
+    case 3:
+      return glass.intensityHigh;
+    case 4:
+      return glass.intensityMax;
+    default:
+      return glass.surface;
   }
 }
 
@@ -328,6 +343,7 @@ function ProgressSkeletonBody() {
       <View style={styles.metricGrid}>
         {[0, 1, 2, 3].map(item => (
           <View key={item} style={styles.metricCard}>
+            <ProgressGlassLayer />
             <SkeletonBlock style={styles.skeletonMetricLabel} />
             <SkeletonBlock style={styles.skeletonMetricValue} />
           </View>
@@ -638,7 +654,7 @@ export function ProgressScreen() {
                           styles.calendarDay,
                           !day.isCurrentMonth && styles.calendarDayOutsideMonth,
                           hasSessions && {
-                            backgroundColor: getIntensityColor(intensity),
+                            backgroundColor: getIntensityGlassColor(intensity),
                             borderColor: getIntensityColor(intensity),
                           },
                           selected && styles.calendarDaySelected,
@@ -732,6 +748,7 @@ export function ProgressScreen() {
 function MetricCard({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
   return (
     <View style={styles.metricCard}>
+      <ProgressGlassLayer accent={accent} />
       <Text style={styles.metricLabel} allowFontScaling={false}>{label}</Text>
       <Text
         style={[styles.metricValue, accent && styles.metricValueAccent]}
@@ -752,7 +769,7 @@ function PunchTrend({ points, isLoading }: { points: PunchTrendPoint[]; isLoadin
   return (
     <View style={styles.trendSection}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle} allowFontScaling={false}>PUNCHES CALLED OVER TIME</Text>
+        <Text style={styles.sectionTitle} allowFontScaling={false}>PUNCHES THROWN</Text>
         {!isLoading && points.length > 0 ? (
           <Text style={styles.sectionMeta} allowFontScaling={false}>DAILY TOTAL</Text>
         ) : null}
@@ -769,6 +786,7 @@ function PunchTrend({ points, isLoading }: { points: PunchTrendPoint[]; isLoadin
             .map(point => `${formatDayForAccessibility(point.key)}: ${point.punches} punches called`)
             .join('. ')}`}
         >
+          <ProgressGlassLayer />
           <View style={styles.chartBody}>
             <View style={styles.chartYAxis}>
               <Text style={styles.chartAxisValue} allowFontScaling={false}>{maxPunches}</Text>
@@ -881,6 +899,14 @@ function HistoryCard({
       pressedScale={0.985}
       style={[styles.historyCard, isLatest && styles.historyCardLatest]}
     >
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFillObject,
+          styles.lightweightGlassLayer,
+          isLatest && styles.lightweightGlassLayerAccent,
+        ]}
+      />
       <View style={styles.historyCopy}>
         <View style={styles.historyCardHeader}>
           <Text
@@ -938,6 +964,12 @@ function DaySummarySheet({
         />
 
         <View style={[styles.daySheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <BlurView
+            pointerEvents="none"
+            intensity={30}
+            tint="dark"
+            style={[StyleSheet.absoluteFillObject, styles.sheetGlassLayer]}
+          />
           <ScrollView
             contentContainerStyle={styles.daySheetContent}
             showsVerticalScrollIndicator={false}
@@ -1021,6 +1053,12 @@ function WorkoutSummarySheet({
         />
 
         <View style={[styles.daySheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <BlurView
+            pointerEvents="none"
+            intensity={30}
+            tint="dark"
+            style={[StyleSheet.absoluteFillObject, styles.sheetGlassLayer]}
+          />
           {workout && presentation ? (
             <View style={styles.daySheetContent}>
               <View style={styles.daySheetKickerRow}>
@@ -1073,11 +1111,34 @@ function DayMetric({
 }) {
   return (
     <View style={styles.dayMetric}>
+      <ProgressGlassLayer accent={accent} strong />
       <Text style={[styles.dayMetricValue, accent && styles.dayMetricValueAccent]} allowFontScaling={false}>
         {value}
       </Text>
       <Text style={styles.dayMetricLabel} allowFontScaling={false}>{label}</Text>
     </View>
+  );
+}
+
+function ProgressGlassLayer({
+  accent = false,
+  strong = false,
+}: {
+  accent?: boolean;
+  strong?: boolean;
+}) {
+  return (
+    <BlurView
+      pointerEvents="none"
+      intensity={accent ? 30 : 24}
+      tint="dark"
+      style={[
+        StyleSheet.absoluteFillObject,
+        styles.glassLayer,
+        strong && styles.glassLayerStrong,
+        accent && styles.glassLayerAccent,
+      ]}
+    />
   );
 }
 
@@ -1172,8 +1233,9 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
+    borderColor: glass.border,
+    backgroundColor: colors.transparent,
+    overflow: 'hidden',
   },
   metricLabel: {
     color: colors.peach,
@@ -1272,8 +1334,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   calendarDayOutsideMonth: {
     opacity: 0.48,
@@ -1321,8 +1383,14 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   chart: {
+    marginTop: 12,
+    paddingHorizontal: 12,
     paddingTop: 18,
     paddingBottom: 12,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: colors.transparent,
+    overflow: 'hidden',
   },
   chartBody: {
     flexDirection: 'row',
@@ -1427,14 +1495,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
+    borderColor: glass.border,
+    backgroundColor: glass.surfaceStrong,
     zIndex: 2,
   },
   historyMarkerActive: {
     borderWidth: 2,
     borderColor: colors.accentGlow,
-    backgroundColor: colors.accentSoft,
+    backgroundColor: glass.accentSurface,
     shadowColor: colors.accentGlow,
     shadowOpacity: 0.28,
     shadowRadius: 6,
@@ -1476,7 +1544,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.accentGlow,
-    backgroundColor: colors.accentSoft,
+    backgroundColor: glass.accentSurface,
   },
   latestBadgeText: {
     color: colors.accentGlow,
@@ -1496,11 +1564,12 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
+    borderColor: glass.border,
+    backgroundColor: colors.transparent,
+    overflow: 'hidden',
   },
   historyCardLatest: {
-    borderColor: colors.accentSoft,
+    borderColor: glass.accentHighlight,
   },
   historyCopy: {
     flex: 1,
@@ -1579,9 +1648,10 @@ const styles = StyleSheet.create({
     maxHeight: '84%',
     borderWidth: 1,
     borderTopWidth: 3,
-    borderColor: 'rgba(249,189,173,0.32)',
+    borderColor: glass.borderStrong,
     borderTopColor: colors.accent,
-    backgroundColor: '#171717',
+    backgroundColor: colors.transparent,
+    overflow: 'hidden',
   },
   daySheetContent: {
     paddingHorizontal: 22,
@@ -1631,8 +1701,9 @@ const styles = StyleSheet.create({
     minHeight: 70,
     padding: 10,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
+    borderColor: glass.border,
+    backgroundColor: colors.transparent,
+    overflow: 'hidden',
   },
   dayMetricValue: {
     color: colors.text,
@@ -1677,7 +1748,9 @@ const styles = StyleSheet.create({
     height: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.surfaceStrong,
   },
   daySessionCopy: {
     flex: 1,
@@ -1716,5 +1789,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: lineHeight(12),
     letterSpacing: 1.75,
+  },
+  glassLayer: {
+    backgroundColor: glass.surface,
+  },
+  glassLayerStrong: {
+    backgroundColor: glass.surfaceStrong,
+  },
+  glassLayerAccent: {
+    backgroundColor: glass.accentSurface,
+    borderTopWidth: 1,
+    borderTopColor: glass.accentHighlight,
+  },
+  lightweightGlassLayer: {
+    backgroundColor: glass.surface,
+  },
+  lightweightGlassLayerAccent: {
+    backgroundColor: glass.accentSurface,
+  },
+  sheetGlassLayer: {
+    backgroundColor: glass.sheet,
   },
 });

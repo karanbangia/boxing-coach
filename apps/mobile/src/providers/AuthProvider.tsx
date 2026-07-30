@@ -63,7 +63,11 @@ import {
   setActiveHistoryUser,
 } from '../lib/workoutHistory';
 import { clearLocalAppData } from '../lib/appData';
-import { reportError } from '../lib/observability';
+import {
+  identifyAnalyticsUser,
+  reportError,
+  resetAnalyticsUser,
+} from '../lib/observability';
 
 type AuthProviderName = 'apple' | 'google';
 type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
@@ -377,6 +381,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return;
         }
 
+        identifyAnalyticsUser(nextUser.uid);
         setSyncStatus('syncing');
         try {
           const profileSnapshot = await getDoc(doc(db, 'users', nextUser.uid));
@@ -480,6 +485,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (profilePreviewMode) {
         setUser(null);
         setProfile(null);
+        resetAnalyticsUser();
         await clearLocalAppData();
         return;
       }
@@ -487,6 +493,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (providerForUser(user) === 'google') await GoogleSignin.signOut().catch(() => null);
       await firebaseSignOut(auth);
       setProfile(null);
+      resetAnalyticsUser();
       await clearLocalAppData();
     });
   }, [run, user]);
@@ -501,6 +508,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (profilePreviewMode) {
           setUser(null);
           setProfile(null);
+          resetAnalyticsUser();
           await clearLocalAppData();
           return;
         }
@@ -541,6 +549,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
         if (provider === 'google') await GoogleSignin.signOut().catch(() => null);
         setProfile(null);
+        resetAnalyticsUser();
         await clearLocalAppData();
       } catch (error) {
         throw accountDeletionError(error);

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { TactilePressable } from './TactilePressable';
 import { useAuth, type AuthResult } from '../providers/AuthProvider';
-import { colors, textLineHeight } from '../theme';
+import { colors, glass, textLineHeight } from '../theme';
 
 type AccountProvider = 'apple' | 'google';
 
@@ -156,8 +156,8 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   googleButtonText: { color: colors.text },
   disabled: { opacity: 0.45 },
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: colors.red,
-    backgroundColor: 'rgba(255,20,20,0.08)',
+    backgroundColor: glass.accentSurface,
   },
   errorText: {
     flex: 1,

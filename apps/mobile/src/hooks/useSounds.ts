@@ -32,6 +32,10 @@ export function useSounds(masterVolume: number) {
     require('../../assets/audio/round-start.wav'),
     { keepAudioSessionActive: true },
   );
+  const restCountdownPlayer = useAudioPlayer(
+    require('../../assets/audio/rest-countdown.wav'),
+    { keepAudioSessionActive: true },
+  );
   const roundEndPlayer = useAudioPlayer(
     require('../../assets/audio/round-end.wav'),
     { keepAudioSessionActive: true },
@@ -43,12 +47,14 @@ export function useSounds(masterVolume: number) {
   const masterVolumeRef = useRef(masterVolume);
   const prepTickPlayTokenRef = useRef(0);
   const roundStartPlayTokenRef = useRef(0);
+  const restCountdownPlayTokenRef = useRef(0);
 
   masterVolumeRef.current = masterVolume;
 
   useEffect(() => {
     prepTickPlayer.volume = 0.55 * masterVolume;
     roundStartPlayer.volume = 0.85 * masterVolume;
+    restCountdownPlayer.volume = 0.85 * masterVolume;
     roundEndPlayer.volume = 0.9 * masterVolume;
     freestylePlayer.volume = 0.65 * masterVolume;
 
@@ -61,7 +67,14 @@ export function useSounds(masterVolume: number) {
     }).catch(error => {
       reportAudioFailure(error, 'session', 'configure');
     });
-  }, [freestylePlayer, masterVolume, prepTickPlayer, roundEndPlayer, roundStartPlayer]);
+  }, [
+    freestylePlayer,
+    masterVolume,
+    prepTickPlayer,
+    restCountdownPlayer,
+    roundEndPlayer,
+    roundStartPlayer,
+  ]);
 
   const prepTick = useCallback(() => {
     const mul = masterVolumeRef.current;
@@ -125,6 +138,37 @@ export function useSounds(masterVolume: number) {
     }
   }, [roundStartPlayer]);
 
+  const restCountdown = useCallback(() => {
+    const mul = masterVolumeRef.current;
+    if (mul <= 0) return;
+    const playToken = ++restCountdownPlayTokenRef.current;
+    restCountdownPlayer.volume = 0.85 * mul;
+    void restCountdownPlayer
+      .seekTo(0)
+      .catch(error => {
+        reportAudioFailure(error, 'rest_countdown', 'seek');
+      })
+      .finally(() => {
+        if (playToken === restCountdownPlayTokenRef.current) {
+          try {
+            restCountdownPlayer.play();
+          } catch (error) {
+            reportAudioFailure(error, 'rest_countdown', 'play');
+          }
+        }
+      });
+  }, [restCountdownPlayer]);
+
+  const stopRestCountdown = useCallback(() => {
+    restCountdownPlayTokenRef.current++;
+    try {
+      restCountdownPlayer.pause();
+      void restCountdownPlayer.seekTo(0).catch(() => {});
+    } catch (error) {
+      reportAudioFailure(error, 'rest_countdown', 'pause');
+    }
+  }, [restCountdownPlayer]);
+
   const roundEnd = useCallback(() => {
     const mul = masterVolumeRef.current;
     if (mul <= 0) return;
@@ -138,7 +182,25 @@ export function useSounds(masterVolume: number) {
   }, [freestylePlayer]);
 
   return useMemo(
-    () => ({ prepTick, stopPrepTick, roundStart, stopRoundStart, roundEnd, freestyleStart }),
-    [freestyleStart, prepTick, roundEnd, roundStart, stopPrepTick, stopRoundStart],
+    () => ({
+      prepTick,
+      stopPrepTick,
+      roundStart,
+      stopRoundStart,
+      restCountdown,
+      stopRestCountdown,
+      roundEnd,
+      freestyleStart,
+    }),
+    [
+      freestyleStart,
+      prepTick,
+      restCountdown,
+      roundEnd,
+      roundStart,
+      stopPrepTick,
+      stopRestCountdown,
+      stopRoundStart,
+    ],
   );
 }

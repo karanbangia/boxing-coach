@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
+  Image,
   ImageBackground,
   KeyboardAvoidingView,
+  PanResponder,
   Platform,
   ScrollView,
   StyleSheet,
@@ -16,6 +19,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { recommendFirstWorkout } from '@boxing-coach/core';
+import { BackButton } from '../components/BackButton';
 import { ScreenShell } from '../components/ScreenShell';
 import { TactilePressable } from '../components/TactilePressable';
 import { AccountSignInActions } from '../components/AccountSignInActions';
@@ -28,25 +32,47 @@ import {
   equipmentForTrainingMode,
   trainingModeFromEquipment,
   type FighterProfile,
+  type HeightUnit,
   type SessionDuration,
   type TrainingDay,
   type TrainingMode,
+  type WeightUnit,
 } from '../features/profile/types';
+import {
+  MAX_HEIGHT_CM,
+  MAX_HEIGHT_INCHES,
+  MIN_HEIGHT_CM,
+  MIN_HEIGHT_INCHES,
+  centimetresToRoundedInches,
+  formatFeetAndInches,
+  formatFeetAndInchesAccessible,
+  inchesToCentimetres,
+} from '../features/profile/height';
 import { EXTERNAL_LINKS, openExternalLink } from '../lib/externalLinks';
-import type { OnboardingRecord } from '../lib/onboarding';
+import {
+  ONBOARDING_COMPLETED_STEP,
+  type ReminderPermission,
+  type OnboardingRecord,
+} from '../lib/onboarding';
 import { trackEvent } from '../lib/observability';
 import { useAuth } from '../providers/AuthProvider';
-import { colors, textLineHeight } from '../theme';
+import { colors, glass, textLineHeight } from '../theme';
 
-const DATA_STEP_COUNT = 5;
-const LAST_STEP = 5;
+const DATA_STEP_COUNT = ONBOARDING_COMPLETED_STEP;
+const LAST_STEP = ONBOARDING_COMPLETED_STEP;
 const ONBOARDING_STEP_KEYS = [
+  'gender',
   'nickname',
   'experience',
   'goal',
   'training_mode',
   'routine',
+  'weight',
+  'height',
 ] as const;
+const MALE_BOXER_SOURCE = require('../../assets/onboarding/male-boxer.png');
+const FEMALE_BOXER_SOURCE = require('../../assets/onboarding/female-boxer.png');
+const GENDER_ART_SOURCES = [MALE_BOXER_SOURCE, FEMALE_BOXER_SOURCE];
 type OnboardingView = 'welcome' | 'form' | 'recommendation' | 'signup' | 'signin';
 const DAY_LABELS: Record<TrainingDay, string> = {
   monday: 'MON',
@@ -58,16 +84,23 @@ const DAY_LABELS: Record<TrainingDay, string> = {
 };
 
 const TITLES = [
+  "WHAT'S YOUR GENDER?",
   'WHAT SHOULD WE CALL YOU?',
-  "WHAT'S YOUR FITNESS LEVEL?",
+  "WHAT'S YOUR FITNESS RHYTHM?",
   "WHAT'S YOUR TRAINING GOAL?",
   'HOW WILL YOU TRAIN?',
   "WHAT'S YOUR ROUTINE",
+  "WHAT'S YOUR WEIGHT?",
+  "WHAT'S YOUR HEIGHT?",
 ] as const;
 
 interface Props {
+  entryMode: 'standard' | 'account_setup';
   initialRecord: OnboardingRecord;
   onProgress: (record: OnboardingRecord) => Promise<void>;
+  onEnableTrainingReminders: (
+    record: OnboardingRecord,
+  ) => Promise<ReminderPermission>;
   onComplete: (
     record: OnboardingRecord,
     options?: { skipped?: boolean; cloudSyncPending?: boolean },
@@ -135,22 +168,21 @@ function SecondaryButton({ label, onPress, disabled = false }: {
   );
 }
 
-function Header({ step, onBack }: {
+function Header({ step, onBack, showBack = true }: {
   step: number;
   onBack: () => void;
+  showBack?: boolean;
 }) {
   return (
     <View>
       <View style={styles.headerRow}>
         <View style={styles.headerStart}>
-          <TactilePressable
-            onPress={onBack}
-            haptic="light"
-            style={styles.backButton}
-            accessibilityLabel="Go back"
-          >
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
-          </TactilePressable>
+          {showBack ? (
+            <BackButton
+              onPress={onBack}
+              accessibilityLabel="Go back"
+            />
+          ) : null}
           {/*<Text style={styles.kicker} allowFontScaling={false}>GETTING STARTED</Text>*/}
         </View>
         <Text style={styles.stepLabel} allowFontScaling={false}>
@@ -204,6 +236,196 @@ function ChoiceCard({
         {subtitle ? <Text style={styles.choiceSubtitle}>{subtitle}</Text> : null}
       </View>
     </TactilePressable>
+  );
+}
+
+function GenderCard({
+  label,
+  female,
+  selected,
+  onPress,
+}: {
+  label: string;
+  female: boolean;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TactilePressable
+      onPress={onPress}
+      haptic="selection"
+      pressedScale={0.98}
+      style={[styles.genderCard, selected && styles.genderCardSelected]}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
+    >
+      {selected ? (
+        <View style={styles.genderCheck}>
+          <Ionicons name="checkmark" size={13} color={colors.text} />
+        </View>
+      ) : null}
+      <View style={styles.genderArt}>
+        <Image
+          source={female ? FEMALE_BOXER_SOURCE : MALE_BOXER_SOURCE}
+          resizeMode="contain"
+          style={styles.genderImage}
+          accessibilityIgnoresInvertColors
+        />
+      </View>
+      <Text style={[styles.genderLabel, selected && styles.choiceTitleSelected]} allowFontScaling={false}>
+        {label}
+      </Text>
+    </TactilePressable>
+  );
+}
+
+function UnitToggle<T extends string>({
+  left,
+  right,
+  value,
+  onChange,
+}: {
+  left: { label: string; value: T };
+  right: { label: string; value: T };
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <View style={styles.unitToggle}>
+      {[left, right].map(option => {
+        const selected = value === option.value;
+        return (
+          <TactilePressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            haptic="selection"
+            style={[styles.unitOption, selected && styles.unitOptionSelected]}
+          >
+            <Text style={[styles.unitOptionText, selected && styles.unitOptionTextSelected]} allowFontScaling={false}>
+              {option.label}
+            </Text>
+          </TactilePressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function Ruler({
+  value,
+  unit,
+  min,
+  max,
+  onChange,
+  onDragStateChange,
+  formatValue = nextValue => String(nextValue),
+  formatAccessibilityValue,
+}: {
+  value: number;
+  unit: string;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+  onDragStateChange: (dragging: boolean) => void;
+  formatValue?: (value: number) => string;
+  formatAccessibilityValue?: (value: number) => string;
+}) {
+  const valueRef = useRef(value);
+  const minRef = useRef(min);
+  const maxRef = useRef(max);
+  const onChangeRef = useRef(onChange);
+  const onDragStateChangeRef = useRef(onDragStateChange);
+  const startValue = useRef(value);
+  const lastDragValue = useRef(value);
+  valueRef.current = value;
+  minRef.current = min;
+  maxRef.current = max;
+  onChangeRef.current = onChange;
+  onDragStateChangeRef.current = onDragStateChange;
+
+  const responder = useMemo(
+    () => PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) => (
+        Math.abs(gesture.dx) > 2 && Math.abs(gesture.dx) > Math.abs(gesture.dy)
+      ),
+      onMoveShouldSetPanResponderCapture: (_, gesture) => (
+        Math.abs(gesture.dx) > 2 && Math.abs(gesture.dx) > Math.abs(gesture.dy)
+      ),
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => {
+        startValue.current = valueRef.current;
+        lastDragValue.current = valueRef.current;
+        onDragStateChangeRef.current(true);
+      },
+      onPanResponderMove: (_, gesture) => {
+        const nextValue = Math.max(
+          minRef.current,
+          Math.min(
+            maxRef.current,
+            Math.round(startValue.current - gesture.dx / 6),
+          ),
+        );
+        if (nextValue === lastDragValue.current) return;
+        lastDragValue.current = nextValue;
+        void Haptics.selectionAsync();
+        onChangeRef.current(nextValue);
+      },
+      onPanResponderRelease: () => onDragStateChangeRef.current(false),
+      onPanResponderTerminate: () => onDragStateChangeRef.current(false),
+    }),
+    [],
+  );
+  const labels = Array.from({ length: 7 }, (_, index) => (
+    Math.max(min, Math.min(max, value + (index - 3) * 5))
+  ));
+
+  return (
+    <View
+      style={styles.ruler}
+      {...responder.panHandlers}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityValue={{
+        min,
+        max,
+        now: value,
+        text: formatAccessibilityValue?.(value) ?? `${formatValue(value)} ${unit}`,
+      }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={event => {
+        const amount = event.nativeEvent.actionName === 'increment' ? 1 : -1;
+        onChange(Math.max(min, Math.min(max, value + amount)));
+      }}
+    >
+      <Text style={styles.rulerValue} allowFontScaling={false}>{formatValue(value)}</Text>
+      <Text style={styles.rulerUnit} allowFontScaling={false}>{unit}</Text>
+      <View style={styles.rulerLabels}>
+        {labels.map((label, index) => (
+          <Text key={`${label}-${index}`} style={styles.rulerLabel} allowFontScaling={false}>
+            {formatValue(label)}
+          </Text>
+        ))}
+      </View>
+      <View style={styles.tickRow}>
+        {Array.from({ length: 31 }, (_, index) => {
+          const center = index === 15;
+          const major = index % 5 === 0;
+          return (
+            <View
+              key={index}
+              style={[
+                styles.tick,
+                major && styles.tickMajor,
+                center && styles.tickCenter,
+              ]}
+            />
+          );
+        })}
+      </View>
+      <Text style={styles.dragHint} allowFontScaling={false}>DRAG THE SCALE TO ADJUST</Text>
+    </View>
   );
 }
 
@@ -319,9 +541,7 @@ function SignupStep({
     <ScrollView contentContainerStyle={styles.signupContent} showsVerticalScrollIndicator={false}>
         <View>
           <View style={styles.signupHeader}>
-            <TactilePressable onPress={onBack} haptic="light" style={styles.backButton} accessibilityLabel="Go back">
-              <Ionicons name="chevron-back" size={22} color={colors.text} />
-            </TactilePressable>
+            <BackButton onPress={onBack} accessibilityLabel="Go back" />
             <Text style={styles.kicker} allowFontScaling={false}>
               {existingAccount ? 'WELCOME BACK TO YOUR CORNER.' : 'YOUR CORNER. EVERYWHERE.'}
             </Text>
@@ -418,11 +638,13 @@ function RecommendationScreen({
   onBack,
   onUseWorkout,
   onSaveFirst,
+  accountSetup,
 }: {
   record: OnboardingRecord;
   onBack: () => void;
   onUseWorkout: () => void;
   onSaveFirst: () => void;
+  accountSetup: boolean;
 }) {
   const recommendation = recommendFirstWorkout(record.profile);
   const trainingMode = trainingModeFromEquipment(record.profile.equipment);
@@ -447,14 +669,10 @@ function RecommendationScreen({
       >
         <View>
           <View style={styles.recommendationHeader}>
-            <TactilePressable
+            <BackButton
               onPress={onBack}
-              haptic="light"
-              style={styles.backButton}
               accessibilityLabel="Back to routine"
-            >
-              <Ionicons name="chevron-back" size={22} color={colors.text} />
-            </TactilePressable>
+            />
             <Text style={styles.kicker} allowFontScaling={false}>BUILT FROM YOUR ANSWERS</Text>
           </View>
           <Text style={styles.recommendationTitle} allowFontScaling={false}>
@@ -514,11 +732,18 @@ function RecommendationScreen({
         </View>
 
         <View style={styles.recommendationActions}>
-          <PrimaryButton label="USE THIS WORKOUT" onPress={onUseWorkout} />
-          <SecondaryButton label="SAVE & SYNC FIRST" onPress={onSaveFirst} />
+          <PrimaryButton
+            label={accountSetup ? 'SAVE & USE THIS WORKOUT' : 'USE THIS WORKOUT'}
+            onPress={onUseWorkout}
+          />
+          {!accountSetup ? (
+            <SecondaryButton label="SAVE & SYNC FIRST" onPress={onSaveFirst} />
+          ) : null}
           <Text style={styles.recommendationFootnote}>
-            No account is required to train. Saving lets you recover your fighter profile;
-            workout history stays on this device.
+            {accountSetup
+              ? 'Your fighter profile will sync to your signed-in account.'
+              : `No account is required to train. Saving lets you recover your fighter profile;
+workout history stays on this device.`}
           </Text>
         </View>
       </ScrollView>
@@ -526,12 +751,20 @@ function RecommendationScreen({
   );
 }
 
-export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Props) {
+export function OnboardingScreen({
+  entryMode,
+  initialRecord,
+  onProgress,
+  onEnableTrainingReminders,
+  onComplete,
+}: Props) {
+  const accountSetup = entryMode === 'account_setup';
   const [record, setRecord] = useState(initialRecord);
   const [view, setView] = useState<OnboardingView>(
-    initialRecord.step === 0 ? 'welcome' : 'form',
+    accountSetup || initialRecord.step > 0 ? 'form' : 'welcome',
   );
   const [nicknameFocused, setNicknameFocused] = useState(false);
+  const [rulerDragging, setRulerDragging] = useState(false);
   const onboardingStartedTrackedRef = useRef(false);
   const recommendationShownTrackedRef = useRef(false);
   const step = record.step;
@@ -546,10 +779,18 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
   };
 
   useEffect(() => {
-    if (initialRecord.step > 0) {
-      trackOnboardingStarted('resumed');
+    void Promise.all(
+      GENDER_ART_SOURCES.map(source => (
+        Image.prefetch(Image.resolveAssetSource(source).uri)
+      )),
+    ).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (accountSetup || initialRecord.step > 0) {
+      trackOnboardingStarted(initialRecord.step > 0 ? 'resumed' : 'new');
     }
-  }, [initialRecord.step]);
+  }, [accountSetup, initialRecord.step]);
 
   useEffect(() => {
     if (
@@ -574,6 +815,7 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
   };
 
   const goBack = () => {
+    if (accountSetup && view === 'form' && step <= 0) return;
     if (view === 'signin' || step <= 0) {
       setView('welcome');
       return;
@@ -603,13 +845,39 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
   });
 
   const next = async () => {
-    const nextRecord = copyRecord(record, { step: Math.min(LAST_STEP, step + 1) });
+    let nextRecord = record;
+    if (step === 0 && profile.gender === 'unspecified') {
+      nextRecord = copyRecord(nextRecord, {
+        profile: { ...nextRecord.profile, gender: 'male' },
+      });
+    }
+    if (step === 6 && profile.weightKg === null) {
+      nextRecord = copyRecord(nextRecord, {
+        profile: { ...nextRecord.profile, weightKg: 72 },
+      });
+    }
+    if (step === 7 && profile.heightCm === null) {
+      nextRecord = copyRecord(nextRecord, {
+        profile: { ...nextRecord.profile, heightCm: 175 },
+      });
+    }
+    if (
+      step === 5
+      && nextRecord.profile.trainingDays.length > 0
+      && nextRecord.reminderPermission === 'not_requested'
+    ) {
+      const reminderPermission = await onEnableTrainingReminders(nextRecord);
+      nextRecord = copyRecord(nextRecord, { reminderPermission });
+    }
+    nextRecord = copyRecord(nextRecord, {
+      step: Math.min(LAST_STEP, step + 1),
+    });
     setRecord(nextRecord);
     await onProgress(nextRecord);
     const stepKey = ONBOARDING_STEP_KEYS[step];
     if (stepKey) {
       trackEvent('onboarding_step_completed', {
-        step: (step + 1) as 1 | 2 | 3 | 4 | 5,
+        step: (step + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8,
         step_key: stepKey,
       });
     }
@@ -672,11 +940,24 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
       <RecommendationScreen
         record={record}
         onBack={goBack}
-        onUseWorkout={() => void onComplete(record)}
+        onUseWorkout={() => void onComplete(
+          record,
+          accountSetup ? { cloudSyncPending: true } : undefined,
+        )}
         onSaveFirst={() => setView('signup')}
+        accountSetup={accountSetup}
       />
     );
   }
+
+  const weightKg = profile.weightKg ?? 72;
+  const weightValue = profile.weightUnit === 'kg'
+    ? Math.round(weightKg)
+    : Math.round(weightKg * 2.2046226218);
+  const heightCm = profile.heightCm ?? 175;
+  const heightValue = profile.heightUnit === 'cm'
+    ? Math.round(heightCm)
+    : centimetresToRoundedInches(heightCm);
 
   return (
     <ScreenShell>
@@ -685,15 +966,37 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
           contentContainerStyle={styles.screenContent}
           directionalLockEnabled
           keyboardShouldPersistTaps="handled"
+          scrollEnabled={!rulerDragging}
           showsVerticalScrollIndicator={false}
         >
           <Header
             step={step}
             onBack={goBack}
+            showBack={!accountSetup || step > 0}
           />
 
           <View style={styles.stepBody}>
             {step === 0 ? (
+              <>
+                <SectionLabel>SELECT ONE</SectionLabel>
+                <View style={styles.genderGrid}>
+                  <GenderCard
+                    label="MALE"
+                    female={false}
+                    selected={profile.gender !== 'female'}
+                    onPress={() => updateProfile({ gender: 'male' })}
+                  />
+                  <GenderCard
+                    label="FEMALE"
+                    female
+                    selected={profile.gender === 'female'}
+                    onPress={() => updateProfile({ gender: 'female' })}
+                  />
+                </View>
+              </>
+            ) : null}
+
+            {step === 1 ? (
               <>
                 <SectionLabel>NICKNAME</SectionLabel>
                 <TextInput
@@ -724,21 +1027,16 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
               </>
             ) : null}
 
-            {step === 1 ? (
+            {step === 2 ? (
               <>
-                <Text style={styles.leadCopy}>Choose the level that best matches your current activity.</Text>
-                <SectionLabel>FITNESS LEVEL</SectionLabel>
+                <Text style={styles.leadCopy}>Choose the pace that looks most like your week.</Text>
+                <SectionLabel>WEEKLY ACTIVITY</SectionLabel>
                 <View style={styles.twoColumnGrid}>
                   {EXPERIENCE_OPTIONS.map(option => (
                     <ChoiceCard
                       key={option.value}
                       title={option.label.toUpperCase()}
-                      subtitle={{
-                        beginner: 'New or returning',
-                        intermediate: 'Exercise 1–2 days/week',
-                        advanced: 'Exercise 3–4 days/week',
-                        professional: 'Exercise 5+ days/week',
-                      }[option.value]}
+                      subtitle={option.description}
                       selected={profile.experience === option.value}
                       onPress={() => updateProfile({ experience: option.value })}
                     />
@@ -748,7 +1046,7 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
               </>
             ) : null}
 
-            {step === 2 ? (
+            {step === 3 ? (
               <>
                 <Text style={styles.leadCopy}>Pick the result you want coaching to prioritize.</Text>
                 <SectionLabel>PRIMARY GOAL</SectionLabel>
@@ -776,7 +1074,7 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
               </>
             ) : null}
 
-            {step === 3 ? (
+            {step === 4 ? (
               <>
                 <Text style={styles.leadCopy}>
                   Choose where you will train and the stance that best matches you.
@@ -813,7 +1111,7 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
               </>
             ) : null}
 
-            {step === 4 ? (
+            {step === 5 ? (
               <>
                 <Text style={styles.leadCopy}>
                   Choose the days you want to train. We will use them for workout reminders.
@@ -864,13 +1162,73 @@ export function OnboardingScreen({ initialRecord, onProgress, onComplete }: Prop
               </>
             ) : null}
 
+            {step === 6 ? (
+              <>
+                <Text style={styles.leadCopy}>
+                  Choose kilograms or pounds, then drag the ruler. You can change this any time in your profile.
+                </Text>
+                <SectionLabel>UNIT</SectionLabel>
+                <UnitToggle<WeightUnit>
+                  left={{ label: 'KG', value: 'kg' }}
+                  right={{ label: 'LBS', value: 'lb' }}
+                  value={profile.weightUnit}
+                  onChange={weightUnit => updateProfile({ weightUnit })}
+                />
+                <Ruler
+                  value={weightValue}
+                  unit={profile.weightUnit.toUpperCase()}
+                  min={profile.weightUnit === 'kg' ? 35 : 77}
+                  max={profile.weightUnit === 'kg' ? 200 : 440}
+                  onChange={value => updateProfile({
+                    weightKg: profile.weightUnit === 'kg'
+                      ? value
+                      : value / 2.2046226218,
+                  })}
+                  onDragStateChange={setRulerDragging}
+                />
+              </>
+            ) : null}
+
+            {step === 7 ? (
+              <>
+                <Text style={styles.leadCopy}>
+                  Choose centimetres or feet and inches, then drag the ruler. You can change this any time in your profile.
+                </Text>
+                <SectionLabel>UNIT</SectionLabel>
+                <UnitToggle<HeightUnit>
+                  left={{ label: 'CM', value: 'cm' }}
+                  right={{ label: 'FT + IN', value: 'in' }}
+                  value={profile.heightUnit}
+                  onChange={heightUnit => updateProfile({ heightUnit })}
+                />
+                <Ruler
+                  value={heightValue}
+                  unit={profile.heightUnit === 'cm' ? 'CM' : 'FT + IN'}
+                  min={profile.heightUnit === 'cm' ? MIN_HEIGHT_CM : MIN_HEIGHT_INCHES}
+                  max={profile.heightUnit === 'cm' ? MAX_HEIGHT_CM : MAX_HEIGHT_INCHES}
+                  formatValue={profile.heightUnit === 'cm' ? undefined : formatFeetAndInches}
+                  formatAccessibilityValue={
+                    profile.heightUnit === 'cm'
+                      ? undefined
+                      : formatFeetAndInchesAccessible
+                  }
+                  onChange={value => updateProfile({
+                    heightCm: profile.heightUnit === 'cm'
+                      ? value
+                      : inchesToCentimetres(value),
+                  })}
+                  onDragStateChange={setRulerDragging}
+                />
+              </>
+            ) : null}
+
           </View>
 
           <View style={styles.bottomAction}>
             <PrimaryButton
-              label={step === 4 ? 'SAVE & CONTINUE' : 'NEXT'}
+              label={step === 7 ? 'SAVE & CONTINUE' : 'NEXT'}
               onPress={() => void next().catch(() => undefined)}
-              disabled={step === 0 && !profile.displayName.trim()}
+              disabled={step === 1 && !profile.displayName.trim()}
             />
           </View>
         </ScrollView>
@@ -986,15 +1344,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerStart: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 },
-  backButton: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
   kicker: {
     color: colors.peach,
     fontFamily: 'BarlowSemiCondensedSemiBold',
@@ -1039,8 +1388,8 @@ const styles = StyleSheet.create({
     lineHeight: textLineHeight(22),
     letterSpacing: 0.5,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   nicknameInputFocused: {
     borderWidth: 2,
@@ -1060,6 +1409,123 @@ const styles = StyleSheet.create({
     lineHeight: textLineHeight(13),
     letterSpacing: 1.3,
   },
+  genderGrid: { flexDirection: 'row', gap: 8 },
+  genderCard: {
+    flex: 1,
+    minWidth: 0,
+    height: 232,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
+    paddingHorizontal: 8,
+  },
+  genderCardSelected: {
+    borderWidth: 2,
+    borderColor: colors.red,
+    backgroundColor: glass.accentSurface,
+  },
+  genderCheck: {
+    position: 'absolute',
+    zIndex: 2,
+    top: 12,
+    right: 12,
+    width: 19,
+    height: 19,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.red,
+  },
+  genderArt: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    paddingTop: 10,
+  },
+  genderImage: { width: '100%', height: '100%' },
+  genderLabel: {
+    paddingVertical: 10,
+    color: colors.text,
+    textAlign: 'center',
+    fontFamily: 'Anton',
+    fontSize: 23,
+    lineHeight: textLineHeight(23),
+    letterSpacing: 0.5,
+  },
+  unitToggle: {
+    height: 56,
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
+  },
+  unitOption: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  unitOptionSelected: { backgroundColor: colors.red },
+  unitOptionText: {
+    color: colors.textMuted,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 17,
+    lineHeight: textLineHeight(17),
+    letterSpacing: 1.1,
+  },
+  unitOptionTextSelected: { color: colors.text },
+  ruler: {
+    minHeight: 250,
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
+  },
+  rulerValue: {
+    color: colors.red,
+    fontFamily: 'Anton',
+    fontSize: 68,
+    lineHeight: textLineHeight(68),
+  },
+  rulerUnit: {
+    marginTop: -7,
+    color: colors.peach,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 12,
+    lineHeight: textLineHeight(12),
+    letterSpacing: 1.2,
+  },
+  rulerLabels: {
+    width: '100%',
+    marginTop: 18,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  rulerLabel: {
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 13,
+  },
+  tickRow: {
+    width: '100%',
+    height: 40,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  tick: { width: 1, height: 13, backgroundColor: '#696666' },
+  tickMajor: { height: 25, backgroundColor: colors.text },
+  tickCenter: { width: 3, height: 38, backgroundColor: colors.red },
+  dragHint: {
+    marginTop: 2,
+    color: colors.textMuted,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 10,
+    lineHeight: textLineHeight(10),
+    letterSpacing: 1.1,
+  },
   twoColumnGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   threeColumnGrid: { flexDirection: 'row', gap: 8 },
   choiceCard: {
@@ -1071,8 +1537,8 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 15,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   choiceCardCompact: {
     flex: 1,
@@ -1083,7 +1549,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  choiceCardSelected: { borderWidth: 2, borderColor: colors.red, backgroundColor: '#211b1b' },
+  choiceCardSelected: { borderWidth: 2, borderColor: colors.red, backgroundColor: glass.accentSurface },
   choiceCopy: { flex: 1, minWidth: 0 },
   choiceTitle: {
     color: colors.textMuted,
@@ -1108,8 +1574,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   dayButtonSelected: { backgroundColor: colors.red, borderColor: colors.red },
   dayText: {
@@ -1127,8 +1593,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   durationCardSelected: { borderWidth: 2, borderColor: colors.red },
   durationValue: { color: colors.text, fontFamily: 'Anton', fontSize: 23, lineHeight: 29 },
@@ -1217,7 +1683,7 @@ const styles = StyleSheet.create({
     padding: 18,
     borderWidth: 1,
     borderColor: colors.red,
-    backgroundColor: '#211b1b',
+    backgroundColor: glass.accentSurface,
   },
   recommendationCardTop: {
     flexDirection: 'row',
@@ -1252,7 +1718,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: colors.border,
+    borderColor: glass.border,
   },
   recommendationMetric: {
     flex: 1,
@@ -1260,7 +1726,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
-    borderRightColor: colors.border,
+    borderRightColor: glass.border,
   },
   recommendationMetricValue: {
     color: colors.text,
@@ -1331,7 +1797,7 @@ const styles = StyleSheet.create({
     gap: 11,
     backgroundColor: colors.text,
   },
-  providerButtonDark: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  providerButtonDark: { borderWidth: 1, borderColor: glass.border, backgroundColor: glass.surface },
   providerButtonText: {
     color: colors.background,
     fontFamily: 'BarlowSemiCondensedSemiBold',
@@ -1377,7 +1843,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: colors.red,
-    backgroundColor: '#211b1b',
+    backgroundColor: glass.accentSurface,
   },
   errorText: {
     flex: 1,

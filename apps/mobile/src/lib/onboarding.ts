@@ -8,10 +8,14 @@ import {
   type WeightUnit,
 } from '../features/profile/types';
 import { isHeightCmInRange } from '../features/profile/height';
+import {
+  migrateOnboardingStep,
+  ONBOARDING_COMPLETED_STEP,
+  ONBOARDING_VERSION,
+} from './onboardingSteps';
 
 const STORAGE_KEY = 'boxing-coach-onboarding:v1';
-const ONBOARDING_VERSION = 5;
-export const ONBOARDING_COMPLETED_STEP = 5;
+export { ONBOARDING_COMPLETED_STEP } from './onboardingSteps';
 
 export type ReminderPermission = 'not_requested' | 'granted' | 'denied' | 'unavailable';
 export type OnboardingStatus = 'in_progress' | 'completed';
@@ -125,24 +129,18 @@ function normalizeRecord(value: unknown): OnboardingRecord | null {
       && value.version !== 2
       && value.version !== 3
       && value.version !== 4
+      && value.version !== 5
+      && value.version !== 6
       && value.version !== ONBOARDING_VERSION
     )
   ) return null;
   const rawStep = Math.max(0, Math.round(numberOr(value.step, 0)));
-  const legacyStep = value.version === 2 && rawStep > 0 ? rawStep + 1 : rawStep;
-  const migratedStep = value.version === ONBOARDING_VERSION
-    ? rawStep
-    : legacyStep >= 8
-      ? ONBOARDING_COMPLETED_STEP
-      : legacyStep <= 1
-        ? 0
-        : Math.min(4, legacyStep - 1);
+  const status = value.status === 'completed' ? 'completed' : 'in_progress';
+  const migratedStep = migrateOnboardingStep(value.version, status, rawStep);
   return {
     version: ONBOARDING_VERSION,
-    status: value.status === 'completed' ? 'completed' : 'in_progress',
-    step: value.status === 'completed'
-      ? ONBOARDING_COMPLETED_STEP
-      : Math.min(ONBOARDING_COMPLETED_STEP, migratedStep),
+    status,
+    step: migratedStep,
     profile: normalizeProfile(value.profile),
     reminderPermission: enumOr(
       value.reminderPermission,

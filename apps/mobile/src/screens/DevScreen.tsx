@@ -11,6 +11,7 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import type { TuningOverrides } from '@boxing-coach/core';
+import { BackButton } from '../components/BackButton';
 import { ScreenShell } from '../components/ScreenShell';
 import { sendTestTrainingReminder } from '../lib/trainingReminders';
 import { colors, shadow } from '../theme';
@@ -265,9 +266,10 @@ export function DevScreen({
         showsVerticalScrollIndicator={false}
         scrollEnabled={!isDraggingSlider}
       >
-        <Pressable onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.buttonPressed]}>
-          <Text style={styles.backButtonText}>← BACK TO SETUP</Text>
-        </Pressable>
+        <View style={styles.backRow}>
+          <BackButton onPress={onBack} accessibilityLabel="Back to setup" />
+          <Text style={styles.backLabel}>BACK TO SETUP</Text>
+        </View>
 
         <View style={styles.hero}>
           <Text style={styles.kicker}>HIDDEN PANEL</Text>
@@ -454,19 +456,14 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 14,
   },
-  backButton: {
-    alignSelf: 'stretch',
-    minHeight: 52,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
+  backRow: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     marginBottom: 2,
   },
-  backButtonText: {
+  backLabel: {
     color: colors.text,
     fontSize: 13,
     fontWeight: '800',

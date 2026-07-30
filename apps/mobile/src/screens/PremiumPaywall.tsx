@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  ImageBackground,
   Modal,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccountSignInActions } from '../components/AccountSignInActions';
+import { BackButton } from '../components/BackButton';
 import { TactilePressable } from '../components/TactilePressable';
 import { EXTERNAL_LINKS, openExternalLink } from '../lib/externalLinks';
 import { trackEvent } from '../lib/observability';
@@ -25,7 +27,7 @@ import {
   usePremium,
   type PremiumPlan,
 } from '../providers/PremiumProvider';
-import { colors, premiumBackgroundGradient, textLineHeight } from '../theme';
+import { colors, glass, premiumBackgroundGradient, textLineHeight } from '../theme';
 
 export type PaywallSource = 'difficulty' | 'preset' | 'profile';
 
@@ -228,61 +230,81 @@ export function PremiumPaywall({
         presentationStyle="fullScreen"
         onRequestClose={cancelAccountGate}
       >
-        <LinearGradient {...premiumBackgroundGradient} style={styles.background}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.accountContent,
-              { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 28 },
-            ]}
+        <ImageBackground
+          source={require('../../assets/onboarding/save-training-glove.jpg')}
+          resizeMode="cover"
+          style={styles.background}
+          accessible={false}
+        >
+          <LinearGradient
+            colors={['rgba(5,0,0,0.42)', 'rgba(5,0,0,0.7)', 'rgba(5,0,0,0.97)']}
+            locations={[0, 0.46, 1]}
+            style={styles.background}
           >
-            <View style={styles.topBar}>
-              <TactilePressable
-                onPress={cancelAccountGate}
-                haptic="light"
-                accessibilityRole="button"
-                accessibilityLabel="Back to Premium"
-                style={styles.closeButton}
-              >
-                <Ionicons name="chevron-back" size={24} color={colors.text} />
-              </TactilePressable>
-              <TactilePressable
-                onPress={onClose}
-                haptic="light"
-                accessibilityRole="button"
-                accessibilityLabel="Close Premium"
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TactilePressable>
-            </View>
-
-            <View style={styles.accountHero}>
-              <View style={styles.accountIcon}>
-                <Ionicons name="shield-checkmark-outline" size={30} color={colors.peach} />
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[
+                styles.accountContent,
+                { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 28 },
+              ]}
+            >
+              <View style={styles.topBar}>
+                <BackButton
+                  onPress={cancelAccountGate}
+                  accessibilityLabel="Back to Premium"
+                />
+                <TactilePressable
+                  onPress={onClose}
+                  haptic="light"
+                  accessibilityRole="button"
+                  accessibilityLabel="Close Premium"
+                  style={styles.closeButton}
+                >
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TactilePressable>
               </View>
-              <Text style={styles.eyebrow}>PROTECT LIFETIME ACCESS</Text>
-              <Text style={styles.accountTitle}>SAVE PREMIUM TO YOUR ACCOUNT</Text>
-              <Text style={styles.subtitle}>
-                Sign in once before payment so your purchase can follow you after reinstalling
-                and across supported devices.
-              </Text>
-            </View>
 
-            <AccountSignInActions
-              onSignedIn={async () => {
-                await onPromoteGuestProfile();
-                setAccountGateVisible(false);
-              }}
-              onCancelled={cancelAccountGate}
-            />
+              <View style={styles.accountHero}>
+                <Text style={styles.eyebrow}>PROTECT YOUR PURCHASE</Text>
+                <Text style={styles.accountTitle}>SAVE YOUR PREMIUM</Text>
+                <Text style={styles.subtitle}>
+                  Sign in before payment to keep Premium after reinstalling.
+                </Text>
+              </View>
 
-            <Text style={styles.billingCopy}>
-              Your store account handles payment. Boxing Coach uses your private account ID—not
-              your email address—to protect Premium access.
-            </Text>
-          </ScrollView>
-        </LinearGradient>
+              <View style={styles.accountActions}>
+                <AccountSignInActions
+                  showGuidance={false}
+                  onSignedIn={async () => {
+                    await onPromoteGuestProfile();
+                    setAccountGateVisible(false);
+                  }}
+                  onCancelled={cancelAccountGate}
+                />
+                <Text style={styles.accountLegalCopy}>
+                  By continuing, you agree to and acknowledge:
+                </Text>
+                <View style={styles.accountLegalLinks}>
+                  <Text
+                    style={styles.accountLegalLink}
+                    onPress={() => void openExternalLink(EXTERNAL_LINKS.terms, 'Terms of Use')}
+                    accessibilityRole="link"
+                  >
+                    TERMS OF USE
+                  </Text>
+                  <Text style={styles.accountLegalDivider} accessibilityElementsHidden>·</Text>
+                  <Text
+                    style={styles.accountLegalLink}
+                    onPress={() => void openExternalLink(EXTERNAL_LINKS.privacy, 'Privacy Policy')}
+                    accessibilityRole="link"
+                  >
+                    PRIVACY POLICY
+                  </Text>
+                </View>
+              </View>
+            </ScrollView>
+          </LinearGradient>
+        </ImageBackground>
       </Modal>
     );
   }
@@ -322,7 +344,7 @@ export function PremiumPaywall({
           </View>
 
           <View style={styles.hero}>
-            <Text style={styles.eyebrow}>YOUR NEXT LEVEL</Text>
+            {/*<Text style={styles.eyebrow}>YOUR NEXT LEVEL</Text>*/}
             <Text style={styles.title}>TRAIN LIKE</Text>
             <Text style={[styles.title, styles.titleAccent]}>A FIGHTER</Text>
             <Text style={styles.subtitle}>
@@ -448,9 +470,9 @@ const styles = StyleSheet.create({
   },
   accountContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    gap: 28,
+    gap: 24,
   },
   topBar: {
     minHeight: 42,
@@ -479,19 +501,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: glass.border,
     borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: glass.surface,
   },
   hero: { gap: 2 },
-  accountHero: { gap: 10 },
-  accountIcon: {
-    width: 56,
-    height: 56,
+  accountHero: { gap: 8 },
+  accountActions: { gap: 12 },
+  accountLegalCopy: {
+    marginTop: 3,
+    paddingHorizontal: 10,
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 13,
+    lineHeight: textLineHeight(13),
+    textAlign: 'center',
+  },
+  accountLegalLinks: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
-    backgroundColor: 'rgba(249,189,173,0.1)',
+    gap: 9,
+  },
+  accountLegalLink: {
+    color: colors.peach,
+    fontFamily: 'BarlowSemiCondensedSemiBold',
+    fontSize: 11,
+    lineHeight: textLineHeight(11),
+    letterSpacing: 0.8,
+    textDecorationLine: 'underline',
+  },
+  accountLegalDivider: {
+    color: colors.textMuted,
+    fontFamily: 'ArchivoNarrow',
+    fontSize: 13,
+    lineHeight: textLineHeight(13),
   },
   accountTitle: {
     maxWidth: 500,
@@ -535,7 +579,7 @@ const styles = StyleSheet.create({
     padding: 13,
     borderWidth: 1,
     borderColor: colors.peach,
-    backgroundColor: 'rgba(249,189,173,0.08)',
+    backgroundColor: glass.surfaceStrong,
   },
   accountBannerCopy: { flex: 1, gap: 2 },
   accountBannerLabel: {
@@ -558,15 +602,15 @@ const styles = StyleSheet.create({
     gap: 13,
     padding: 13,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   benefitIcon: {
     width: 43,
     height: 43,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(249,189,173,0.1)',
+    backgroundColor: glass.surfaceStrong,
   },
   benefitCopy: { flex: 1, gap: 2 },
   benefitTitle: {
@@ -589,7 +633,7 @@ const styles = StyleSheet.create({
     gap: 5,
     borderWidth: 1,
     borderColor: colors.peach,
-    backgroundColor: 'rgba(249,189,173,0.1)',
+    backgroundColor: glass.surfaceStrong,
   },
   planHeader: {
     flexDirection: 'row',
@@ -642,7 +686,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   storeLoadingText: {
     color: colors.textMuted,
@@ -657,8 +702,8 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 15,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: glass.border,
+    backgroundColor: glass.surface,
   },
   unavailableCopy: { flex: 1, gap: 4 },
   unavailableTitle: {
@@ -680,8 +725,8 @@ const styles = StyleSheet.create({
     gap: 9,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,20,20,0.42)',
-    backgroundColor: 'rgba(255,20,20,0.08)',
+    borderColor: glass.accentSurfaceStrong,
+    backgroundColor: glass.accentSurface,
   },
   errorText: {
     flex: 1,
