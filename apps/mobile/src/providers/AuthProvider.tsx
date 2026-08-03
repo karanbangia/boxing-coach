@@ -18,7 +18,6 @@ import {
   OAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
-  revokeAccessToken,
   signInWithCredential,
   signOut as firebaseSignOut,
   updateProfile as updateFirebaseProfile,
@@ -55,6 +54,7 @@ import {
   firebaseConfigured,
   googleSignInConfigured,
   profilePhotoUploadsEnabled,
+  revokeAppleAuthorizationCode,
   requireFirebase,
 } from '../lib/firebase';
 import {
@@ -206,6 +206,11 @@ function accountDeletionError(error: unknown) {
   const code = (error as { code?: string }).code;
   if (code === 'auth/requires-recent-login' || code === 'auth/user-token-expired') {
     return new Error('Your sign-in expired. Confirm your identity, then try deleting the account again.');
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return new Error(
+      'Apple account deletion is temporarily unavailable. Your account and cloud data were not removed.',
+    );
   }
   if (
     code === 'auth/network-request-failed'
@@ -519,7 +524,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
         const { auth, db, storage } = requireFirebase();
         const provider = providerForUser(user);
-        let appleAuthorizationCode: string | null = null;
         if (provider === 'apple') {
           const { credential, authorizationCode } = await getAppleCredential();
           if (!authorizationCode) {
@@ -528,7 +532,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             );
           }
           await reauthenticateWithCredential(user, credential);
-          appleAuthorizationCode = authorizationCode;
+          await revokeAppleAuthorizationCode(auth, authorizationCode);
         } else if (!(await hasRecentAuthentication(user))) {
           if (provider === 'google') {
             const credential = await getSilentGoogleCredential() ?? await getGoogleCredential();
@@ -557,9 +561,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }
         }
         await deleteDoc(doc(db, 'users', user.uid));
-        if (appleAuthorizationCode) {
-          await revokeAccessToken(auth, appleAuthorizationCode);
-        }
         await deleteUser(user);
 
         if (provider === 'google') await GoogleSignin.signOut().catch(() => null);
@@ -567,6 +568,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
         resetAnalyticsUser();
         await clearLocalAppData();
       } catch (error) {
+        if (__DEV__) {
+          console.warn('[account-deletion] failed', {
+            code: (error as { code?: string }).code ?? 'unknown',
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
         throw accountDeletionError(error);
       }
     }, { showCancellationError: true });
